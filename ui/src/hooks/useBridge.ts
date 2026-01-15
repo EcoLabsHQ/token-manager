@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { parseUnits, formatUnits, getAddress } from 'viem';
-import { celoSepolia, optimismSepolia, sepolia } from 'viem/chains';
+import { celoSepolia } from 'viem/chains';
 
 export interface BridgeToken {
   symbol: string;
@@ -60,8 +60,6 @@ const ERC20_ABI = [
 // Hardcoded token configuration
 export const L1_TOKEN = '0x5589BB8228C07c4e15558875fAf2B859f678d129';
 export const L2_TOKEN = '0x113100B7fF29994Dba936452e0f712d43b5915eF';
-const bridgeAddress =
-  celoSepolia.contracts.l1StandardBridge[sepolia.id].address;
 export const BRIDGE_AMOUNT = '1';
 export const TOKEN_DECIMALS = 18;
 
