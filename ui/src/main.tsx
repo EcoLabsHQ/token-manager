@@ -6,7 +6,10 @@ import { AppKitProvider } from '@reown/appkit/react';
 import { createAppKit } from '@reown/appkit/react';
 
 import { WagmiProvider } from 'wagmi';
-import { mainnet, arbitrum, optimism, base, sepolia, celo } from 'viem/chains';
+import {
+  sepolia,
+  celoSepolia,
+} from 'viem/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 
@@ -28,7 +31,7 @@ const metadata = {
 };
 
 // 3. Set the networks
-const networks = [mainnet, arbitrum, optimism, base, sepolia, celo];
+const networks = [sepolia, celoSepolia];
 
 // 4. Create Wagmi Adapter
 const wagmiAdapter = new WagmiAdapter({
@@ -57,5 +60,5 @@ createRoot(document.getElementById('root')!).render(
         </WalletProvider>
       </QueryClientProvider>
     </WagmiProvider>
-  </AppKitProvider>
+  </AppKitProvider>,
 );

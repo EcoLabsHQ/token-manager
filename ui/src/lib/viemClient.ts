@@ -1,7 +1,7 @@
 import { createPublicClient, http } from 'viem';
-import { celo } from 'viem/chains';
+import { celoSepolia } from 'viem/chains';
 
 export const publicClient = createPublicClient({
-  chain: celo,
+  chain: celoSepolia,
   transport: http(),
 });

@@ -1,41 +1,12 @@
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useState, useCallback, useEffect } from 'react';
-import { parseUnits, getAddress, isAddress } from 'viem';
+import { parseUnits, getAddress, isAddress, toHex } from 'viem';
+import { CONTRACTS, L2_SUPERCHAIN_TOKEN_FACTORY_ABI } from '@/config/contracts';
 
-const FACTORY_ADDRESS = '0xf5167Df68E99c375dED2Dd48949b6BC9f891848D';
-
-const FACTORY_ABI = [
-  {
-    name: 'createToken',
-    type: 'function',
-    inputs: [
-      { name: 'owner_', type: 'address' },
-      { name: 'name_', type: 'string' },
-      { name: 'symbol_', type: 'string' },
-      { name: 'decimals_', type: 'uint8' },
-      { name: 'maxSupply_', type: 'uint256' },
-    ],
-    outputs: [{ name: 'tokenAddress', type: 'address' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'TokenCreated',
-    type: 'event',
-    inputs: [
-      { name: 'tokenAddress', type: 'address', indexed: true },
-      { name: 'name', type: 'string' },
-      { name: 'symbol', type: 'string' },
-      { name: 'decimals', type: 'uint8' },
-      { name: 'maxSupply', type: 'uint256' },
-    ],
-  },
-] as const;
-
-export interface CreateTokenParams {
+export interface CreateL2TokenParams {
   name: string;
   symbol: string;
   decimals: number;
-  initialSupply: string;
   maxSupply: string;
 }
 
@@ -46,13 +17,13 @@ export interface TokenCreationResult {
   error?: string;
 }
 
-export const useTokenFactory = () => {
-  const { address } = useAccount();
+export const useL2TokenFactory = () => {
+  const { address, chainId } = useAccount();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [tokenAddress, setTokenAddress] = useState<string | null>(null);
-  const [currentParams, setCurrentParams] = useState<CreateTokenParams | null>(null);
+  const [currentParams, setCurrentParams] = useState<CreateL2TokenParams | null>(null);
 
   const { writeContract, data: writeData, isPending: isWritePending, error: writeError } = useWriteContract();
   const { isLoading: isWaitingForReceipt, data: receipt } = useWaitForTransactionReceipt({
@@ -86,8 +57,7 @@ export const useTokenFactory = () => {
 
         for (const log of receipt.logs || []) {
           try {
-            // Check if this is the TokenCreated event (first topic is event signature)
-            // We'll just check if we have indexed topics since we can't easily compute the event signature
+            // Check if this is the TokenCreated event
             if (log.topics && log.topics.length > 0) {
               // The token address is typically in the first indexed parameter (topics[1])
               if (log.topics[1]) {
@@ -118,7 +88,7 @@ export const useTokenFactory = () => {
   }, [receipt, currentParams]);
 
   const createToken = useCallback(
-    async (params: CreateTokenParams): Promise<TokenCreationResult> => {
+    async (params: CreateL2TokenParams): Promise<TokenCreationResult> => {
       if (!address) {
         const msg = 'Wallet not connected';
         setError(msg);
@@ -133,11 +103,14 @@ export const useTokenFactory = () => {
 
       try {
         const maxSupplyBigInt = parseUnits(params.maxSupply, params.decimals);
+        
+        // Generate a unique salt for CREATE2 deployment
+        const salt = toHex(`${params.name}-${params.symbol}-${Date.now()}`);
 
         // Send transaction
         writeContract({
-          address: getAddress(FACTORY_ADDRESS),
-          abi: FACTORY_ABI,
+          address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+          abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
           functionName: 'createToken',
           args: [
             getAddress(address),
@@ -145,11 +118,11 @@ export const useTokenFactory = () => {
             params.symbol,
             params.decimals as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18,
             maxSupplyBigInt,
+            salt,
           ],
         });
 
         // Wait for the write to complete and transaction hash to be available
-        // This is handled by the useEffect hooks above
         return { success: true };
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to create token';
@@ -158,10 +131,9 @@ export const useTokenFactory = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [address, writeContract]
+    [address, chainId, writeContract]
   );
 
-  // Provide a way to get the final result after the transaction is confirmed
   const getResult = useCallback((): TokenCreationResult | null => {
     if (isLoading) return null;
 
@@ -191,6 +163,7 @@ export const useTokenFactory = () => {
     txHash: writeData || txHash,
     tokenAddress,
     isConnected: !!address,
+    isCorrectChain: chainId === CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
     getResult,
   };
 };

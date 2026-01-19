@@ -91,7 +91,7 @@ export const BridgeDialog = () => {
                     <p className="text-slate-300 break-all">{L1_TOKEN}</p>
                   </div>
                   <div>
-                    <p className="text-slate-500">L2 (CELO)</p>
+                    <p className="text-slate-500">L2 (Celo Sepolia)</p>
                     <p className="text-slate-300 break-all">{L2_TOKEN}</p>
                   </div>
                 </div>

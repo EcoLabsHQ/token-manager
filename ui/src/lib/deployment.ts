@@ -1,5 +1,5 @@
 import { createPublicClient, createWalletClient, http, getAddress, parseAbi } from 'viem';
-import { celo } from 'viem/chains';
+import { celoSepolia } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
 // Contract ABIs
@@ -33,13 +33,13 @@ export async function deploySimpleERC20(config: DeploymentConfig) {
   const account = privateKeyToAccount(`0x${config.privateKey}`);
   
   const publicClient = createPublicClient({
-    chain: celo,
-    transport: http(config.rpcUrl || 'https://lb.drpc.org/ogrpc?network=celo&dkey=AnN38OUr3EcfnfM04Tc8vZSVaPnrRU8R8IlbKlzbRHZc'),
+    chain: celoSepolia,
+    transport: http(config.rpcUrl || 'https://alfajores-forno.celo-testnet.org'),
   });
 
   const walletClient = createWalletClient({
-    chain: celo,
-    transport: http(config.rpcUrl || 'https://lb.drpc.org/ogrpc?network=celo&dkey=AnN38OUr3EcfnfM04Tc8vZSVaPnrRU8R8IlbKlzbRHZc'),
+    chain: celoSepolia,
+    transport: http(config.rpcUrl || 'https://alfajores-forno.celo-testnet.org'),
     account,
   });
 

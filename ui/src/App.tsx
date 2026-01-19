@@ -5,15 +5,14 @@ import { TokenInfo } from '@/components/TokenInfo';
 import { TokenOperations } from '@/components/TokenOperations';
 import { AdminPanel } from '@/components/AdminPanel';
 import { ReownConnectButton } from '@/components/ReownConnectButton';
-import { CreateTokenDialog } from '@/components/CreateTokenDialog';
+import { CreateL1TokenDialog } from '@/components/CreateL1TokenDialog';
+import { CreateL2TokenDialog } from '@/components/CreateL2TokenDialog';
 import { BridgeDialog } from '@/components/BridgeDialog';
 import { TokenList } from '@/components/TokenList';
 import { useWallet } from '@/context/WalletContext';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Zap, Github, ExternalLink, Home } from 'lucide-react';
 import { useAccount } from 'wagmi';
-import { celo } from 'viem/chains';
-// import { WalletDebugger } from '@/components/WalletDebugger'; // Uncomment for debugging
 
 function App() {
   const [refreshing, setRefreshing] = useState(false);
@@ -77,11 +76,11 @@ function App() {
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             {chainId && (
               <div className={`text-xs px-3 py-2 rounded-lg border font-semibold hidden sm:block ${
-                chainId === celo.id
+                chainId === 11155111 || chainId === 44787
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                  : 'bg-red-500/20 text-red-300 border-red-500/30'
+                  : 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
               }`}>
-                {chainId === celo.id ? '✓ CELO' : `Chain: ${chainId}`}
+                {chainId === 11155111 ? '✓ Sepolia' : chainId === 44787 ? '✓ Celo Sepolia' : `Chain: ${chainId}`}
               </div>
             )}
             {address && (
@@ -174,7 +173,10 @@ function App() {
               <div className="w-full space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <h2 className="text-2xl md:text-3xl font-bold text-white">Your Tokens</h2>
-                  <CreateTokenDialog />
+                  <div className="flex flex-wrap gap-2">
+                    <CreateL1TokenDialog />
+                    <CreateL2TokenDialog />
+                  </div>
                 </div>
                 <TokenList onSelectToken={handleSelectToken} />
                 
@@ -219,9 +221,6 @@ function App() {
           </p>
         </div>
       </div>
-
-      {/* Debugger - Uncomment to enable */}
-      {/* <WalletDebugger /> */}
     </div>
   );
 }
