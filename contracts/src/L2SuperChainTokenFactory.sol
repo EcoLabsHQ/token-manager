@@ -48,30 +48,39 @@ contract L2SuperChainTokenFactory {
         string memory name_,
         string memory symbol_,
         uint8 decimals_,
-        uint256 maxSupply_
+        uint256 maxSupply_,
+        bytes memory salt_
     ) external returns (address tokenAddress) {
         require(owner_ != address(0), "Owner cannot be zero address");
         require(bytes(name_).length > 0, "Name cannot be empty");
         require(bytes(symbol_).length > 0, "Symbol cannot be empty");
         require(maxSupply_ > 0, "Max supply must be greater than zero");
 
-        // Create new token
-        L2SuperChainToken newToken = new L2SuperChainToken(
-            owner_,
-            name_,
-            symbol_,
-            decimals_,
-            maxSupply_
-        );
+        bytes32 salt = keccak256(salt_);
 
-        tokenAddress = address(newToken);
+        tokenAddress = address(
+            new L2SuperChainToken{salt: salt}(
+                owner_,
+                name_,
+                symbol_,
+                decimals_,
+                maxSupply_
+            )
+        );
 
         // Register the token
         allTokens.push(tokenAddress);
         isTokenFromFactory[tokenAddress] = true;
 
         // Emit event
-        emit TokenCreated(tokenAddress, name_, symbol_, decimals_, maxSupply_, owner_);
+        emit TokenCreated(
+            tokenAddress,
+            name_,
+            symbol_,
+            decimals_,
+            maxSupply_,
+            owner_
+        );
 
         return tokenAddress;
     }

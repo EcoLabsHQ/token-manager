@@ -8,7 +8,10 @@ libs = ["lib"]
 
 [etherscan]
 celo = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
+sepolia = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
+
 
 [rpc_endpoints]
 celo = "https://lb.drpc.org/ogrpc?network=celo&dkey=AnN38OUr3EcfnfM04Tc8vZSVaPnrRU8R8IlbKlzbRHZc"
 celo-sepolia = "https://lb.drpc.live/celo-sepolia/AuajrTfUKUDcljFTxiXAxPOrBZbcQJQR8Jr2uuQ63qxe"
+sepolia = "https://sepolia.drpc.org"
