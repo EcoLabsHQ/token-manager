@@ -18,7 +18,12 @@ contract L1Token is ERC20, Ownable2Step, Pausable {
 
     uint256 public maxSupply;
 
+    address public remoteToken;
+    address public bridge;
+
     event MaxSupplyUpdated(uint256 newMaxSupply);
+    event RemoteTokenUpdated(address indexed newRemoteToken);
+    event BridgeUpdated(address indexed newBridge);
 
     constructor(
         string memory name_,

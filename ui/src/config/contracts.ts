@@ -7,7 +7,7 @@ export const CONTRACTS = {
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
     address: '0x075FA6A9f0090ce4D9Cf7F35c2050B2DEe326292',
-    chainId: 44787, // Celo Sepolia (Alfajores)
+    chainId: 11142220, // Celo Sepolia (Alfajores)
     name: 'L2SuperChainTokenFactory',
   },
 } as const;
@@ -53,6 +53,136 @@ export const L1_TOKEN_FACTORY_ABI = [
   },
 ] as const;
 
+// ABI for L1Token
+export const L1_TOKEN_ABI = [
+  {
+    name: 'name',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'symbol',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'decimals',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'totalSupply',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'balanceOf',
+    type: 'function',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'maxSupply',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'owner',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'paused',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'mint',
+    type: 'function',
+    inputs: [
+      { name: 'to_', type: 'address' },
+      { name: 'amount_', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'burn',
+    type: 'function',
+    inputs: [
+      { name: 'from_', type: 'address' },
+      { name: 'amount_', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'transfer',
+    type: 'function',
+    inputs: [
+      { name: 'to_', type: 'address' },
+      { name: 'amount_', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'pause',
+    type: 'function',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'unpause',
+    type: 'function',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'setMaxSupply',
+    type: 'function',
+    inputs: [{ name: 'newMaxSupply', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'setRemoteToken',
+    type: 'function',
+    inputs: [{ name: '_remoteToken', type: 'address' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'setBridge',
+    type: 'function',
+    inputs: [{ name: '_bridge', type: 'address' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'MaxSupplyUpdated',
+    type: 'event',
+    inputs: [{ name: 'newMaxSupply', type: 'uint256', indexed: false }],
+  },
+] as const;
+
 // ABI for L2SuperChainTokenFactory
 export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
   {
@@ -94,5 +224,163 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
+  },
+] as const;
+
+// ABI for L2SuperChainToken
+export const L2_SUPERCHAIN_TOKEN_ABI = [
+  {
+    name: 'name',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'symbol',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'decimals',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'totalSupply',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'balanceOf',
+    type: 'function',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'maxSupply',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'owner',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'paused',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'REMOTE_TOKEN',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'BRIDGE',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'remoteToken',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'bridge',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'mint',
+    type: 'function',
+    inputs: [
+      { name: 'to_', type: 'address' },
+      { name: 'amount_', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'burn',
+    type: 'function',
+    inputs: [
+      { name: 'from_', type: 'address' },
+      { name: 'amount_', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'transfer',
+    type: 'function',
+    inputs: [
+      { name: 'to_', type: 'address' },
+      { name: 'amount_', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'pause',
+    type: 'function',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'unpause',
+    type: 'function',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'setMaxSupply',
+    type: 'function',
+    inputs: [{ name: 'newMaxSupply', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'setRemoteToken',
+    type: 'function',
+    inputs: [{ name: '_remoteToken', type: 'address' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'setBridge',
+    type: 'function',
+    inputs: [{ name: '_bridge', type: 'address' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'MaxSupplyUpdated',
+    type: 'event',
+    inputs: [{ name: 'newMaxSupply', type: 'uint256', indexed: false }],
   },
 ] as const;

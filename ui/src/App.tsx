@@ -1,21 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import './App.css';
 import { useTokenContract } from '@/hooks/useTokenContract';
 import { TokenInfo } from '@/components/TokenInfo';
 import { TokenOperations } from '@/components/TokenOperations';
 import { AdminPanel } from '@/components/AdminPanel';
 import { ReownConnectButton } from '@/components/ReownConnectButton';
-import { CreateL1TokenDialog } from '@/components/CreateL1TokenDialog';
-import { CreateL2TokenDialog } from '@/components/CreateL2TokenDialog';
-import { BridgeDialog } from '@/components/BridgeDialog';
-import { TokenList } from '@/components/TokenList';
+import { DeploymentPanel } from '@/components/DeploymentPanel';
+import { FactoryTokensList } from '@/components/FactoryTokensList';
 import { useWallet } from '@/context/WalletContext';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Zap, Github, ExternalLink, Home } from 'lucide-react';
+import { Zap, Github, ExternalLink, Home } from 'lucide-react';
 import { useAccount } from 'wagmi';
 
 function App() {
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedToken, setSelectedToken] = useState<{ id: string; address: string } | null>(null);
   const { address } = useWallet();
   const { chainId } = useAccount();
@@ -24,27 +21,12 @@ function App() {
     state,
     loading,
     error,
-    fetchContractState,
     mint,
     burn,
     transfer,
     togglePause,
     setMaxSupply,
-  } = useTokenContract(selectedToken?.address || '0x0000000000000000000000000000000000000000');
-
-  useEffect(() => {
-    fetchContractState();
-  }, [fetchContractState, selectedToken]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchContractState();
-    setTimeout(() => setRefreshing(false), 600);
-  };
-
-  const handleSelectToken = (id: string, address: string) => {
-    setSelectedToken({ id, address });
-  };
+  } = useTokenContract(selectedToken?.address || '');
 
   const handleBackToList = () => {
     setSelectedToken(null);
@@ -139,15 +121,6 @@ function App() {
                     error={error}
                   />
                 )}
-
-                <Button
-                  onClick={handleRefresh}
-                  disabled={loading || refreshing}
-                  className="w-full bg-linear-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-lg hover:shadow-cyan-500/40 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                  {loading || refreshing ? 'Refreshing...' : 'Refresh State'}
-                </Button>
               </div>
             </div>
           </>
@@ -169,21 +142,26 @@ function App() {
 
             {/* Content Area */}
             {address ? (
-              // Connected State - Token List
-              <div className="w-full space-y-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">Your Tokens</h2>
-                  <div className="flex flex-wrap gap-2">
-                    <CreateL1TokenDialog />
-                    <CreateL2TokenDialog />
-                  </div>
+              // Connected State - Factory Tokens
+              <div className="w-full space-y-8">
+                {/* Deployment Panel */}
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-6">Deploy Tokens</h2>
+                  <DeploymentPanel />
                 </div>
-                <TokenList onSelectToken={handleSelectToken} />
+
+                {/* Factory Tokens - Show all tokens from factories */}
+                <div className="pt-8 border-t border-slate-700/30">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-6">Factory Tokens</h2>
+                  <FactoryTokensList />
+                </div>
                 
+                {/* Bridge flow commented out - TODO: implement when bridge contracts are ready
                 <div className="mt-8 pt-8 border-t border-slate-700/30">
                   <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Bridge Tokens</h2>
                   <BridgeDialog />
                 </div>
+                */}
               </div>
             ) : (
               // Disconnected State - Call to Action

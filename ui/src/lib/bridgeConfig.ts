@@ -5,7 +5,7 @@
 export const BRIDGE_CONFIG = {
   sepoliaToCeloSepolia: {
     l1ChainId: 11155111, // Sepolia
-    l2ChainId: 44787, // Celo Sepolia (Alfajores)
+    l2ChainId: 11142220, // Celo L2 Sepolia
   },
 };
 

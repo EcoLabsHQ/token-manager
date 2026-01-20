@@ -35,8 +35,11 @@ contract L2SuperChainToken is
     string private _symbol;
     uint256 public maxSupply;
 
-    address public immutable REMOTE_TOKEN;
-    address public immutable BRIDGE;
+    address public remoteToken;
+    address public bridge;
+
+    event RemoteTokenUpdated(address indexed newRemoteToken);
+    event BridgeUpdated(address indexed newBridge);
 
     event MaxSupplyUpdated(uint256 newMaxSupply);
 
@@ -52,17 +55,35 @@ contract L2SuperChainToken is
         _symbol = symbol_;
         _decimals = decimals_;
         maxSupply = maxSupply_;
+        remoteToken = address(0);
+        bridge = address(0);
     }
 
     /// @notice A modifier that only allows the bridge to call
     modifier onlyOwnerOrBridge() {
-        if (BRIDGE != address(0)) {
-            if (msg.sender != BRIDGE)
+        if (bridge != address(0)) {
+            if (msg.sender != bridge)
                 revert OptimismMintableERC20__OnlyBridge();
         } else {
             if (msg.sender != owner()) revert OnlyOwner();
         }
         _;
+    }
+
+    // ============================================
+    //         CONFIGURATION FUNCTIONS
+    // ============================================
+
+    function setRemoteToken(address _remoteToken) external onlyOwner {
+        if (_remoteToken == address(0)) revert ZeroAddress();
+        remoteToken = _remoteToken;
+        emit RemoteTokenUpdated(_remoteToken);
+    }
+
+    function setBridge(address _bridge) external onlyOwner {
+        if (_bridge == address(0)) revert ZeroAddress();
+        bridge = _bridge;
+        emit BridgeUpdated(_bridge);
     }
 
     // ============================================
@@ -79,13 +100,6 @@ contract L2SuperChainToken is
 
     function decimals() public view override returns (uint8) {
         return _decimals;
-    }
-
-    function remoteToken() external view override returns (address) {
-        return REMOTE_TOKEN;
-    }
-    function bridge() external view override returns (address) {
-        return BRIDGE;
     }
 
     function supportsInterface(

@@ -1,28 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, AlertCircle, Loader2, CheckCircle2, ExternalLink } from 'lucide-react';
-import { useWallet } from '@/context/WalletContext';
+import { Plus, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { useL2TokenFactory } from '@/hooks/useL2TokenFactory';
-import { useAccount } from 'wagmi';
+import { useAccount, useSwitchChain } from 'wagmi';
 import { CONTRACTS } from '@/config/contracts';
 
 export const CreateL2TokenDialog = () => {
-  const { addToken } = useWallet();
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const { 
     createToken: createTokenOnChain, 
     isLoading: factoryLoading, 
     error: factoryError, 
     tokenAddress, 
-    txHash
+    isCorrectChain
   } = useL2TokenFactory();
   
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -38,6 +36,27 @@ export const CreateL2TokenDialog = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Effect to handle successful token creation
+  useEffect(() => {
+    if (tokenAddress && !factoryLoading && !factoryError) {
+      console.log('L2 Token created:', tokenAddress);
+      setSuccess(true);
+
+      setTimeout(() => {
+        setFormData({ name: '', symbol: '', decimals: '18', maxSupply: '' });
+        setIsOpen(false);
+        setSuccess(false);
+      }, 2000);
+    }
+  }, [tokenAddress, factoryLoading, factoryError]);
+
+  // Effect to handle factory errors
+  useEffect(() => {
+    if (factoryError) {
+      setError(factoryError);
+    }
+  }, [factoryError]);
+
   const handleCreate = async () => {
     setError('');
     setSuccess(false);
@@ -45,6 +64,18 @@ export const CreateL2TokenDialog = () => {
     if (!address) {
       setError('Wallet not connected');
       return;
+    }
+
+    // Auto-switch to correct chain if not on it
+    if (!isCorrectChain) {
+      try {
+        await switchChain({ chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId });
+        // Wait a bit for the chain switch to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (switchError) {
+        setError(`Failed to switch network. Please manually switch to Celo L2 Sepolia.`);
+        return;
+      }
     }
 
     // Validation
@@ -72,67 +103,15 @@ export const CreateL2TokenDialog = () => {
       return;
     }
 
-    setLoading(true);
+    const result = await createTokenOnChain({
+      name: formData.name,
+      symbol: formData.symbol,
+      decimals: parseInt(formData.decimals),
+      maxSupply: formData.maxSupply,
+    });
 
-    try {
-      // Start token creation
-      await createTokenOnChain({
-        name: formData.name,
-        symbol: formData.symbol,
-        decimals: parseInt(formData.decimals),
-        maxSupply: formData.maxSupply,
-      });
-
-      // Wait for the hook to finish processing (max 60 seconds)
-      let attempts = 0;
-      const maxAttempts = 60;
-
-      while (attempts < maxAttempts) {
-        if (factoryLoading === false) {
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        attempts++;
-      }
-
-      // Check if token was successfully created
-      if (!factoryError && tokenAddress) {
-        // Create token object with REAL address from blockchain
-        const newToken = {
-          id: txHash || Date.now().toString(),
-          address: tokenAddress,
-          name: formData.name,
-          symbol: formData.symbol,
-          decimals: parseInt(formData.decimals),
-          totalSupply: '0', // L2 tokens start with 0 supply
-          maxSupply: formData.maxSupply,
-          owner: address!,
-          createdAt: new Date().toISOString(),
-        };
-
-        addToken(newToken);
-        setSuccess(true);
-
-        // Reset form after 2 seconds
-        setTimeout(() => {
-          setFormData({
-            name: '',
-            symbol: '',
-            decimals: '18',
-            maxSupply: '',
-          });
-          setIsOpen(false);
-          setSuccess(false);
-        }, 2000);
-      } else if (factoryError) {
-        setError(factoryError);
-      } else {
-        setError('Token creation timed out. Please check the transaction status.');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create token');
-    } finally {
-      setLoading(false);
+    if (!result.success && result.error) {
+      setError(result.error);
     }
   };
 
@@ -173,7 +152,7 @@ export const CreateL2TokenDialog = () => {
                 value={formData.name}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-                disabled={loading}
+                disabled={factoryLoading}
               />
             </div>
 
@@ -186,7 +165,7 @@ export const CreateL2TokenDialog = () => {
                 value={formData.symbol}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-                disabled={loading}
+                disabled={factoryLoading}
               />
             </div>
 
@@ -202,7 +181,7 @@ export const CreateL2TokenDialog = () => {
                 value={formData.decimals}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-                disabled={loading}
+                disabled={factoryLoading}
               />
               <p className="text-xs text-slate-500 mt-1">Must be between 0 and 18</p>
             </div>
@@ -217,11 +196,21 @@ export const CreateL2TokenDialog = () => {
                 value={formData.maxSupply}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-                disabled={loading}
+                disabled={factoryLoading}
               />
               <p className="text-xs text-slate-500 mt-1">Maximum supply that can be minted</p>
             </div>
           </div>
+
+          {/* Chain info */}
+          {!isCorrectChain && chainId && (
+            <Alert className="bg-blue-500/10 border-blue-500/30 text-blue-300">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                You are on chain {chainId}. Network will switch automatically to Celo L2 Sepolia when you click Create.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {error && (
             <Alert className="bg-red-500/10 border-red-500/30 text-red-300">
@@ -237,16 +226,6 @@ export const CreateL2TokenDialog = () => {
                 <div className="space-y-1">
                   <p className="font-semibold">Token created successfully!</p>
                   <p className="text-xs">Address: {tokenAddress}</p>
-                  {txHash && (
-                    <a
-                      href={`https://alfajores.celoscan.io/tx/${txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs flex items-center gap-1 hover:underline"
-                    >
-                      View on Celoscan <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
                 </div>
               </AlertDescription>
             </Alert>
@@ -257,16 +236,21 @@ export const CreateL2TokenDialog = () => {
               onClick={() => setIsOpen(false)}
               variant="outline"
               className="flex-1 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
-              disabled={loading}
+              disabled={factoryLoading || isSwitchingChain}
             >
               Cancel
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={loading || success}
+              disabled={factoryLoading || success || isSwitchingChain}
               className="flex-1 bg-linear-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
             >
-              {loading ? (
+              {isSwitchingChain ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Switching Network...
+                </>
+              ) : factoryLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Creating...

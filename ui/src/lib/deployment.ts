@@ -101,12 +101,12 @@ export async function createTokenViaFactory(config: FactoryDeploymentConfig) {
   const account = privateKeyToAccount(`0x${config.privateKey}`);
   
   const publicClient = createPublicClient({
-    chain: celo,
+    chain: celoSepolia,
     transport: http(config.rpcUrl || 'https://lb.drpc.org/ogrpc?network=celo&dkey=AnN38OUr3EcfnfM04Tc8vZSVaPnrRU8R8IlbKlzbRHZc'),
   });
 
   const walletClient = createWalletClient({
-    chain: celo,
+    chain: celoSepolia,
     transport: http(config.rpcUrl || 'https://lb.drpc.org/ogrpc?network=celo&dkey=AnN38OUr3EcfnfM04Tc8vZSVaPnrRU8R8IlbKlzbRHZc'),
     account,
   });

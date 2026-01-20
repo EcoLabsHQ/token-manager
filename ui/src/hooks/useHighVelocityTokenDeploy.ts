@@ -1,28 +1,29 @@
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { useState, useCallback, useEffect } from 'react';
-import { parseUnits, getAddress } from 'viem';
-import { CONTRACTS, L1_TOKEN_FACTORY_ABI } from '@/config/contracts';
+import { parseUnits, getAddress, toHex } from 'viem';
+import { CONTRACTS, L2_SUPERCHAIN_TOKEN_FACTORY_ABI } from '@/config/contracts';
 
-export interface CreateL1TokenParams {
+export interface DeployHighVelocityTokenParams {
   name: string;
   symbol: string;
-  initialSupply: string;
+  decimals: number;
+  maxSupply: string;
 }
 
-export interface TokenCreationResult {
+export interface TokenDeploymentResult {
   success: boolean;
   tokenAddress?: string;
   txHash?: string;
   error?: string;
 }
 
-export const useL1TokenFactory = () => {
+export const useHighVelocityTokenDeploy = () => {
   const { address, chainId } = useAccount();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [tokenAddress, setTokenAddress] = useState<string | null>(null);
-  const [currentParams, setCurrentParams] = useState<CreateL1TokenParams | null>(null);
+  const [currentParams, setCurrentParams] = useState<DeployHighVelocityTokenParams | null>(null);
   const [tokenCountBeforeCreate, setTokenCountBeforeCreate] = useState<number | null>(null);
 
   const { writeContract, data: writeData, isPending: isWritePending, error: writeError } = useWriteContract();
@@ -33,10 +34,10 @@ export const useL1TokenFactory = () => {
 
   // Read all tokens from factory
   const { data: allTokens, refetch: refetchTokens } = useReadContract({
-    address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
-    abi: L1_TOKEN_FACTORY_ABI,
+    address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+    abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
     functionName: 'getAllTokens',
-    chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
+    chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
   });
 
   // Monitor write pending state
@@ -60,27 +61,27 @@ export const useL1TokenFactory = () => {
 
     const extractTokenAddress = async () => {
       try {
-        console.log('L1: Transaction confirmed, fetching all tokens...');
-        
+        console.log('HighVelocity: Transaction confirmed, fetching all tokens...');
+
         // Refetch tokens after transaction is confirmed
         const result = await refetchTokens();
         const tokens = result.data as `0x${string}`[] | undefined;
-        
-        console.log('L1: All tokens from factory:', tokens);
-        console.log('L1: Token count before create:', tokenCountBeforeCreate);
-        
+
+        console.log('HighVelocity: All tokens from factory:', tokens);
+        console.log('HighVelocity: Token count before create:', tokenCountBeforeCreate);
+
         if (tokens && tokens.length > tokenCountBeforeCreate) {
           // Get the last token (the one we just created)
           const newTokenAddress = tokens[tokens.length - 1];
-          console.log('L1: New token address:', newTokenAddress);
+          console.log('HighVelocity: New token address:', newTokenAddress);
           setTokenAddress(getAddress(newTokenAddress));
         } else {
-          console.log('L1: No new token found');
+          console.log('HighVelocity: No new token found');
         }
 
         setIsLoading(false);
       } catch (err) {
-        console.error('L1: Error fetching tokens:', err);
+        console.error('HighVelocity: Error fetching tokens:', err);
         setError(err instanceof Error ? err.message : 'Failed to get token address');
         setIsLoading(false);
       }
@@ -89,17 +90,17 @@ export const useL1TokenFactory = () => {
     extractTokenAddress();
   }, [receipt, currentParams, tokenCountBeforeCreate, refetchTokens]);
 
-  const createToken = useCallback(
-    async (params: CreateL1TokenParams): Promise<TokenCreationResult> => {
+  const deployToken = useCallback(
+    async (params: DeployHighVelocityTokenParams): Promise<TokenDeploymentResult> => {
       if (!address) {
         const msg = 'Wallet not connected';
         setError(msg);
         return { success: false, error: msg };
       }
 
-      // Validate chain - must be on Sepolia for L1 tokens
-      if (chainId !== CONTRACTS.L1_TOKEN_FACTORY.chainId) {
-        const msg = `Please switch to Sepolia network (Chain ID: ${CONTRACTS.L1_TOKEN_FACTORY.chainId}). You are on chain ${chainId}.`;
+      // Validate chain - must be on Celo Sepolia for HighVelocity tokens
+      if (chainId !== CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId) {
+        const msg = `Please switch to Celo Sepolia network (Chain ID: ${CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId}). You are on chain ${chainId}.`;
         setError(msg);
         return { success: false, error: msg };
       }
@@ -109,33 +110,41 @@ export const useL1TokenFactory = () => {
       setTxHash(null);
       setTokenAddress(null);
       setCurrentParams(params);
-      
+
       // Store current token count before creating
       const currentCount = (allTokens as `0x${string}`[] | undefined)?.length || 0;
       setTokenCountBeforeCreate(currentCount);
-      console.log('L1: Current token count before create:', currentCount);
+      console.log('HighVelocity: Current token count before deploy:', currentCount);
 
       try {
-        // L1 tokens typically use 18 decimals
-        const initialSupplyBigInt = parseUnits(params.initialSupply, 18);
+        // Convert maxSupply to integer to avoid decimal issues with BigInt
+        const maxSupplyInt = Math.floor(parseFloat(params.maxSupply));
+        if (isNaN(maxSupplyInt) || maxSupplyInt <= 0) {
+          throw new Error('Invalid max supply value');
+        }
+        const maxSupplyBigInt = parseUnits(maxSupplyInt.toString(), params.decimals);
+        
+        // Generate a deterministic salt from timestamp (integer only)
+        const salt = toHex(Math.floor(Date.now()));
 
-        // Send transaction
+        // Deploy HighVelocity token (no bridge, no remoteToken)
         writeContract({
-          address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
-          abi: L1_TOKEN_FACTORY_ABI,
+          address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+          abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
           functionName: 'createToken',
           args: [
+            getAddress(address), // owner
             params.name,
             params.symbol,
-            initialSupplyBigInt,
-            getAddress(address),
+            params.decimals,
+            maxSupplyBigInt,
+            salt, // salt for deterministic deployment
           ],
         });
 
-        // Wait for the write to complete and transaction hash to be available
         return { success: true };
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to create token';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to deploy token';
         setError(errorMessage);
         setIsLoading(false);
         return { success: false, error: errorMessage };
@@ -144,7 +153,7 @@ export const useL1TokenFactory = () => {
     [address, chainId, writeContract, allTokens]
   );
 
-  const getResult = useCallback((): TokenCreationResult | null => {
+  const getResult = useCallback((): TokenDeploymentResult | null => {
     if (isLoading) return null;
 
     if (tokenAddress) {
@@ -167,13 +176,13 @@ export const useL1TokenFactory = () => {
   }, [isLoading, tokenAddress, error, writeData]);
 
   return {
-    createToken,
+    deployToken,
     isLoading: isLoading || isWritePending || isWaitingForReceipt,
     error,
     txHash: writeData || txHash,
     tokenAddress,
     isConnected: !!address,
-    isCorrectChain: chainId === CONTRACTS.L1_TOKEN_FACTORY.chainId,
+    isCorrectChain: chainId === CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
     getResult,
   };
 };
