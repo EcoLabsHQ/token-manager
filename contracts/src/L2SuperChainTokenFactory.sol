@@ -63,7 +63,6 @@ contract L2SuperChainTokenFactory {
                 owner_,
                 name_,
                 symbol_,
-                decimals_,
                 maxSupply_
             )
         );

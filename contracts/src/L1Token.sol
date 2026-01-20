@@ -2,13 +2,14 @@
 pragma solidity ^0.8.10;
 
 import {ERC20} from "@openzeppelin-v5/contracts/token/ERC20/ERC20.sol";
+import {ERC20Permit} from "@openzeppelin-v5/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {
     Ownable2Step,
     Ownable
 } from "@openzeppelin-v5/contracts/access/Ownable2Step.sol";
 import {Pausable} from "@openzeppelin-v5/contracts/utils/Pausable.sol";
 
-contract L1Token is ERC20, Ownable2Step, Pausable {
+contract L1Token is ERC20, ERC20Permit, Ownable2Step, Pausable {
 
     error ZeroAddress();
     error ExceedsMaxSupply();
@@ -30,7 +31,7 @@ contract L1Token is ERC20, Ownable2Step, Pausable {
         string memory symbol_,
         uint256 initialSupply_,
         address owner_
-    ) ERC20(name_, symbol_) Ownable(owner_) {
+    ) ERC20(name_, symbol_) ERC20Permit(name_) Ownable(owner_) {
         if (owner_ == address(0)) revert ZeroAddress();
         maxSupply = initialSupply_;
     }
