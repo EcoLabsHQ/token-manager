@@ -174,6 +174,16 @@ export const useInstitutionalTokenDeploy = () => {
 
       try {
         console.log('Starting L1 token deployment...');
+        
+        // Switch to Sepolia (L1) if not already there
+        const l1ChainId = CONTRACTS.L1_TOKEN_FACTORY.chainId;
+        if (chainId !== l1ChainId) {
+          console.log('Switching to Sepolia (L1)...');
+          await switchChainAsync({ chainId: l1ChainId });
+          // Wait a bit for chain switch to complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
         // Convert to integer to avoid decimal issues
         const initialSupplyNum = parseInt(params.initialSupply, 10);
         if (isNaN(initialSupplyNum) || initialSupplyNum <= 0) {
@@ -202,7 +212,7 @@ export const useInstitutionalTokenDeploy = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [address, writeL1Contract]
+    [address, writeL1Contract, chainId, switchChainAsync]
   );
 
   // Auto-trigger L2 deployment when L1 is done
