@@ -1,12 +1,12 @@
 // Factory addresses deployed on different chains
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
-    address: '0x2fF16b01b54272ae047A9e6A8A60DA8d07f31610',
+    address: '0x8fd19aeB17b3dbb574ea16AFbe31e678E418E3e2',
     chainId: 11155111, // Sepolia
     name: 'L1TokenFactory',
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
-    address: '0xdFf8B27b5BfAB2d76241D6Ac2c634C50A12Ae221',
+    address: '0xeC376f97413cA39d2c26c70dCb08A0A54CCC0b9E',
     chainId: 11142220, // Celo Sepolia (Alfajores)
     name: 'L2SuperChainTokenFactory',
   },

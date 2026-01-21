@@ -9,6 +9,7 @@ libs = ["lib"]
 [etherscan]
 celo = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
 sepolia = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
+celo-sepolia = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
 
 
 [rpc_endpoints]
