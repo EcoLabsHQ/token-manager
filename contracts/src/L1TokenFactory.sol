@@ -2,6 +2,10 @@
 pragma solidity ^0.8.10;
 
 import {L1Token} from "./L1Token.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {
+    ERC1967Proxy
+} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title L1TokenFactory
@@ -22,6 +26,14 @@ contract L1TokenFactory {
 
     /// @dev Mapping to track if an address is a token created by this factory
     mapping(address => bool) public isTokenFromFactory;
+
+    /// @dev The implementation address for L1Token
+    address public immutable implementation;
+
+    constructor() {
+        // Deploy the implementation contract once
+        implementation = address(new L1Token());
+    }
 
     /// @dev Gets the total number of created tokens
     function getAllTokensCount() external view returns (uint256) {
@@ -50,20 +62,21 @@ contract L1TokenFactory {
         require(owner_ != address(0), "Owner cannot be zero address");
         require(initialSupply_ > 0, "Initial supply must be greater than zero");
 
-        L1Token newToken = new L1Token(
+        bytes memory initData = abi.encodeWithSelector(
+            L1Token.initialize.selector,
             name_,
             symbol_,
             initialSupply_,
             owner_
         );
+        address newToken = address(new ERC1967Proxy(implementation, initData));
 
-        tokenAddress = address(newToken);
-        allTokens.push(tokenAddress);
-        isTokenFromFactory[tokenAddress] = true;
+        allTokens.push(newToken);
+        isTokenFromFactory[newToken] = true;
 
-        emit TokenCreated(tokenAddress, name_, symbol_, initialSupply_, owner_);
+        emit TokenCreated(newToken, name_, symbol_, initialSupply_, owner_);
 
-        return tokenAddress;
+        return newToken;
     }
 
     /**

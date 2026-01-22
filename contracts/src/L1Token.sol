@@ -1,35 +1,93 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {ERC20} from "@openzeppelin-v5/contracts/token/ERC20/ERC20.sol";
-import {ERC20Permit} from "@openzeppelin-v5/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {
-    Ownable2Step,
-    Ownable
-} from "@openzeppelin-v5/contracts/access/Ownable2Step.sol";
-import {Pausable} from "@openzeppelin-v5/contracts/utils/Pausable.sol";
+    ERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {
+    ERC20PermitUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable,
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract L1Token is ERC20, ERC20Permit, Ownable2Step, Pausable {
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
+contract L1Token is
+    Initializable,
+    UUPSUpgradeable,
+    ERC20Upgradeable,
+    ERC20PermitUpgradeable,
+    Ownable2StepUpgradeable,
+    PausableUpgradeable
+{
     error ZeroAddress();
     error ExceedsMaxSupply();
     error NewMaxSupplyTooLow();
     error NoPendingOwnershipTransfer();
     error OnlyOwner();
 
-    uint256 public maxSupply;
-
-
     event MaxSupplyUpdated(uint256 newMaxSupply);
 
-    constructor(
+    struct L1TokenStorage {
+        uint256 maxSupply;
+    }
+
+    // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.l1_token_v1")) - 1)) & ~bytes32(uint256(0xff));
+    bytes32 private constant L1_TOKEN_STORAGE_LOCATION =
+        0xd355fc3da979998436fdf5382f271272d09361ce528d1ba17a9d10200b7b7d00;
+
+    function _getL1TokenStorage()
+        private
+        pure
+        returns (L1TokenStorage storage $)
+    {
+        assembly {
+            $.slot := L1_TOKEN_STORAGE_LOCATION
+        }
+    }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         string memory name_,
         string memory symbol_,
         uint256 initialSupply_,
         address owner_
-    ) ERC20(name_, symbol_) ERC20Permit(name_) Ownable(owner_) {
+    ) public {
+        __ERC20_init(name_, symbol_);
+        __ERC20Permit_init(name_);
+        __Ownable2Step_init();
+        __Pausable_init();
+
+        L1TokenStorage storage $ = _getL1TokenStorage();
         if (owner_ == address(0)) revert ZeroAddress();
-        maxSupply = initialSupply_;
+        $.maxSupply = initialSupply_;
+        _transferOwnership(owner_);
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
+
+    // ============================================
+    //         STORAGE GETTERS
+    // ============================================
+
+    function maxSupply() public view returns (uint256) {
+        return _getL1TokenStorage().maxSupply;
     }
 
     // ============================================
@@ -40,9 +98,10 @@ contract L1Token is ERC20, ERC20Permit, Ownable2Step, Pausable {
         address to_,
         uint256 amount_
     ) external onlyOwner whenNotPaused {
+        L1TokenStorage storage $ = _getL1TokenStorage();
         if (to_ == address(0)) revert ZeroAddress();
         uint256 newSupply = totalSupply() + amount_;
-        if (newSupply > maxSupply) revert ExceedsMaxSupply();
+        if (newSupply > $.maxSupply) revert ExceedsMaxSupply();
         _mint(to_, amount_);
     }
 
@@ -86,8 +145,9 @@ contract L1Token is ERC20, ERC20Permit, Ownable2Step, Pausable {
     // ============================================
 
     function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
+        L1TokenStorage storage $ = _getL1TokenStorage();
         if (newMaxSupply < totalSupply()) revert NewMaxSupplyTooLow();
-        maxSupply = newMaxSupply;
+        $.maxSupply = newMaxSupply;
         emit MaxSupplyUpdated(newMaxSupply);
     }
 }

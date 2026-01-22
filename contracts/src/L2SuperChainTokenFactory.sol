@@ -2,10 +2,13 @@
 pragma solidity ^0.8.10;
 
 import {L2SuperChainToken} from "./L2SuperChainToken.sol";
+import {
+    ERC1967Proxy
+} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title L2SuperChainTokenFactory
- * @dev Factory contract to create instances of HighVelocityToken (SuperChainToken) on Celo L2
+ * @dev Factory contract to create instances of L2SuperChainToken (upgradeable) on Celo L2
  */
 contract L2SuperChainTokenFactory {
     /// @dev Event emitted when a new token is created
@@ -24,6 +27,14 @@ contract L2SuperChainTokenFactory {
     /// @dev Mapping to track if an address is a token created by this factory
     mapping(address => bool) public isTokenFromFactory;
 
+    /// @dev The implementation address for L2SuperChainToken
+    address public immutable implementation;
+
+    constructor() {
+        // Deploy the implementation contract once
+        implementation = address(new L2SuperChainToken());
+    }
+
     /// @dev Gets the total number of created tokens
     function getAllTokensCount() external view returns (uint256) {
         return allTokens.length;
@@ -35,13 +46,14 @@ contract L2SuperChainTokenFactory {
     }
 
     /**
-     * @dev Creates a new HighVelocityToken (SuperChainToken)
+     * @dev Creates a new L2SuperChainToken (upgradeable proxy)
      * @param owner_ Address of the token owner
      * @param name_ Name of the token
      * @param symbol_ Symbol of the token
-     * @param decimals_ Number of decimals for the token
+     * @param decimals_ Number of decimals for the token (unused, kept for interface compatibility)
      * @param maxSupply_ Maximum supply for the token
-     * @return tokenAddress The address of the newly created token
+     * @param salt_ Salt for deterministic deployment
+     * @return tokenAddress The address of the newly created token proxy
      */
     function createToken(
         address owner_,
@@ -56,15 +68,18 @@ contract L2SuperChainTokenFactory {
         require(bytes(symbol_).length > 0, "Symbol cannot be empty");
         require(maxSupply_ > 0, "Max supply must be greater than zero");
 
+        bytes memory initData = abi.encodeWithSelector(
+            L2SuperChainToken.initialize.selector,
+            owner_,
+            name_,
+            symbol_,
+            maxSupply_
+        );
+
         bytes32 salt = keccak256(salt_);
 
         tokenAddress = address(
-            new L2SuperChainToken{salt: salt}(
-                owner_,
-                name_,
-                symbol_,
-                maxSupply_
-            )
+            new ERC1967Proxy{salt: salt}(implementation, initData)
         );
 
         // Register the token

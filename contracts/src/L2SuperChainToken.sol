@@ -1,36 +1,42 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {Predeploys} from "@contracts-bedrock/libraries/Predeploys.sol";
+import {Predeploys} from "./optimism/Predeploys.sol";
+import {IOptimismMintableERC20} from "./interfaces/IOptimismMintableERC20.sol";
 import {
-    SuperchainERC20,
-    IERC165
-} from "@contracts-bedrock/L2/SuperchainERC20.sol";
+    ERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {
-    IOptimismMintableERC20
-} from "@contracts-bedrock-interfaces/universal/IOptimismMintableERC20.sol";
+    ERC20PermitUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
-    ERC20Permit
-} from "@openzeppelin-v5/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {ERC20} from "@openzeppelin-v5/contracts/token/ERC20/ERC20.sol";
-import {IERC20} from "@openzeppelin-v5/contracts/token/ERC20/IERC20.sol";
+    Ownable2StepUpgradeable,
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {
-    Ownable2Step,
-    Ownable
-} from "@openzeppelin-v5/contracts/access/Ownable2Step.sol";
-import {Pausable} from "@openzeppelin-v5/contracts/utils/Pausable.sol";
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import {ISemver} from "@contracts-bedrock-interfaces/universal/ISemver.sol";
-import {IERC7802, IERC165} from "@contracts-bedrock-interfaces/L2/IERC7802.sol";
+import {ISemver} from "./interfaces/ISemver.sol";
+import {IERC7802, IERC165} from "./interfaces/IERC7802.sol";
 
 contract L2SuperChainToken is
-    ERC20,
-    ERC20Permit,
+    Initializable,
+    UUPSUpgradeable,
+    ERC20Upgradeable,
+    ERC20PermitUpgradeable,
     IOptimismMintableERC20,
-    Ownable2Step,
+    Ownable2StepUpgradeable,
     IERC7802,
     ISemver,
-    Pausable
+    PausableUpgradeable
 {
     /// @notice Error for an unauthorized CALLER.
     error Unauthorized();
@@ -43,32 +49,85 @@ contract L2SuperChainToken is
     error OptimismMintableERC20__OnlyBridge();
     error OnlyOwner();
 
-    uint256 public maxSupply;
-
-    address public remoteToken;
-    address public bridge;
-
     event RemoteTokenUpdated(address indexed newRemoteToken);
     event BridgeUpdated(address indexed newBridge);
-
     event MaxSupplyUpdated(uint256 newMaxSupply);
 
-    constructor(
+    struct L2SuperChainTokenStorage {
+        uint256 maxSupply;
+        address remoteToken;
+        address bridge;
+    }
+
+    // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.l2_superchain_token_v1")) - 1)) & ~bytes32(uint256(0xff));
+    bytes32 private constant L2_SUPERCHAIN_TOKEN_STORAGE_LOCATION =
+        0x6ca55573396bd83f915ea4b495c2a0d5c214962f132c104dbed6448ef977ac00;
+
+    function _getL2SuperChainTokenStorage()
+        private
+        pure
+        returns (L2SuperChainTokenStorage storage $)
+    {
+        assembly {
+            $.slot := L2_SUPERCHAIN_TOKEN_STORAGE_LOCATION
+        }
+    }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         address owner_,
         string memory name_,
         string memory symbol_,
         uint256 maxSupply_
-    ) ERC20(name_, symbol_) ERC20Permit(name_) Ownable(owner_) {
+    ) public initializer {
         if (owner_ == address(0)) revert ZeroAddress();
-        maxSupply = maxSupply_;
-        remoteToken = address(0);
-        bridge = address(0);
+
+        __ERC20_init(name_, symbol_);
+        __ERC20Permit_init(name_);
+        __Ownable2Step_init();
+        __Pausable_init();
+
+
+        L2SuperChainTokenStorage storage $ = _getL2SuperChainTokenStorage();
+        $.maxSupply = maxSupply_;
+        $.remoteToken = address(0);
+        $.bridge = address(0);
+
+        _transferOwnership(owner_);
     }
 
-    /// @notice A modifier that only allows the bridge to call
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
+
+    // ============================================
+    //         STORAGE GETTERS
+    // ============================================
+
+    function maxSupply() public view returns (uint256) {
+        return _getL2SuperChainTokenStorage().maxSupply;
+    }
+
+    function remoteToken() public view returns (address) {
+        return _getL2SuperChainTokenStorage().remoteToken;
+    }
+
+    function bridge() public view returns (address) {
+        return _getL2SuperChainTokenStorage().bridge;
+    }
+
+    // ============================================
+    //        MODIFIERS
+    // ============================================
+
     modifier onlyOwnerOrBridge() {
-        if (bridge != address(0)) {
-            if (msg.sender != bridge)
+        L2SuperChainTokenStorage storage $ = _getL2SuperChainTokenStorage();
+        if ($.bridge != address(0)) {
+            if (msg.sender != $.bridge)
                 revert OptimismMintableERC20__OnlyBridge();
         } else {
             if (msg.sender != owner()) revert OnlyOwner();
@@ -82,13 +141,15 @@ contract L2SuperChainToken is
 
     function setRemoteToken(address _remoteToken) external onlyOwner {
         if (_remoteToken == address(0)) revert ZeroAddress();
-        remoteToken = _remoteToken;
+        L2SuperChainTokenStorage storage $ = _getL2SuperChainTokenStorage();
+        $.remoteToken = _remoteToken;
         emit RemoteTokenUpdated(_remoteToken);
     }
 
     function setBridge(address _bridge) external onlyOwner {
         if (_bridge == address(0)) revert ZeroAddress();
-        bridge = _bridge;
+        L2SuperChainTokenStorage storage $ = _getL2SuperChainTokenStorage();
+        $.bridge = _bridge;
         emit BridgeUpdated(_bridge);
     }
 
@@ -108,9 +169,10 @@ contract L2SuperChainToken is
         address to_,
         uint256 amount_
     ) external onlyOwnerOrBridge whenNotPaused {
+        L2SuperChainTokenStorage storage $ = _getL2SuperChainTokenStorage();
         if (to_ == address(0)) revert ZeroAddress();
         uint256 newSupply = totalSupply() + amount_;
-        if (newSupply > maxSupply) revert ExceedsMaxSupply();
+        if (newSupply > $.maxSupply) revert ExceedsMaxSupply();
         _mint(to_, amount_);
     }
 
@@ -166,8 +228,9 @@ contract L2SuperChainToken is
     // ============================================
 
     function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
+        L2SuperChainTokenStorage storage $ = _getL2SuperChainTokenStorage();
         if (newMaxSupply < totalSupply()) revert NewMaxSupplyTooLow();
-        maxSupply = newMaxSupply;
+        $.maxSupply = newMaxSupply;
         emit MaxSupplyUpdated(newMaxSupply);
     }
 
