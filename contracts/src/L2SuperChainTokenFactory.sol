@@ -5,12 +5,21 @@ import {L2SuperChainToken} from "./L2SuperChainToken.sol";
 import {
     ERC1967Proxy
 } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title L2SuperChainTokenFactory
  * @dev Factory contract to create instances of L2SuperChainToken (upgradeable) on Celo L2
  */
-contract L2SuperChainTokenFactory {
+contract L2SuperChainTokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     /// @dev Event emitted when a new token is created
     event TokenCreated(
         address indexed tokenAddress,
@@ -21,28 +30,67 @@ contract L2SuperChainTokenFactory {
         address indexed owner
     );
 
-    /// @dev Array of all created tokens
-    address[] public allTokens;
+    struct L2SuperChainTokenFactoryStorage {
+        address[] allTokens;
+        mapping(address => bool) isTokenFromFactory;
+        address implementation;
+    }
 
-    /// @dev Mapping to track if an address is a token created by this factory
-    mapping(address => bool) public isTokenFromFactory;
+    // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.l2_superchain_token_factory_v1")) - 1)) & ~bytes32(uint256(0xff));
+    bytes32 private constant L2_SUPERCHAIN_TOKEN_FACTORY_STORAGE_LOCATION =
+        0x5b8963702b04d03b695724c1c6fb65c92b4d922e4dae1b2ac498950a29e41300;
 
-    /// @dev The implementation address for L2SuperChainToken
-    address public immutable implementation;
+    function _getL2SuperChainTokenFactoryStorage()
+        private
+        pure
+        returns (L2SuperChainTokenFactoryStorage storage $)
+    {
+        assembly {
+            $.slot := L2_SUPERCHAIN_TOKEN_FACTORY_STORAGE_LOCATION
+        }
+    }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Deploy the implementation contract once
-        implementation = address(new L2SuperChainToken());
+        _disableInitializers();
+    }
+
+    function initialize(address _owner) public initializer {
+        L2SuperChainTokenFactoryStorage storage $ = _getL2SuperChainTokenFactoryStorage();
+        $.implementation = address(new L2SuperChainToken());
+        __Ownable_init(_owner);
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
+
+    // ============================================
+    //         STORAGE GETTERS
+    // ============================================
+
+    function implementation() external view returns (address) {
+        return _getL2SuperChainTokenFactoryStorage().implementation;
+    }
+
+    function allTokens(uint256 index) external view returns (address) {
+        return _getL2SuperChainTokenFactoryStorage().allTokens[index];
+    }
+
+    function isTokenFromFactory(address token) external view returns (bool) {
+        return _getL2SuperChainTokenFactoryStorage().isTokenFromFactory[token];
     }
 
     /// @dev Gets the total number of created tokens
     function getAllTokensCount() external view returns (uint256) {
-        return allTokens.length;
+        L2SuperChainTokenFactoryStorage storage $ = _getL2SuperChainTokenFactoryStorage();
+        return $.allTokens.length;
     }
 
     /// @dev Gets all created tokens
     function getAllTokens() external view returns (address[] memory) {
-        return allTokens;
+        L2SuperChainTokenFactoryStorage storage $ = _getL2SuperChainTokenFactoryStorage();
+        return $.allTokens;
     }
 
     /**
@@ -63,6 +111,7 @@ contract L2SuperChainTokenFactory {
         uint256 maxSupply_,
         bytes memory salt_
     ) external returns (address tokenAddress) {
+        L2SuperChainTokenFactoryStorage storage $ = _getL2SuperChainTokenFactoryStorage();
         require(owner_ != address(0), "Owner cannot be zero address");
         require(bytes(name_).length > 0, "Name cannot be empty");
         require(bytes(symbol_).length > 0, "Symbol cannot be empty");
@@ -79,12 +128,12 @@ contract L2SuperChainTokenFactory {
         bytes32 salt = keccak256(salt_);
 
         tokenAddress = address(
-            new ERC1967Proxy{salt: salt}(implementation, initData)
+            new ERC1967Proxy{salt: salt}($.implementation, initData)
         );
 
         // Register the token
-        allTokens.push(tokenAddress);
-        isTokenFromFactory[tokenAddress] = true;
+        $.allTokens.push(tokenAddress);
+        $.isTokenFromFactory[tokenAddress] = true;
 
         // Emit event
         emit TokenCreated(
@@ -105,7 +154,8 @@ contract L2SuperChainTokenFactory {
      * @return The address of the token
      */
     function getToken(uint256 index) external view returns (address) {
-        require(index < allTokens.length, "Index out of bounds");
-        return allTokens[index];
+        L2SuperChainTokenFactoryStorage storage $ = _getL2SuperChainTokenFactoryStorage();
+        require(index < $.allTokens.length, "Index out of bounds");
+        return $.allTokens[index];
     }
 }

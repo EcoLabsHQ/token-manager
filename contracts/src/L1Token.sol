@@ -66,21 +66,37 @@ contract L1Token is
         string memory symbol_,
         uint256 initialSupply_,
         address owner_
-    ) public {
+    ) public initializer {
+        if (owner_ == address(0)) revert ZeroAddress();
+
         __ERC20_init(name_, symbol_);
         __ERC20Permit_init(name_);
         __Ownable2Step_init();
         __Pausable_init();
 
         L1TokenStorage storage $ = _getL1TokenStorage();
-        if (owner_ == address(0)) revert ZeroAddress();
         $.maxSupply = initialSupply_;
+
         _transferOwnership(owner_);
     }
 
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+
+    // ============================================
+    //         PAUSE FUNCTIONS
+    // ============================================
+
+    /// @notice Pauses all token transfers
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpauses all token transfers
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     // ============================================
     //         STORAGE GETTERS

@@ -91,7 +91,6 @@ contract L2SuperChainToken is
         __Ownable2Step_init();
         __Pausable_init();
 
-
         L2SuperChainTokenStorage storage $ = _getL2SuperChainTokenStorage();
         $.maxSupply = maxSupply_;
         $.remoteToken = address(0);
@@ -133,6 +132,20 @@ contract L2SuperChainToken is
             if (msg.sender != owner()) revert OnlyOwner();
         }
         _;
+    }
+
+    // ============================================
+    //         PAUSE FUNCTIONS
+    // ============================================
+
+    /// @notice Pauses all token transfers
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpauses all token transfers
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     // ============================================
