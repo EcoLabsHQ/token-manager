@@ -106,8 +106,84 @@ export function useCreateToken(): UseCreateTokenReturn {
     const l2Result = l2Factory.getResult();
     
     if (tokenType === 'celo-native' && l2Result && l2Result.success && l2Result.tokenAddress) {
-      // Celo-native token complete
+      // Celo-native token created, now mint initial supply
       console.log('L2 token created (celo-native):', l2Result.tokenAddress);
+      
+      const formData = form.getValues();
+      const initialSupply = formData.initialSupply;
+      
+      // Only mint if initialSupply > 0 and we haven't started minting yet
+      if (Number(initialSupply) > 0 && deployingStep === 1 && l2Factory.userAddress) {
+        console.log('Starting initial supply mint...');
+        setDeployingStep(2); // Move to minting step
+        
+        l2Factory.mintInitialSupply({
+          tokenAddress: l2Result.tokenAddress,
+          to: l2Factory.userAddress,
+          amount: initialSupply,
+          decimals: formData.decimals,
+        });
+      } else if (Number(initialSupply) === 0) {
+        // No initial supply to mint, complete immediately
+        const result: DeploymentResult = {
+          l2Address: l2Result.tokenAddress,
+          txHash: l2Result.txHash,
+        };
+        
+        setDeploymentResult(result);
+        addToken({
+          name: formData.name,
+          symbol: formData.symbol,
+          type: 'celo-native',
+          maxSupply: Number(formData.maxSupply).toLocaleString(),
+          addressL2: l2Result.tokenAddress,
+        });
+        
+        setDeployingStep(2);
+        setTimeout(() => setStep('success'), 1000);
+        setIsDeploying(false);
+      }
+      
+    } else if (tokenType === 'ethereum-enabled' && deployingStep === 2 && l2Result && l2Result.success && l2Result.tokenAddress) {
+      // Ethereum-enabled: L2 token created, now mint initial supply
+      console.log('L2 token created (ethereum-enabled):', l2Result.tokenAddress);
+      
+      const formData = form.getValues();
+      const initialSupply = formData.initialSupply;
+      
+      // Only mint if initialSupply > 0 and we haven't started minting yet
+      if (Number(initialSupply) > 0 && l2Factory.userAddress) {
+        console.log('Starting initial supply mint (ethereum-enabled)...');
+        setDeployingStep(3); // Move to minting step
+        
+        l2Factory.mintInitialSupply({
+          tokenAddress: l2Result.tokenAddress,
+          to: l2Factory.userAddress,
+          amount: initialSupply,
+          decimals: formData.decimals,
+        });
+      } else if (Number(initialSupply) === 0) {
+        // No initial supply, skip to bridge config step
+        setDeployingStep(3);
+      }
+      
+    } else if (l2Result && !l2Result.success && l2Result.error) {
+      setDeployError(l2Result.error);
+      setIsDeploying(false);
+      setStep('review');
+    }
+  }, [tokenType, isDeploying, l2Factory, deployingStep, form, addToken, l1Factory]);
+
+  // Monitor mint completion
+  useEffect(() => {
+    if (!isDeploying) return;
+    
+    const mintResult = l2Factory.getMintResult();
+    const l2Result = l2Factory.getResult();
+    
+    if (tokenType === 'celo-native' && deployingStep === 2 && mintResult && mintResult.success && l2Result?.tokenAddress) {
+      // Celo-native: mint complete
+      console.log('Initial supply minted (celo-native)');
       
       const formData = form.getValues();
       const result: DeploymentResult = {
@@ -124,15 +200,17 @@ export function useCreateToken(): UseCreateTokenReturn {
         addressL2: l2Result.tokenAddress,
       });
       
-      // Set to 2 so step 1 shows as completed (currentStep > hookStep)
-      setDeployingStep(2);
+      setDeployingStep(3);
       setTimeout(() => setStep('success'), 1000);
       setIsDeploying(false);
       
-    } else if (tokenType === 'ethereum-enabled' && deployingStep === 2 && l2Result && l2Result.success && l2Result.tokenAddress) {
-      // Ethereum-enabled: L2 token complete (after L1)
-      console.log('L2 token created (ethereum-enabled):', l2Result.tokenAddress);
+    } else if (tokenType === 'ethereum-enabled' && deployingStep === 3 && mintResult && mintResult.success && l2Result?.tokenAddress) {
+      // Ethereum-enabled: mint complete, now proceed to bridge config (step 4)
+      console.log('Initial supply minted (ethereum-enabled)');
+      setDeployingStep(4);
       
+      // TODO: Add bridge configuration step here
+      // For now, complete the deployment
       const l1Result = l1Factory.getResult();
       const formData = form.getValues();
       
@@ -152,13 +230,12 @@ export function useCreateToken(): UseCreateTokenReturn {
         addressL2: l2Result.tokenAddress,
       });
       
-      // Set to 4 so step 3 shows as completed (currentStep > hookStep)
-      setDeployingStep(4);
+      setDeployingStep(5);
       setTimeout(() => setStep('success'), 1000);
       setIsDeploying(false);
       
-    } else if (l2Result && !l2Result.success && l2Result.error) {
-      setDeployError(l2Result.error);
+    } else if (mintResult && !mintResult.success && mintResult.error) {
+      setDeployError(mintResult.error);
       setIsDeploying(false);
       setStep('review');
     }
@@ -249,13 +326,14 @@ export function useCreateToken(): UseCreateTokenReturn {
     setIsDeploying(false);
     setDeployError(null);
     form.reset(defaultTokenFormValues);
-  }, [form]);
+    l2Factory.resetMintState();
+  }, [form, l2Factory]);
 
   // Combined loading state
-  const combinedIsDeploying = isDeploying || l1Factory.isLoading || l2Factory.isLoading;
+  const combinedIsDeploying = isDeploying || l1Factory.isLoading || l2Factory.isLoading || l2Factory.isMinting;
   
   // Combined error state
-  const combinedError = deployError || l1Factory.error || l2Factory.error;
+  const combinedError = deployError || l1Factory.error || l2Factory.error || l2Factory.mintError;
 
   return {
     form,
