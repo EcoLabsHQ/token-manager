@@ -1,5 +1,5 @@
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { useState, useCallback, useEffect } from 'react';
+import { useAccount, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { parseUnits, getAddress } from 'viem';
 import { CONTRACTS, L1_TOKEN_FACTORY_ABI } from '@/config/contracts';
 
@@ -18,18 +18,16 @@ export interface TokenCreationResult {
 
 export const useL1TokenFactory = () => {
   const { address, chainId } = useAccount();
+  const publicClient = usePublicClient({ chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [txHash, setTxHash] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [tokenAddress, setTokenAddress] = useState<string | null>(null);
   const [currentParams, setCurrentParams] = useState<CreateL1TokenParams | null>(null);
   const [tokenCountBeforeCreate, setTokenCountBeforeCreate] = useState<number | null>(null);
+  const isWaitingForReceipt = useRef(false);
 
   const { writeContract, data: writeData, isPending: isWritePending, error: writeError } = useWriteContract();
-  const { isLoading: isWaitingForReceipt, data: receipt } = useWaitForTransactionReceipt({
-    hash: writeData,
-    confirmations: 1,
-  });
 
   // Read all tokens from factory
   const { data: allTokens, refetch: refetchTokens } = useReadContract({
@@ -54,15 +52,35 @@ export const useL1TokenFactory = () => {
     }
   }, [writeError]);
 
-  // Monitor receipt and get token address from getAllTokens
+  // Wait for transaction receipt using viem's waitForTransactionReceipt
   useEffect(() => {
-    if (!receipt || !currentParams || tokenCountBeforeCreate === null) return;
+    if (!writeData || !publicClient || !currentParams || tokenCountBeforeCreate === null) return;
+    if (isWaitingForReceipt.current) return; // Prevent duplicate calls
+    
+    isWaitingForReceipt.current = true;
+    setTxHash(writeData);
 
-    const extractTokenAddress = async () => {
+    const waitForReceipt = async () => {
       try {
-        console.log('L1: Transaction confirmed, fetching all tokens...');
+        console.log('L1: Waiting for transaction receipt...', writeData);
         
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash: writeData,
+          confirmations: 1,
+          timeout: 120_000, // 2 minute timeout
+        });
+        
+        console.log('L1: Transaction confirmed!', receipt);
+        
+        if (receipt.status === 'reverted') {
+          setError('Transaction reverted');
+          setIsLoading(false);
+          isWaitingForReceipt.current = false;
+          return;
+        }
+
         // Refetch tokens after transaction is confirmed
+        console.log('L1: Transaction confirmed, fetching all tokens...');
         const result = await refetchTokens();
         const tokens = result.data as `0x${string}`[] | undefined;
         
@@ -75,19 +93,30 @@ export const useL1TokenFactory = () => {
           console.log('L1: New token address:', newTokenAddress);
           setTokenAddress(getAddress(newTokenAddress));
         } else {
-          console.log('L1: No new token found');
+          console.log('L1: No new token found, retrying...');
+          // Retry once more after a delay
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const retryResult = await refetchTokens();
+          const retryTokens = retryResult.data as `0x${string}`[] | undefined;
+          if (retryTokens && retryTokens.length > tokenCountBeforeCreate) {
+            const newTokenAddress = retryTokens[retryTokens.length - 1];
+            console.log('L1: New token address (retry):', newTokenAddress);
+            setTokenAddress(getAddress(newTokenAddress));
+          }
         }
 
         setIsLoading(false);
+        isWaitingForReceipt.current = false;
       } catch (err) {
-        console.error('L1: Error fetching tokens:', err);
-        setError(err instanceof Error ? err.message : 'Failed to get token address');
+        console.error('L1: Error waiting for receipt:', err);
+        setError(err instanceof Error ? err.message : 'Failed to confirm transaction');
         setIsLoading(false);
+        isWaitingForReceipt.current = false;
       }
     };
 
-    extractTokenAddress();
-  }, [receipt, currentParams, tokenCountBeforeCreate, refetchTokens]);
+    waitForReceipt();
+  }, [writeData, publicClient, currentParams, tokenCountBeforeCreate, refetchTokens]);
 
   const createToken = useCallback(
     async (params: CreateL1TokenParams): Promise<TokenCreationResult> => {
@@ -168,7 +197,7 @@ export const useL1TokenFactory = () => {
 
   return {
     createToken,
-    isLoading: isLoading || isWritePending || isWaitingForReceipt,
+    isLoading: isLoading || isWritePending,
     error,
     txHash: writeData || txHash,
     tokenAddress,

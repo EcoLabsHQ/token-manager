@@ -1,0 +1,32 @@
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { MainLayout } from '../layouts';
+import Dashboard from '@/pages/Dashboard';
+import { CreateTokenPage } from '@/pages/CreateTokenPage';
+import TokenManager from '@/pages/TokenManager';
+
+export const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <MainLayout />,
+    children: [
+      {
+        index: true,
+        element: (
+          <Dashboard  />
+        ),
+      },
+      {
+        path: 'create',
+        element: <CreateTokenPage />,
+      },
+      {
+        path: 'manage/:tokenAddress',
+        element: <TokenManager />,
+      },
+      {
+        path: '*',
+        element: <Navigate to='/' replace />,
+      },
+    ],
+  },
+]);
