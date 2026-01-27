@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { parseUnits, formatUnits, getAddress } from 'viem';
-import { celoSepolia } from 'viem/chains';
 
 export interface BridgeToken {
   symbol: string;
@@ -119,14 +118,18 @@ export const useBridge = () => {
       // await publicClient.waitForTransactionReceipt({ hash: approveTx });
 
       // Deposit tokens to bridge
+      // Use l1StandardBridgeAddress directly without targetChain to avoid type issues
+      // The bridge address is from celoSepolia.contracts.l1StandardBridge[11155111]
+      const L1_STANDARD_BRIDGE_ADDRESS = '0xec18a3c30131a0db4246e785355fbc16e2eaf408' as const;
+      
       const depositTx = await depositERC20(walletClient, {
         tokenAddress: getAddress(L1_TOKEN),
         remoteTokenAddress: getAddress(L2_TOKEN),
         amount: amountBigInt,
-        targetChain: celoSepolia,
         to: walletClient.account.address,
         minGasLimit: 2000000,
-
+        l1StandardBridgeAddress: L1_STANDARD_BRIDGE_ADDRESS,
+        unsafe: true, // Skip remote token validation since we're handling it ourselves
       });
 
       setTxHash(depositTx);

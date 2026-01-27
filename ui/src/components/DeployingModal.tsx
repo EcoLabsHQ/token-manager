@@ -8,20 +8,24 @@ type TokenType = 'celo-native' | 'ethereum-enabled' | null;
 
 interface DeployingModalProps {
   tokenType: TokenType;
-  currentStep: number; // From hook: 0=init, 1=L1/L2 creating, 2=minting (celo) or L2 creating (eth), 3=minting (eth) or bridge, 4=bridge (eth)
+  currentStep: number; // From hook deployment step
+  isSwitchingChain?: boolean; // Optional: show when switching chains
 }
 
-export function DeployingModal({ tokenType, currentStep }: DeployingModalProps) {
+export function DeployingModal({ tokenType, currentStep, isSwitchingChain }: DeployingModalProps) {
   const isEthereumEnabled = tokenType === 'ethereum-enabled';
   
   // Steps configuration matching the hook logic:
-  // For ethereum-enabled: step 1 = L1 creating, step 2 = L2 creating, step 3 = minting, step 4 = bridge
+  // For ethereum-enabled: 
+  //   step 1 = L1 creating, step 2 = L1 minting, step 3 = L2 creating, 
+  //   step 4 = bridge config, step 5 = bridge tokens
   // For celo-native: step 1 = L2 creating, step 2 = minting
   const steps = isEthereumEnabled ? [
     { title: 'Creating L1 Token', description: 'Deploying token on Ethereum', chain: 'ethereum', hookStep: 1 },
-    { title: 'Creating L2 Token', description: 'Deploying Superchain token on Celo', chain: 'celo', hookStep: 2 },
-    { title: 'Minting Initial Supply', description: 'Minting initial tokens to your wallet', chain: 'celo', hookStep: 3 },
-    { title: 'Configuring Bridge Connections', description: 'Setting up bridge between L1 and L2 tokens', chain: null, hookStep: 4 },
+    { title: 'Minting L1 Initial Supply', description: 'Minting initial tokens to your wallet on Ethereum', chain: 'ethereum', hookStep: 2 },
+    { title: 'Creating L2 Token', description: 'Deploying Superchain token on Celo', chain: 'celo', hookStep: 3 },
+    { title: 'Configuring Bridge Connection', description: 'Setting up bridge between L1 and L2 tokens', chain: null, hookStep: 4 },
+    { title: 'Bridge L1 Tokens to L2', description: 'Transferring tokens from Ethereum to Celo', chain: 'ethereum', hookStep: 5 },
   ] : [
     { title: 'Creating L2 Token', description: 'Deploying token on Celo', chain: 'celo', hookStep: 1 },
     { title: 'Minting Initial Supply', description: 'Minting initial tokens to your wallet', chain: 'celo', hookStep: 2 },
@@ -48,10 +52,12 @@ export function DeployingModal({ tokenType, currentStep }: DeployingModalProps) 
         <div className="p-5 flex flex-col gap-5">
           {/* Time estimate */}
           <div className="flex justify-between items-center">
-            <span className="text-gray-500 text-sm">Deploying</span>
+            <span className="text-gray-500 text-sm">
+              {isSwitchingChain ? 'Switching network...' : 'Deploying'}
+            </span>
             <div className="flex items-center gap-1.5 text-gray-500">
               <ClockIcon className="w-4 h-4" />
-              <span className="text-sm">~{isEthereumEnabled ? '4' : '2'} min</span>
+              <span className="text-sm">~{isEthereumEnabled ? '5' : '2'} min</span>
             </div>
           </div>
 

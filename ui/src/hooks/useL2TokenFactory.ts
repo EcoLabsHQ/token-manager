@@ -198,12 +198,7 @@ export const useL2TokenFactory = () => {
         return { success: false, error: msg };
       }
 
-      // Validate chain - must be on Celo Sepolia for L2 tokens
-      if (chainId !== CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId) {
-        const msg = `Please switch to Celo Sepolia network (Chain ID: ${CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId}). You are on chain ${chainId}.`;
-        setError(msg);
-        return { success: false, error: msg };
-      }
+      // Note: Chain validation is handled by useCreateToken which does auto-switch
 
       setIsLoading(true);
       setError(null);
@@ -235,6 +230,7 @@ export const useL2TokenFactory = () => {
             maxSupplyBigInt,
             salt,
           ],
+          chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
         });
 
         // Wait for the write to complete and transaction hash to be available
@@ -257,11 +253,7 @@ export const useL2TokenFactory = () => {
         return { success: false, error: msg };
       }
 
-      if (chainId !== CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId) {
-        const msg = `Please switch to Celo Sepolia network (Chain ID: ${CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId}).`;
-        setMintError(msg);
-        return { success: false, error: msg };
-      }
+      // Note: Chain validation is handled by useCreateToken which does auto-switch
 
       setIsMinting(true);
       setMintError(null);
@@ -282,6 +274,7 @@ export const useL2TokenFactory = () => {
           abi: L2_SUPERCHAIN_TOKEN_ABI,
           functionName: 'mint',
           args: [getAddress(params.to), amountBigInt],
+          chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
         });
 
         return { success: true };

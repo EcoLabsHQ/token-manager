@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Copy, Check, ArrowLeft } from 'lucide-react';
-import { useTokenStorage, type Token } from '../hooks';
+import { Copy, Check, ArrowLeft, Loader2 } from 'lucide-react';
+import { useTokenStorage, useTokenManager, type Token } from '../hooks';
 
 // Chain icons
 const EthereumIcon = () => (
@@ -144,14 +144,15 @@ interface ActionButtonProps {
   onClick: () => void;
   disabled?: boolean;
   variant?: 'primary' | 'danger';
+  loading?: boolean;
 }
 
-const ActionButton = ({ label, onClick, disabled, variant = 'primary' }: ActionButtonProps) => (
+const ActionButton = ({ label, onClick, disabled, variant = 'primary', loading }: ActionButtonProps) => (
   <button
     onClick={onClick}
-    disabled={disabled}
-    className={`h-9 px-3.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer
-      ${disabled
+    disabled={disabled || loading}
+    className={`h-9 px-3.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer flex items-center justify-center gap-2
+      ${disabled || loading
         ? 'bg-black/15 text-white cursor-not-allowed'
         : variant === 'danger'
           ? 'bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]'
@@ -159,6 +160,7 @@ const ActionButton = ({ label, onClick, disabled, variant = 'primary' }: ActionB
       }
       focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2`}
   >
+    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
     {label}
   </button>
 );
@@ -179,13 +181,31 @@ const SectionCard = ({ title, children }: SectionCardProps) => (
 // Transfer Section
 interface TransferSectionProps {
   symbol: string;
+  onTransfer: (to: string, amount: string) => Promise<{ success: boolean; error?: string }>;
+  isLoading: boolean;
 }
 
-const TransferSection = ({ symbol }: TransferSectionProps) => {
+const TransferSection = ({ symbol, onTransfer, isLoading }: TransferSectionProps) => {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   
   const isValid = toAddress.startsWith('0x') && toAddress.length === 42 && parseFloat(amount) > 0;
+
+  const handleTransfer = async () => {
+    setError(null);
+    setSuccess(false);
+    const result = await onTransfer(toAddress, amount);
+    if (result.success) {
+      setSuccess(true);
+      setToAddress('');
+      setAmount('');
+      setTimeout(() => setSuccess(false), 3000);
+    } else {
+      setError(result.error || 'Transfer failed');
+    }
+  };
 
   return (
     <SectionCard title="Transfer">
@@ -204,7 +224,9 @@ const TransferSection = ({ symbol }: TransferSectionProps) => {
           suffix={symbol}
         />
       </div>
-      <ActionButton label="Transfer" onClick={() => {}} disabled={!isValid} />
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-sm">Transfer successful!</p>}
+      <ActionButton label="Transfer" onClick={handleTransfer} disabled={!isValid} loading={isLoading} />
     </SectionCard>
   );
 };
@@ -212,22 +234,47 @@ const TransferSection = ({ symbol }: TransferSectionProps) => {
 // Mint Section
 interface MintSectionProps {
   symbol: string;
+  onMint: (to: string, amount: string) => Promise<{ success: boolean; error?: string }>;
+  isLoading: boolean;
+  isOwner: boolean;
 }
 
-const MintSection = ({ symbol }: MintSectionProps) => {
+const MintSection = ({ symbol, onMint, isLoading, isOwner }: MintSectionProps) => {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   
   const isValid = toAddress.startsWith('0x') && toAddress.length === 42 && parseFloat(amount) > 0;
 
+  const handleMint = async () => {
+    setError(null);
+    setSuccess(false);
+    const result = await onMint(toAddress, amount);
+    if (result.success) {
+      setSuccess(true);
+      setToAddress('');
+      setAmount('');
+      setTimeout(() => setSuccess(false), 3000);
+    } else {
+      setError(result.error || 'Mint failed');
+    }
+  };
+
   return (
     <SectionCard title="Mint">
+      {!isOwner && (
+        <p className="text-amber-600 text-sm bg-amber-50 p-2 rounded-lg">
+          ⚠️ Only the token owner can mint new tokens.
+        </p>
+      )}
       <div className="flex gap-3">
         <InputField
           label="To"
           value={toAddress}
           onChange={setToAddress}
           placeholder="0x..."
+          disabled={!isOwner}
         />
         <InputField
           label="Amount"
@@ -235,9 +282,12 @@ const MintSection = ({ symbol }: MintSectionProps) => {
           onChange={setAmount}
           placeholder="123456"
           suffix={symbol}
+          disabled={!isOwner}
         />
       </div>
-      <ActionButton label="Mint" onClick={() => {}} disabled={!isValid} />
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-sm">Mint successful!</p>}
+      <ActionButton label="Mint" onClick={handleMint} disabled={!isValid || !isOwner} loading={isLoading} />
     </SectionCard>
   );
 };
@@ -245,15 +295,36 @@ const MintSection = ({ symbol }: MintSectionProps) => {
 // Burn Section
 interface BurnSectionProps {
   symbol: string;
+  onBurn: (amount: string) => Promise<{ success: boolean; error?: string }>;
+  isLoading: boolean;
+  userBalance: string;
 }
 
-const BurnSection = ({ symbol }: BurnSectionProps) => {
+const BurnSection = ({ symbol, onBurn, isLoading, userBalance }: BurnSectionProps) => {
   const [amount, setAmount] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   
-  const isValid = parseFloat(amount) > 0;
+  const isValid = parseFloat(amount) > 0 && parseFloat(amount) <= parseFloat(userBalance);
+
+  const handleBurn = async () => {
+    setError(null);
+    setSuccess(false);
+    const result = await onBurn(amount);
+    if (result.success) {
+      setSuccess(true);
+      setAmount('');
+      setTimeout(() => setSuccess(false), 3000);
+    } else {
+      setError(result.error || 'Burn failed');
+    }
+  };
 
   return (
     <SectionCard title="Burn">
+      <p className="text-sm text-gray-600">
+        Your balance: {parseFloat(userBalance).toLocaleString()} {symbol}
+      </p>
       <InputField
         label="Amount"
         value={amount}
@@ -261,7 +332,9 @@ const BurnSection = ({ symbol }: BurnSectionProps) => {
         placeholder="123456"
         suffix={symbol}
       />
-      <ActionButton label="Burn" onClick={() => {}} disabled={!isValid} variant="danger" />
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-sm">Burn successful!</p>}
+      <ActionButton label="Burn" onClick={handleBurn} disabled={!isValid} variant="danger" loading={isLoading} />
     </SectionCard>
   );
 };
@@ -269,41 +342,108 @@ const BurnSection = ({ symbol }: BurnSectionProps) => {
 // Pause Section
 interface PauseSectionProps {
   isPaused: boolean;
-  onToggle: () => void;
+  onPause: () => Promise<{ success: boolean; error?: string }>;
+  onUnpause: () => Promise<{ success: boolean; error?: string }>;
+  isLoading: boolean;
+  isOwner: boolean;
 }
 
-const PauseSection = ({ isPaused, onToggle }: PauseSectionProps) => {
+const PauseSection = ({ isPaused, onPause, onUnpause, isLoading, isOwner }: PauseSectionProps) => {
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleToggle = async () => {
+    setError(null);
+    setSuccess(false);
+    const result = isPaused ? await onUnpause() : await onPause();
+    if (result.success) {
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } else {
+      setError(result.error || 'Operation failed');
+    }
+  };
+
   return (
     <SectionCard title="Pause Contract">
+      {!isOwner && (
+        <p className="text-amber-600 text-sm bg-amber-50 p-2 rounded-lg">
+          ⚠️ Only the token owner can pause/unpause the contract.
+        </p>
+      )}
       <p className="text-sm text-gray-600">
         {isPaused
           ? 'The contract is currently paused. All transfers are disabled.'
           : 'Pause the contract to disable all token transfers.'}
       </p>
+      <div className={`px-3 py-2 rounded-lg text-sm font-medium ${isPaused ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+        Status: {isPaused ? 'Paused' : 'Active'}
+      </div>
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-sm">Operation successful!</p>}
       <ActionButton
         label={isPaused ? 'Unpause' : 'Pause'}
-        onClick={onToggle}
+        onClick={handleToggle}
         variant={isPaused ? 'primary' : 'danger'}
+        disabled={!isOwner}
+        loading={isLoading}
       />
     </SectionCard>
   );
 };
 
 // Transfer Ownership Section
-const TransferOwnershipSection = () => {
+interface TransferOwnershipSectionProps {
+  onTransferOwnership: (newOwner: string) => Promise<{ success: boolean; error?: string }>;
+  isLoading: boolean;
+  isOwner: boolean;
+  currentOwner: string;
+}
+
+const TransferOwnershipSection = ({ onTransferOwnership, isLoading, isOwner, currentOwner }: TransferOwnershipSectionProps) => {
   const [newOwner, setNewOwner] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   
-  const isValid = newOwner.startsWith('0x') && newOwner.length === 42;
+  const isValid = newOwner.startsWith('0x') && newOwner.length === 42 && newOwner.toLowerCase() !== currentOwner.toLowerCase();
+
+  const handleTransfer = async () => {
+    setError(null);
+    setSuccess(false);
+    const result = await onTransferOwnership(newOwner);
+    if (result.success) {
+      setSuccess(true);
+      setNewOwner('');
+      setTimeout(() => setSuccess(false), 3000);
+    } else {
+      setError(result.error || 'Transfer ownership failed');
+    }
+  };
 
   return (
     <SectionCard title="Transfer ownership">
+      {!isOwner && (
+        <p className="text-amber-600 text-sm bg-amber-50 p-2 rounded-lg">
+          ⚠️ Only the current owner can transfer ownership.
+        </p>
+      )}
+      <div className="text-sm text-gray-600">
+        <span className="font-medium">Current owner:</span>{' '}
+        <span className="font-mono text-xs">{currentOwner}</span>
+      </div>
       <InputField
-        label="To"
+        label="New Owner Address"
         value={newOwner}
         onChange={setNewOwner}
         placeholder="0x..."
+        disabled={!isOwner}
       />
-      <ActionButton label="Transfer Ownership" onClick={() => {}} disabled={!isValid} />
+      <p className="text-xs text-gray-500">
+        Note: The new owner will need to call acceptOwnership() to complete the transfer.
+      </p>
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-sm">Ownership transfer initiated!</p>}
+      <ActionButton label="Transfer Ownership" onClick={handleTransfer} disabled={!isValid || !isOwner} loading={isLoading} />
     </SectionCard>
   );
 };
@@ -311,11 +451,15 @@ const TransferOwnershipSection = () => {
 // Token Info Header
 interface TokenInfoHeaderProps {
   token: Token;
+  totalSupply: string;
+  userBalance: string;
+  decimals: number;
 }
 
-const TokenInfoHeader = ({ token }: TokenInfoHeaderProps) => {
-  const fullAddressL1 = token.addressL1?.replace('...', '758Db586E85AC2D007d499610937f25594fa') || '';
-  const fullAddressL2 = token.addressL2?.replace('...', '4r34Db586E85AC2D007d499610937f255943') || '';
+const TokenInfoHeader = ({ token, totalSupply, userBalance, decimals }: TokenInfoHeaderProps) => {
+  const tokenAddress = token.type === 'ethereum-enabled' 
+    ? (token.addressL1 || token.addressL2 || '')
+    : (token.addressL2 || '');
 
   return (
     <div className="bg-white rounded-2xl p-5 flex flex-col gap-5">
@@ -346,15 +490,15 @@ const TokenInfoHeader = ({ token }: TokenInfoHeaderProps) => {
       {/* Token Address */}
       <ReadOnlyField
         label="Token address"
-        value={token.type === 'ethereum-enabled' ? fullAddressL1 : fullAddressL2}
+        value={tokenAddress}
         onCopy={() => {}}
       />
 
       {/* Stats */}
       <div className="flex gap-2.5">
-        <ReadOnlyField label="Decimals" value="18" />
-        <ReadOnlyField label="Total Supply" value={token.maxSupply} />
-        <ReadOnlyField label="My Balance" value="1,000,000" />
+        <ReadOnlyField label="Decimals" value={decimals.toString()} />
+        <ReadOnlyField label="Total Supply" value={parseFloat(totalSupply).toLocaleString()} />
+        <ReadOnlyField label="My Balance" value={parseFloat(userBalance).toLocaleString()} />
       </div>
     </div>
   );
@@ -364,10 +508,24 @@ const TokenInfoHeader = ({ token }: TokenInfoHeaderProps) => {
 interface ContentAreaProps {
   activeSection: MenuSection;
   token: Token;
+  tokenManager: ReturnType<typeof useTokenManager>;
 }
 
-const ContentArea = ({ activeSection, token }: ContentAreaProps) => {
-  const [isPaused, setIsPaused] = useState(false);
+const ContentArea = ({ activeSection, token, tokenManager }: ContentAreaProps) => {
+  const {
+    symbol,
+    isPaused,
+    isOwner,
+    isLoading,
+    userBalance,
+    owner,
+    transfer,
+    mint,
+    burn,
+    pause,
+    unpause,
+    transferOwnership,
+  } = tokenManager;
 
   const renderContent = () => {
     switch (activeSection) {
@@ -375,35 +533,60 @@ const ContentArea = ({ activeSection, token }: ContentAreaProps) => {
         return (
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">General</h3>
-            <TransferSection symbol={token.symbol} />
+            <TransferSection 
+              symbol={symbol || token.symbol} 
+              onTransfer={transfer}
+              isLoading={isLoading}
+            />
           </div>
         );
       case 'mint':
         return (
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">General</h3>
-            <MintSection symbol={token.symbol} />
+            <MintSection 
+              symbol={symbol || token.symbol} 
+              onMint={mint}
+              isLoading={isLoading}
+              isOwner={isOwner}
+            />
           </div>
         );
       case 'burn':
         return (
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">General</h3>
-            <BurnSection symbol={token.symbol} />
+            <BurnSection 
+              symbol={symbol || token.symbol} 
+              onBurn={burn}
+              isLoading={isLoading}
+              userBalance={userBalance}
+            />
           </div>
         );
       case 'pause':
         return (
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">Contract Status</h3>
-            <PauseSection isPaused={isPaused} onToggle={() => setIsPaused(!isPaused)} />
+            <PauseSection 
+              isPaused={isPaused} 
+              onPause={pause}
+              onUnpause={unpause}
+              isLoading={isLoading}
+              isOwner={isOwner}
+            />
           </div>
         );
       case 'admin':
         return (
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">Ownership</h3>
-            <TransferOwnershipSection />
+            <TransferOwnershipSection 
+              onTransferOwnership={transferOwnership}
+              isLoading={isLoading}
+              isOwner={isOwner}
+              currentOwner={owner || ''}
+            />
           </div>
         );
       default:
@@ -429,6 +612,16 @@ export default function TokenManager() {
   const token = tokens.find(
     (t) => t.addressL1 === tokenAddress || t.addressL2 === tokenAddress || t.id === tokenAddress
   );
+
+  // Determine if we're managing L2 token (Celo) or L1 token (Ethereum)
+  const isL2Token = token?.addressL2 === tokenAddress || token?.type === 'celo-native';
+  const contractAddress = isL2Token ? token?.addressL2 : token?.addressL1;
+
+  // Initialize token manager hook
+  const tokenManager = useTokenManager({
+    tokenAddress: contractAddress as `0x${string}` | undefined,
+    isL2Token,
+  });
 
   if (!token) {
     return (
@@ -476,12 +669,17 @@ export default function TokenManager() {
         </button>
 
         {/* Token Info Header */}
-        <TokenInfoHeader token={token} />
+        <TokenInfoHeader 
+          token={token} 
+          totalSupply={tokenManager.totalSupply}
+          userBalance={tokenManager.userBalance}
+          decimals={tokenManager.decimals}
+        />
 
         {/* Main Content */}
         <div className="flex gap-3 mt-3">
           <NavigationMenu activeSection={activeSection} onSectionChange={setActiveSection} />
-          <ContentArea activeSection={activeSection} token={token} />
+          <ContentArea activeSection={activeSection} token={token} tokenManager={tokenManager} />
         </div>
       </div>
     </div>

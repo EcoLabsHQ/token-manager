@@ -98,12 +98,8 @@ export const useHighVelocityTokenDeploy = () => {
         return { success: false, error: msg };
       }
 
-      // Validate chain - must be on Celo Sepolia for HighVelocity tokens
-      if (chainId !== CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId) {
-        const msg = `Please switch to Celo Sepolia network (Chain ID: ${CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId}). You are on chain ${chainId}.`;
-        setError(msg);
-        return { success: false, error: msg };
-      }
+      // Chain switching is handled by useAutoChainSwitch in the parent hook
+      // writeContract will use the explicit chainId parameter
 
       setIsLoading(true);
       setError(null);
@@ -140,6 +136,7 @@ export const useHighVelocityTokenDeploy = () => {
             maxSupplyBigInt,
             salt, // salt for deterministic deployment
           ],
+          chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
         });
 
         return { success: true };
