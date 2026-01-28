@@ -7,6 +7,7 @@ export interface CreateL2TokenParams {
   name: string;
   symbol: string;
   decimals: number;
+  initialSupply: string;
   maxSupply: string;
 }
 
@@ -212,6 +213,7 @@ export const useL2TokenFactory = () => {
       console.log('L2: Current token count before create:', currentCount);
 
       try {
+        const initialSupplyBigInt = parseUnits(params.initialSupply, params.decimals);
         const maxSupplyBigInt = parseUnits(params.maxSupply, params.decimals);
         
         // Generate a unique salt for CREATE2 deployment
@@ -227,6 +229,7 @@ export const useL2TokenFactory = () => {
             params.name,
             params.symbol,
             params.decimals as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18,
+            initialSupplyBigInt,
             maxSupplyBigInt,
             salt,
           ],

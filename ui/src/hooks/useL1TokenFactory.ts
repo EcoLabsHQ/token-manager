@@ -1,12 +1,25 @@
-import { useAccount, useWriteContract, useReadContract, usePublicClient, useWalletClient } from 'wagmi';
+import {
+  useAccount,
+  useWriteContract,
+  useReadContract,
+  usePublicClient,
+  useWalletClient,
+} from 'wagmi';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { parseUnits, getAddress } from 'viem';
-import { CONTRACTS, L1_TOKEN_FACTORY_ABI, L1_TOKEN_ABI } from '@/config/contracts';
+import {
+  CONTRACTS,
+  L1_TOKEN_FACTORY_ABI,
+  L1_TOKEN_ABI,
+} from '@/config/contracts';
+import { celoSepolia } from 'viem/chains';
 
 export interface CreateL1TokenParams {
   name: string;
   symbol: string;
   initialSupply: string;
+  maxSupply: string;
+  decimals: number;
 }
 
 export interface MintL1TokenParams {
@@ -32,14 +45,19 @@ export interface TokenCreationResult {
 
 export const useL1TokenFactory = () => {
   const { address, chainId } = useAccount();
-  const publicClient = usePublicClient({ chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId });
+  const publicClient = usePublicClient({
+    chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
+  });
   const { data: walletClient } = useWalletClient();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [tokenAddress, setTokenAddress] = useState<string | null>(null);
-  const [currentParams, setCurrentParams] = useState<CreateL1TokenParams | null>(null);
-  const [tokenCountBeforeCreate, setTokenCountBeforeCreate] = useState<number | null>(null);
+  const [currentParams, setCurrentParams] =
+    useState<CreateL1TokenParams | null>(null);
+  const [tokenCountBeforeCreate, setTokenCountBeforeCreate] = useState<
+    number | null
+  >(null);
   const isWaitingForReceipt = useRef(false);
 
   // Mint state
@@ -55,8 +73,18 @@ export const useL1TokenFactory = () => {
   const [bridgeTxHash, setBridgeTxHash] = useState<`0x${string}` | null>(null);
   const [bridgeComplete, setBridgeComplete] = useState(false);
 
-  const { writeContract, data: writeData, isPending: isWritePending, error: writeError } = useWriteContract();
-  const { writeContract: writeMintContract, data: mintWriteData, isPending: isMintWritePending, error: mintWriteError } = useWriteContract();
+  const {
+    writeContract,
+    data: writeData,
+    isPending: isWritePending,
+    error: writeError,
+  } = useWriteContract();
+  const {
+    writeContract: writeMintContract,
+    data: mintWriteData,
+    isPending: isMintWritePending,
+    error: mintWriteError,
+  } = useWriteContract();
 
   // Read all tokens from factory
   const { data: allTokens, refetch: refetchTokens } = useReadContract({
@@ -87,7 +115,6 @@ export const useL1TokenFactory = () => {
       setIsMinting(true);
     }
   }, [isMintWritePending]);
-
   // Monitor mint write error
   useEffect(() => {
     if (mintWriteError) {
@@ -100,22 +127,25 @@ export const useL1TokenFactory = () => {
   useEffect(() => {
     if (!mintWriteData || !publicClient) return;
     if (isMintWaitingForReceipt.current) return;
-    
+
     isMintWaitingForReceipt.current = true;
     setMintTxHash(mintWriteData);
 
     const waitForMintReceipt = async () => {
       try {
-        console.log('L1: Waiting for mint transaction receipt...', mintWriteData);
-        
+        console.log(
+          'L1: Waiting for mint transaction receipt...',
+          mintWriteData,
+        );
+
         const receipt = await publicClient.waitForTransactionReceipt({
           hash: mintWriteData,
           confirmations: 1,
           timeout: 120_000,
         });
-        
+
         console.log('L1: Mint transaction confirmed!', receipt);
-        
+
         if (receipt.status === 'reverted') {
           setMintError('Mint transaction reverted');
           setIsMinting(false);
@@ -128,7 +158,11 @@ export const useL1TokenFactory = () => {
         isMintWaitingForReceipt.current = false;
       } catch (err) {
         console.error('L1: Error waiting for mint receipt:', err);
-        setMintError(err instanceof Error ? err.message : 'Failed to confirm mint transaction');
+        setMintError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to confirm mint transaction',
+        );
         setIsMinting(false);
         isMintWaitingForReceipt.current = false;
       }
@@ -139,24 +173,30 @@ export const useL1TokenFactory = () => {
 
   // Wait for transaction receipt using viem's waitForTransactionReceipt
   useEffect(() => {
-    if (!writeData || !publicClient || !currentParams || tokenCountBeforeCreate === null) return;
+    if (
+      !writeData ||
+      !publicClient ||
+      !currentParams ||
+      tokenCountBeforeCreate === null
+    )
+      return;
     if (isWaitingForReceipt.current) return; // Prevent duplicate calls
-    
+
     isWaitingForReceipt.current = true;
     setTxHash(writeData);
 
     const waitForReceipt = async () => {
       try {
         console.log('L1: Waiting for transaction receipt...', writeData);
-        
+
         const receipt = await publicClient.waitForTransactionReceipt({
           hash: writeData,
           confirmations: 1,
           timeout: 120_000, // 2 minute timeout
         });
-        
+
         console.log('L1: Transaction confirmed!', receipt);
-        
+
         if (receipt.status === 'reverted') {
           setError('Transaction reverted');
           setIsLoading(false);
@@ -168,10 +208,10 @@ export const useL1TokenFactory = () => {
         console.log('L1: Transaction confirmed, fetching all tokens...');
         const result = await refetchTokens();
         const tokens = result.data as `0x${string}`[] | undefined;
-        
+
         console.log('L1: All tokens from factory:', tokens);
         console.log('L1: Token count before create:', tokenCountBeforeCreate);
-        
+
         if (tokens && tokens.length > tokenCountBeforeCreate) {
           // Get the last token (the one we just created)
           const newTokenAddress = tokens[tokens.length - 1];
@@ -180,7 +220,7 @@ export const useL1TokenFactory = () => {
         } else {
           console.log('L1: No new token found, retrying...');
           // Retry once more after a delay
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 2000));
           const retryResult = await refetchTokens();
           const retryTokens = retryResult.data as `0x${string}`[] | undefined;
           if (retryTokens && retryTokens.length > tokenCountBeforeCreate) {
@@ -194,14 +234,22 @@ export const useL1TokenFactory = () => {
         isWaitingForReceipt.current = false;
       } catch (err) {
         console.error('L1: Error waiting for receipt:', err);
-        setError(err instanceof Error ? err.message : 'Failed to confirm transaction');
+        setError(
+          err instanceof Error ? err.message : 'Failed to confirm transaction',
+        );
         setIsLoading(false);
         isWaitingForReceipt.current = false;
       }
     };
 
     waitForReceipt();
-  }, [writeData, publicClient, currentParams, tokenCountBeforeCreate, refetchTokens]);
+  }, [
+    writeData,
+    publicClient,
+    currentParams,
+    tokenCountBeforeCreate,
+    refetchTokens,
+  ]);
 
   const createToken = useCallback(
     async (params: CreateL1TokenParams): Promise<TokenCreationResult> => {
@@ -219,15 +267,17 @@ export const useL1TokenFactory = () => {
       setTxHash(null);
       setTokenAddress(null);
       setCurrentParams(params);
-      
+
       // Store current token count before creating
-      const currentCount = (allTokens as `0x${string}`[] | undefined)?.length || 0;
+      const currentCount =
+        (allTokens as `0x${string}`[] | undefined)?.length || 0;
       setTokenCountBeforeCreate(currentCount);
       console.log('L1: Current token count before create:', currentCount);
 
       try {
-        // L1 tokens typically use 18 decimals
-        const initialSupplyBigInt = parseUnits(params.initialSupply, 18);
+        const decimals = params.decimals;
+        const initialSupplyBigInt = parseUnits(params.initialSupply, decimals);
+        const maxSupplyBigInt = parseUnits(params.maxSupply, decimals);
 
         // Send transaction
         writeContract({
@@ -238,6 +288,8 @@ export const useL1TokenFactory = () => {
             params.name,
             params.symbol,
             initialSupplyBigInt,
+            maxSupplyBigInt,
+            decimals,
             getAddress(address),
           ],
           chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
@@ -246,13 +298,14 @@ export const useL1TokenFactory = () => {
         // Wait for the write to complete and transaction hash to be available
         return { success: true };
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to create token';
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to create token';
         setError(errorMessage);
         setIsLoading(false);
         return { success: false, error: errorMessage };
       }
     },
-    [address, chainId, writeContract, allTokens]
+    [address, chainId, writeContract, allTokens],
   );
 
   const mintInitialSupply = useCallback(
@@ -290,13 +343,14 @@ export const useL1TokenFactory = () => {
 
         return { success: true };
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to mint initial supply';
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to mint initial supply';
         setMintError(errorMessage);
         setIsMinting(false);
         return { success: false, error: errorMessage };
       }
     },
-    [address, chainId, writeMintContract]
+    [address, chainId, writeMintContract],
   );
 
   const bridgeToL2 = useCallback(
@@ -328,8 +382,9 @@ export const useL1TokenFactory = () => {
         // Deposit tokens to bridge
         // Use l1StandardBridgeAddress directly without targetChain to avoid type issues
         // The bridge address is from celoSepolia.contracts.l1StandardBridge[11155111]
-        const L1_STANDARD_BRIDGE_ADDRESS = '0xec18a3c30131a0db4246e785355fbc16e2eaf408' as const;
-        
+        const L1_STANDARD_BRIDGE_ADDRESS =
+          celoSepolia.contracts.l1StandardBridge[11155111].address;
+
         const depositTx = await depositERC20(walletClient, {
           tokenAddress: getAddress(params.l1TokenAddress),
           remoteTokenAddress: getAddress(params.l2TokenAddress),
@@ -358,13 +413,14 @@ export const useL1TokenFactory = () => {
         setIsBridging(false);
         return { success: true, txHash: depositTx };
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to bridge tokens';
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to bridge tokens';
         setBridgeError(errorMessage);
         setIsBridging(false);
         return { success: false, error: errorMessage };
       }
     },
-    [address, chainId, walletClient, publicClient]
+    [address, chainId, walletClient, publicClient],
   );
 
   const getMintResult = useCallback((): TokenCreationResult | null => {

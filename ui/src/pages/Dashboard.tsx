@@ -30,7 +30,7 @@ interface AddressWithActionsProps {
 // Explorer URLs
 const EXPLORER_URLS = {
   ethereum: 'https://sepolia.etherscan.io/address/',
-  celo: 'https://celo-sepolia.blockscout.com/address/',
+  celo: 'https://sepolia.celoscan.io/address/',
 };
 
 const AddressWithActions = ({ address, chain, onCopy }: AddressWithActionsProps) => {
@@ -80,8 +80,8 @@ interface TokenTableProps {
 
 const TokenTable = ({ tokens, onManage, isLoading }: TokenTableProps) => {
   const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
+    if (text) navigator.clipboard.writeText(text);
+  }
 
   if (isLoading) {
     return (

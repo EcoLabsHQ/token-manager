@@ -112,8 +112,8 @@ export const useFactoryTokens = () => {
         decimals,
         maxSupply: formatSupply(maxSupply, decimals),
         totalSupply: formatSupply(totalSupply, decimals),
-        addressL1: formatAddress(addr),
-        owner: ownerResult?.status === 'success' ? formatAddress(ownerResult.result as string) : undefined,
+        addressL1: addr,
+        owner: ownerResult?.status === 'success' ? (ownerResult.result as string) : undefined,
         chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
       };
     });
@@ -149,9 +149,9 @@ export const useFactoryTokens = () => {
         decimals,
         maxSupply: formatSupply(maxSupply, decimals),
         totalSupply: formatSupply(totalSupply, decimals),
-        addressL1: hasRemoteToken ? formatAddress(remoteToken!) : undefined,
-        addressL2: formatAddress(addr),
-        owner: ownerResult?.status === 'success' ? formatAddress(ownerResult.result as string) : undefined,
+        addressL1: hasRemoteToken ? remoteToken! : undefined,
+        addressL2: addr,
+        owner: ownerResult?.status === 'success' ? (ownerResult.result as string) : undefined,
         chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
         remoteToken: hasRemoteToken ? remoteToken : undefined,
       };

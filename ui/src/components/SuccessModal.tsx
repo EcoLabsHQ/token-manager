@@ -4,6 +4,10 @@ import { CheckCircleIcon, CopyIcon, ExternalLinkIcon } from './Icons';
 const imgEthereumSmall = "/images/ethereum-small.svg";
 const imgCeloChain = "/images/celo-chain.svg";
 
+// Block explorer URLs
+const SEPOLIA_EXPLORER = 'https://eth-sepolia.blockscout.com';
+const CELO_SEPOLIA_EXPLORER = 'https://celo-sepolia.blockscout.com';
+
 type TokenType = 'celo-native' | 'ethereum-enabled' | null;
 
 interface TokenFormData {
@@ -14,21 +18,38 @@ interface TokenFormData {
   decimals: number;
 }
 
+interface DeploymentResult {
+  l1Address?: string;
+  l2Address: string;
+  txHash?: string;
+}
+
 interface SuccessModalProps {
   formData: TokenFormData;
   tokenType: TokenType;
+  deploymentResult: DeploymentResult | null;
   onOpenDashboard: () => void;
 }
 
-// Mock contract addresses
-const MOCK_L1_ADDRESS = "0x758D...FAB0";
-const MOCK_L2_ADDRESS = "0x5e67...64B8";
+// Helper to truncate address for display
+const truncateAddress = (address: string): string => {
+  if (!address) return '';
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
 
-export function SuccessModal({ formData, tokenType, onOpenDashboard }: SuccessModalProps) {
+export function SuccessModal({ formData, tokenType, deploymentResult, onOpenDashboard }: SuccessModalProps) {
   const isEthereumEnabled = tokenType === 'ethereum-enabled';
+  
+  const l1Address = deploymentResult?.l1Address || '';
+  const l2Address = deploymentResult?.l2Address || '';
   
   const handleCopy = (address: string) => {
     navigator.clipboard.writeText(address);
+  };
+  
+  const openExplorer = (address: string, chain: 'l1' | 'l2') => {
+    const baseUrl = chain === 'l1' ? SEPOLIA_EXPLORER : CELO_SEPOLIA_EXPLORER;
+    window.open(`${baseUrl}/address/${address}`, '_blank');
   };
 
   return (
@@ -51,43 +72,55 @@ export function SuccessModal({ formData, tokenType, onOpenDashboard }: SuccessMo
 
           {/* Contract addresses */}
           <div className="flex flex-col gap-3">
-            {isEthereumEnabled && (
+            {isEthereumEnabled && l1Address && (
               <div className="flex flex-col gap-1.5">
                 <span className="font-semibold text-sm text-black">L1 Token</span>
                 <div className="flex items-center gap-2">
                   <div className="w-5 h-5 rounded-full bg-[#627eea] flex items-center justify-center">
                     <img src={imgEthereumSmall} alt="Ethereum" className="w-3 h-3" />
                   </div>
-                  <span className="text-sm text-black font-mono">{MOCK_L1_ADDRESS}</span>
+                  <span className="text-sm text-black font-mono">{truncateAddress(l1Address)}</span>
                   <button 
-                    onClick={() => handleCopy(MOCK_L1_ADDRESS)}
+                    onClick={() => handleCopy(l1Address)}
                     className="p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer"
+                    title="Copy address"
                   >
                     <CopyIcon className="w-4 h-4 text-gray-400" />
                   </button>
-                  <button className="p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer">
+                  <button 
+                    onClick={() => openExplorer(l1Address, 'l1')}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer"
+                    title="View on Etherscan"
+                  >
                     <ExternalLinkIcon className="w-4 h-4 text-gray-400" />
                   </button>
                 </div>
               </div>
             )}
 
-            <div className="flex flex-col gap-1.5">
-              <span className="font-semibold text-sm text-black">L2 Token</span>
-              <div className="flex items-center gap-2">
-                <img src={imgCeloChain} alt="Celo" className="w-5 h-5 rounded-full" />
-                <span className="text-sm text-black font-mono">{MOCK_L2_ADDRESS}</span>
-                <button 
-                  onClick={() => handleCopy(MOCK_L2_ADDRESS)}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer"
-                >
-                  <CopyIcon className="w-4 h-4 text-gray-400" />
-                </button>
-                <button className="p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer">
-                  <ExternalLinkIcon className="w-4 h-4 text-gray-400" />
-                </button>
+            {l2Address && (
+              <div className="flex flex-col gap-1.5">
+                <span className="font-semibold text-sm text-black">L2 Token</span>
+                <div className="flex items-center gap-2">
+                  <img src={imgCeloChain} alt="Celo" className="w-5 h-5 rounded-full" />
+                  <span className="text-sm text-black font-mono">{truncateAddress(l2Address)}</span>
+                  <button 
+                    onClick={() => handleCopy(l2Address)}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer"
+                    title="Copy address"
+                  >
+                    <CopyIcon className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <button 
+                    onClick={() => openExplorer(l2Address, 'l2')}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer"
+                    title="View on Celo Explorer"
+                  >
+                    <ExternalLinkIcon className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Open Dashboard Button */}

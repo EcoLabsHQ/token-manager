@@ -14,17 +14,16 @@ interface DeployingModalProps {
 
 export function DeployingModal({ tokenType, currentStep, isSwitchingChain }: DeployingModalProps) {
   const isEthereumEnabled = tokenType === 'ethereum-enabled';
-  
+
   // Steps configuration matching the hook logic:
-  // For ethereum-enabled: 
-  //   step 1 = L1 creating, step 2 = L1 minting, step 3 = L2 creating, 
-  //   step 4 = bridge config, step 5 = bridge tokens
-  // For celo-native: step 1 = L2 creating, step 2 = minting
+  // Para ethereum-enabled:
+  //   step 1 = L1 creating, step 2 = L2 creating, step 3 = bridge config, step 4 = approval, step 5 = bridge tokens
+  // Para celo-native: step 1 = L2 creating, step 2 = minting
   const steps = isEthereumEnabled ? [
     { title: 'Creating L1 Token', description: 'Deploying token on Ethereum', chain: 'ethereum', hookStep: 1 },
-    { title: 'Minting L1 Initial Supply', description: 'Minting initial tokens to your wallet on Ethereum', chain: 'ethereum', hookStep: 2 },
-    { title: 'Creating L2 Token', description: 'Deploying Superchain token on Celo', chain: 'celo', hookStep: 3 },
-    { title: 'Configuring Bridge Connection', description: 'Setting up bridge between L1 and L2 tokens', chain: null, hookStep: 4 },
+    { title: 'Creating L2 Token', description: 'Deploying Superchain token on Celo', chain: 'celo', hookStep: 2 },
+    { title: 'Configuring Bridge Connection', description: 'Setting up bridge between L1 and L2 tokens', chain: null, hookStep: 3 },
+    { title: 'Approval', description: 'Approving bridge to spend your tokens', chain: 'ethereum', hookStep: 4 },
     { title: 'Bridge L1 Tokens to L2', description: 'Transferring tokens from Ethereum to Celo', chain: 'ethereum', hookStep: 5 },
   ] : [
     { title: 'Creating L2 Token', description: 'Deploying token on Celo', chain: 'celo', hookStep: 1 },

@@ -1,12 +1,12 @@
 // Factory addresses deployed on different chains
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
-    address: '0x8fd19aeB17b3dbb574ea16AFbe31e678E418E3e2',
+    address: '0x3E12C8100338Fee0D7cb09b439a88E3224b8f703',
     chainId: 11155111, // Sepolia
     name: 'L1TokenFactory',
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
-    address: '0xeC376f97413cA39d2c26c70dCb08A0A54CCC0b9E',
+    address: '0x85858635C2cc9ef156669af68C738490e365Ee70',
     chainId: 11142220, // Celo Sepolia (Alfajores)
     name: 'L2SuperChainTokenFactory',
   },
@@ -21,6 +21,8 @@ export const L1_TOKEN_FACTORY_ABI = [
       { name: 'name_', type: 'string' },
       { name: 'symbol_', type: 'string' },
       { name: 'initialSupply_', type: 'uint256' },
+      { name: 'maxSupply_', type: 'uint256' },
+      { name: 'decimals_', type: 'uint8' },
       { name: 'owner_', type: 'address' },
     ],
     outputs: [{ name: 'tokenAddress', type: 'address' }],
@@ -34,6 +36,8 @@ export const L1_TOKEN_FACTORY_ABI = [
       { name: 'name', type: 'string' },
       { name: 'symbol', type: 'string' },
       { name: 'initialSupply', type: 'uint256' },
+      { name: 'maxSupply', type: 'uint256' },
+      { name: 'decimals', type: 'uint8' },
       { name: 'owner', type: 'address', indexed: true },
     ],
   },
@@ -193,6 +197,7 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
       { name: 'name_', type: 'string' },
       { name: 'symbol_', type: 'string' },
       { name: 'decimals_', type: 'uint8' },
+      { name: 'initialSupply_', type: 'uint256' },
       { name: 'maxSupply_', type: 'uint256' },
       { name: 'salt_', type: 'bytes' },
     ],
@@ -207,6 +212,7 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
       { name: 'name', type: 'string' },
       { name: 'symbol', type: 'string' },
       { name: 'decimals', type: 'uint8' },
+      { name: 'initialSupply', type: 'uint256' },
       { name: 'maxSupply', type: 'uint256' },
       { name: 'owner', type: 'address', indexed: true },
     ],

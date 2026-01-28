@@ -474,6 +474,7 @@ export function CreateTokenPage() {
     goToNextStep,
     goToPreviousStep,
     deployingStep,
+    deploymentResult,
     deployError,
     startDeployment,
     isSwitchingChain,
@@ -545,7 +546,8 @@ export function CreateTokenPage() {
       {step === 'success' && (
         <SuccessModal 
           formData={{ ...formData, initialSupply: formData.initialSupply, maxSupply: formData.maxSupply }} 
-          tokenType={tokenType} 
+          tokenType={tokenType}
+          deploymentResult={deploymentResult}
           onOpenDashboard={handleViewToken} 
         />
       )}
