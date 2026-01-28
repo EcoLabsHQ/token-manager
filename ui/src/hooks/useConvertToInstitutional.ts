@@ -18,6 +18,8 @@ export interface ConvertToInstitutionalParams {
   name: string;
   symbol: string;
   initialSupply: string;
+  maxSupply: string;
+  decimals: number;
   bridgeAddress?: string;
 }
 
@@ -159,7 +161,13 @@ export const useConvertToInstitutional = () => {
         if (isNaN(initialSupplyInt) || initialSupplyInt <= 0) {
           throw new Error('Invalid initial supply');
         }
-        const l1InitialSupplyBigInt = parseUnits(initialSupplyInt.toString(), 18);
+        const l1InitialSupplyBigInt = parseUnits(initialSupplyInt.toString(), params.decimals);
+        
+        const maxSupplyInt = parseInt(params.maxSupply, 10);
+        if (isNaN(maxSupplyInt) || maxSupplyInt <= 0) {
+          throw new Error('Invalid max supply');
+        }
+        const l1MaxSupplyBigInt = parseUnits(maxSupplyInt.toString(), params.decimals);
 
         writeL1Contract({
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
@@ -169,6 +177,8 @@ export const useConvertToInstitutional = () => {
             params.name,
             params.symbol,
             l1InitialSupplyBigInt,
+            l1MaxSupplyBigInt,
+            params.decimals,
             getAddress(address),
           ],
         });

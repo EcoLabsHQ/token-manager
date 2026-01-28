@@ -121,7 +121,7 @@ export const useHighVelocityTokenDeploy = () => {
         const maxSupplyBigInt = parseUnits(maxSupplyInt.toString(), params.decimals);
         
         // Generate a deterministic salt from timestamp (integer only)
-        const salt = toHex(Math.floor(Date.now()));
+        const salt = toHex(BigInt(Math.floor(Date.now())));
 
         // Deploy HighVelocity token (no bridge, no remoteToken)
         writeContract({

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Copy, Check, ArrowLeft, Loader2 } from 'lucide-react';
 import { useTokenStorage, useTokenManager, type Token } from '../hooks';
@@ -619,7 +619,7 @@ export default function TokenManager() {
 
   // Initialize token manager hook
   const tokenManager = useTokenManager({
-    tokenAddress: contractAddress as `0x${string}` | undefined,
+    tokenAddress: contractAddress,
     isL2Token,
   });
 

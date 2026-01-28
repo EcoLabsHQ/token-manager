@@ -189,7 +189,13 @@ export const useInstitutionalTokenDeploy = () => {
         if (isNaN(initialSupplyNum) || initialSupplyNum <= 0) {
           throw new Error('Invalid initial supply value');
         }
-        const l1InitialSupplyBigInt = parseUnits(initialSupplyNum.toString(), 18);
+        const l1InitialSupplyBigInt = parseUnits(initialSupplyNum.toString(), params.decimals);
+        
+        const maxSupplyNum = parseInt(params.maxSupply, 10);
+        if (isNaN(maxSupplyNum) || maxSupplyNum <= 0) {
+          throw new Error('Invalid max supply value');
+        }
+        const l1MaxSupplyBigInt = parseUnits(maxSupplyNum.toString(), params.decimals);
 
         writeL1Contract({
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
@@ -199,6 +205,8 @@ export const useInstitutionalTokenDeploy = () => {
             params.name,
             params.symbol,
             l1InitialSupplyBigInt,
+            l1MaxSupplyBigInt,
+            params.decimals,
             getAddress(address),
           ],
         });
@@ -240,7 +248,7 @@ export const useInstitutionalTokenDeploy = () => {
         
         const maxSupplyBigInt = parseUnits(maxSupplyNum.toString(), currentParams.decimals);
         // Generate salt from integer timestamp only
-        const salt = toHex(Math.floor(Date.now()));
+        const salt = toHex(BigInt(Math.floor(Date.now())));
 
         writeL2Contract({
           address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),

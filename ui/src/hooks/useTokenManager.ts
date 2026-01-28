@@ -1,10 +1,10 @@
 import { useAccount, useWriteContract, useReadContract, usePublicClient, useReadContracts } from 'wagmi';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { parseUnits, formatUnits, getAddress } from 'viem';
-import { CONTRACTS, L1_TOKEN_ABI, L2_SUPERCHAIN_TOKEN_ABI } from '@/config/contracts';
+import { CONTRACTS, L2_SUPERCHAIN_TOKEN_ABI } from '@/config/contracts';
 
 export interface TokenManagerParams {
-  tokenAddress: string;
+  tokenAddress: string | undefined;
   isL2Token: boolean;
 }
 

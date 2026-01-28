@@ -19,8 +19,9 @@ export interface FactoryToken {
   remoteToken?: `0x${string}`;
 }
 
-// Helper to format address for display
-const formatAddress = (address: string): string => {
+// Helper to format address for display (kept for potential future use)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _formatAddress = (address: string): string => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
