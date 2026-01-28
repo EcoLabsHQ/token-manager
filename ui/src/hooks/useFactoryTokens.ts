@@ -19,12 +19,6 @@ export interface FactoryToken {
   remoteToken?: `0x${string}`;
 }
 
-// Helper to format address for display (kept for potential future use)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _formatAddress = (address: string): string => {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-};
-
 // Helper to format supply with commas
 const formatSupply = (supply: bigint, decimals: number): string => {
   const formatted = formatUnits(supply, decimals);

@@ -133,6 +133,7 @@ export const useHighVelocityTokenDeploy = () => {
             params.name,
             params.symbol,
             params.decimals,
+            maxSupplyBigInt, // initialSupply = maxSupply for high velocity tokens
             maxSupplyBigInt,
             salt, // salt for deterministic deployment
           ],

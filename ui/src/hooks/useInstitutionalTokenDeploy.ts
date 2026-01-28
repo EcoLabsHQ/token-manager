@@ -249,6 +249,9 @@ export const useInstitutionalTokenDeploy = () => {
         const maxSupplyBigInt = parseUnits(maxSupplyNum.toString(), currentParams.decimals);
         // Generate salt from integer timestamp only
         const salt = toHex(BigInt(Math.floor(Date.now())));
+        
+        // For L2 in institutional flow, initialSupply = 0 since tokens are minted on L1
+        const zeroSupply = BigInt(0);
 
         writeL2Contract({
           address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
@@ -259,6 +262,7 @@ export const useInstitutionalTokenDeploy = () => {
             currentParams.name,
             currentParams.symbol,
             currentParams.decimals,
+            zeroSupply, // initialSupply = 0 for L2 (tokens come from bridge)
             maxSupplyBigInt,
             salt,
           ],

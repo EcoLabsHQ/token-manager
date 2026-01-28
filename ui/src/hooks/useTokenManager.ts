@@ -59,7 +59,7 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
 
   // Read token data
   const { data: tokenData, refetch: refetchTokenData } = useReadContracts({
-    contracts: [
+    contracts: tokenAddress ? [
       {
         address: getAddress(tokenAddress),
         abi: TOKEN_ABI,
@@ -102,18 +102,21 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
         functionName: 'paused',
         chainId: expectedChainId,
       },
-    ],
+    ] : [],
+    query: {
+      enabled: !!tokenAddress,
+    },
   });
 
   // Read user balance
   const { data: userBalance, refetch: refetchBalance } = useReadContract({
-    address: getAddress(tokenAddress),
+    address: tokenAddress ? getAddress(tokenAddress) : undefined,
     abi: TOKEN_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     chainId: expectedChainId,
     query: {
-      enabled: !!address,
+      enabled: !!address && !!tokenAddress,
     },
   });
 
@@ -137,6 +140,10 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
     ): Promise<TransactionResult> => {
       if (!address) {
         return { success: false, error: 'Wallet not connected' };
+      }
+      
+      if (!tokenAddress) {
+        return { success: false, error: 'Token address not set' };
       }
 
       // Chain switching is handled by the UI - writeContractAsync uses explicit chainId
