@@ -28,6 +28,8 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         string name,
         string symbol,
         uint256 initialSupply,
+        uint256 maxSupply,
+        uint8 decimals,
         address indexed owner
     );
 
@@ -56,9 +58,10 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _owner) public {
+    function initialize(address _owner, address _implementation) public initializer {
         L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
-        $.implementation = address(new L1Token());
+        require(_implementation != address(0), "Implementation cannot be zero address");
+        $.implementation = _implementation;
         __Ownable_init(_owner);
     }
 
@@ -98,7 +101,9 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
      * @dev Creates a new L1Token
      * @param name_ Name of the token
      * @param symbol_ Symbol of the token
-     * @param initialSupply_ Initial supply of the token
+     * @param initialSupply_ Initial supply of the token (minted to owner)
+     * @param maxSupply_ Maximum supply of the token
+     * @param decimals_ Number of decimals for the token
      * @param owner_ Address of the token owner
      * @return tokenAddress The address of the newly created token
      */
@@ -106,17 +111,22 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         string memory name_,
         string memory symbol_,
         uint256 initialSupply_,
+        uint256 maxSupply_,
+        uint8 decimals_,
         address owner_
     ) external returns (address tokenAddress) {
         L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
         require(owner_ != address(0), "Owner cannot be zero address");
-        require(initialSupply_ > 0, "Initial supply must be greater than zero");
+        require(maxSupply_ > 0, "Max supply must be greater than zero");
+        require(initialSupply_ <= maxSupply_, "Initial supply cannot exceed max supply");
 
         bytes memory initData = abi.encodeWithSelector(
             L1Token.initialize.selector,
             name_,
             symbol_,
             initialSupply_,
+            maxSupply_,
+            decimals_,
             owner_
         );
 
@@ -127,7 +137,7 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         $.allTokens.push(newToken);
         $.isTokenFromFactory[newToken] = true;
 
-        emit TokenCreated(newToken, name_, symbol_, initialSupply_, owner_);
+        emit TokenCreated(newToken, name_, symbol_, initialSupply_, maxSupply_, decimals_, owner_);
 
         return newToken;
     }

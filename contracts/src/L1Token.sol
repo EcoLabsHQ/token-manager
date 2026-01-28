@@ -40,6 +40,7 @@ contract L1Token is
 
     struct L1TokenStorage {
         uint256 maxSupply;
+        uint8 decimals;
     }
 
     // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.l1_token_v1")) - 1)) & ~bytes32(uint256(0xff));
@@ -65,9 +66,12 @@ contract L1Token is
         string memory name_,
         string memory symbol_,
         uint256 initialSupply_,
+        uint256 maxSupply_,
+        uint8 decimals_,
         address owner_
     ) public initializer {
         if (owner_ == address(0)) revert ZeroAddress();
+        if (initialSupply_ > maxSupply_) revert ExceedsMaxSupply();
 
         __ERC20_init(name_, symbol_);
         __ERC20Permit_init(name_);
@@ -75,9 +79,14 @@ contract L1Token is
         __Pausable_init();
 
         L1TokenStorage storage $ = _getL1TokenStorage();
-        $.maxSupply = initialSupply_;
+        $.maxSupply = maxSupply_;
+        $.decimals = decimals_;
 
         _transferOwnership(owner_);
+
+        if (initialSupply_ > 0) {
+            _mint(owner_, initialSupply_);
+        }
     }
 
     function _authorizeUpgrade(
@@ -104,6 +113,10 @@ contract L1Token is
 
     function maxSupply() public view returns (uint256) {
         return _getL1TokenStorage().maxSupply;
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _getL1TokenStorage().decimals;
     }
 
     // ============================================

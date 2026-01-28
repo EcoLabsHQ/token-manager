@@ -57,6 +57,7 @@ contract L2SuperChainToken is
         uint256 maxSupply;
         address remoteToken;
         address bridge;
+        uint8 decimals;
     }
 
     // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.l2_superchain_token_v1")) - 1)) & ~bytes32(uint256(0xff));
@@ -82,9 +83,12 @@ contract L2SuperChainToken is
         address owner_,
         string memory name_,
         string memory symbol_,
+        uint8 decimals_,
+        uint256 initialSupply_,
         uint256 maxSupply_
     ) public initializer {
         if (owner_ == address(0)) revert ZeroAddress();
+        if (initialSupply_ > maxSupply_) revert ExceedsMaxSupply();
 
         __ERC20_init(name_, symbol_);
         __ERC20Permit_init(name_);
@@ -95,8 +99,13 @@ contract L2SuperChainToken is
         $.maxSupply = maxSupply_;
         $.remoteToken = address(0);
         $.bridge = address(0);
+        $.decimals = decimals_;
 
         _transferOwnership(owner_);
+
+        if (initialSupply_ > 0) {
+            _mint(owner_, initialSupply_);
+        }
     }
 
     function _authorizeUpgrade(
@@ -117,6 +126,10 @@ contract L2SuperChainToken is
 
     function bridge() public view returns (address) {
         return _getL2SuperChainTokenStorage().bridge;
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _getL2SuperChainTokenStorage().decimals;
     }
 
     // ============================================

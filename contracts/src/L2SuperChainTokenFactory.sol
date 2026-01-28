@@ -26,6 +26,7 @@ contract L2SuperChainTokenFactory is Initializable, UUPSUpgradeable, OwnableUpgr
         string name,
         string symbol,
         uint8 decimals,
+        uint256 initialSupply,
         uint256 maxSupply,
         address indexed owner
     );
@@ -55,9 +56,10 @@ contract L2SuperChainTokenFactory is Initializable, UUPSUpgradeable, OwnableUpgr
         _disableInitializers();
     }
 
-    function initialize(address _owner) public initializer {
+    function initialize(address _owner, address _implementation) public initializer {
         L2SuperChainTokenFactoryStorage storage $ = _getL2SuperChainTokenFactoryStorage();
-        $.implementation = address(new L2SuperChainToken());
+        require(_implementation != address(0), "Implementation cannot be zero address");
+        $.implementation = _implementation;
         __Ownable_init(_owner);
     }
 
@@ -98,7 +100,8 @@ contract L2SuperChainTokenFactory is Initializable, UUPSUpgradeable, OwnableUpgr
      * @param owner_ Address of the token owner
      * @param name_ Name of the token
      * @param symbol_ Symbol of the token
-     * @param decimals_ Number of decimals for the token (unused, kept for interface compatibility)
+     * @param decimals_ Number of decimals for the token
+     * @param initialSupply_ Initial supply of the token (minted to owner)
      * @param maxSupply_ Maximum supply for the token
      * @param salt_ Salt for deterministic deployment
      * @return tokenAddress The address of the newly created token proxy
@@ -108,6 +111,7 @@ contract L2SuperChainTokenFactory is Initializable, UUPSUpgradeable, OwnableUpgr
         string memory name_,
         string memory symbol_,
         uint8 decimals_,
+        uint256 initialSupply_,
         uint256 maxSupply_,
         bytes memory salt_
     ) external returns (address tokenAddress) {
@@ -116,12 +120,15 @@ contract L2SuperChainTokenFactory is Initializable, UUPSUpgradeable, OwnableUpgr
         require(bytes(name_).length > 0, "Name cannot be empty");
         require(bytes(symbol_).length > 0, "Symbol cannot be empty");
         require(maxSupply_ > 0, "Max supply must be greater than zero");
+        require(initialSupply_ <= maxSupply_, "Initial supply cannot exceed max supply");
 
         bytes memory initData = abi.encodeWithSelector(
             L2SuperChainToken.initialize.selector,
             owner_,
             name_,
             symbol_,
+            decimals_,
+            initialSupply_,
             maxSupply_
         );
 
@@ -141,6 +148,7 @@ contract L2SuperChainTokenFactory is Initializable, UUPSUpgradeable, OwnableUpgr
             name_,
             symbol_,
             decimals_,
+            initialSupply_,
             maxSupply_,
             owner_
         );
