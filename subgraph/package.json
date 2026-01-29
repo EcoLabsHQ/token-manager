@@ -1,18 +1,24 @@
 {
-  "name": "minter",
+  "name": "minter-subgraphs",
   "license": "UNLICENSED",
   "scripts": {
+    "prepare:ethereum": "mustache config/ethereum.json subgraph.template.yaml > subgraph.yaml",
+    "prepare:celo": "mustache config/celo.json subgraph.template.yaml > subgraph.yaml",
     "codegen": "graph codegen",
     "build": "graph build",
-    "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ minter",
-    "create-local": "graph create --node http://localhost:8020/ minter",
-    "remove-local": "graph remove --node http://localhost:8020/ minter",
-    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 minter",
+    "build:ethereum": "npm run prepare:ethereum && npm run codegen && npm run build",
+    "build:celo": "npm run prepare:celo && npm run codegen && npm run build",
+    "deploy:ethereum": "npm run build:ethereum && graph deploy minter-ethereum",
+    "deploy:celo": "npm run build:celo && graph deploy minter-celo",
+    "auth": "graph auth",
     "test": "graph test"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.96.0",
     "@graphprotocol/graph-ts": "0.37.0"
   },
-  "devDependencies": { "matchstick-as": "0.6.0" }
+  "devDependencies": {
+    "matchstick-as": "0.6.0",
+    "mustache": "^4.2.0"
+  }
 }

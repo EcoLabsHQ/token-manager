@@ -3,6 +3,7 @@ import { MainLayout } from '../layouts';
 import Dashboard from '@/pages/Dashboard';
 import { CreateTokenPage } from '@/pages/CreateTokenPage';
 import TokenManager from '@/pages/TokenManager';
+import SetupBridge from '@/pages/SetupBridge';
 
 export const router = createBrowserRouter([
   {
@@ -22,6 +23,10 @@ export const router = createBrowserRouter([
       {
         path: 'manage/:tokenAddress',
         element: <TokenManager />,
+      },
+      {
+        path: 'setup-bridge',
+        element: <SetupBridge />,
       },
       {
         path: '*',

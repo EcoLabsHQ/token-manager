@@ -1,8 +1,0 @@
-{
-  "celo-sepolia": {
-    "ERC1967Proxy": {
-      "address": "0x85858635C2cc9ef156669af68C738490e365Ee70",
-      "startBlock": 16286937
-    }
-  }
-}

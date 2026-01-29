@@ -1,0 +1,11 @@
+{
+  "network": "sepolia",
+  "dataSourceName": "L1TokenFactory",
+  "address": "0x3E12C8100338Fee0D7cb09b439a88E3224b8f703",
+  "startBlock": 7500000,
+  "abiName": "L1TokenFactory",
+  "abiFile": "L1TokenFactory.json",
+  "eventSignature": "TokenCreated(indexed address,string,string,uint256,uint256,uint8,indexed address)",
+  "handler": "handleL1TokenCreated",
+  "mappingFile": "l1-token-factory.ts"
+}

@@ -1,7 +1,36 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, ExternalLink, Check, Loader2 } from 'lucide-react';
-import { useFactoryTokens, type FactoryToken } from '../hooks/useFactoryTokens';
+import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { useSubgraphTokens, type TokenPair, type TokenSetupStatus } from '../hooks/useSubgraphTokens';
+
+// Setup status badge component
+const SetupStatusBadge = ({ status }: { status: TokenSetupStatus }) => {
+  if (status === 'complete') return null;
+
+  const config = {
+    'pending-l2': {
+      label: 'Needs L2 Token',
+      bgColor: 'bg-orange-100',
+      textColor: 'text-orange-700',
+      borderColor: 'border-orange-200',
+    },
+    'pending-bridge': {
+      label: 'Needs Bridge Setup',
+      bgColor: 'bg-yellow-100',
+      textColor: 'text-yellow-700',
+      borderColor: 'border-yellow-200',
+    },
+  };
+
+  const { label, bgColor, textColor, borderColor } = config[status];
+
+  return (
+    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${bgColor} ${textColor} border ${borderColor}`}>
+      <AlertCircle className="w-3 h-3" />
+      <span className="text-xs font-medium">{label}</span>
+    </div>
+  );
+};
 
 // Chain icons
 const EthereumIcon = () => (
@@ -73,12 +102,14 @@ const AddressWithActions = ({ address, chain, onCopy }: AddressWithActionsProps)
 };
 
 interface TokenTableProps {
-  tokens: FactoryToken[];
-  onManage: (token: FactoryToken) => void;
+  tokens: TokenPair[];
+  onManage: (token: TokenPair) => void;
+  onCompleteSetup: (token: TokenPair) => void;
   isLoading?: boolean;
+  onRefresh?: () => void;
 }
 
-const TokenTable = ({ tokens, onManage, isLoading }: TokenTableProps) => {
+const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _onRefresh }: TokenTableProps) => {
   const handleCopy = (text: string) => {
     if (text) navigator.clipboard.writeText(text);
   }
@@ -89,7 +120,7 @@ const TokenTable = ({ tokens, onManage, isLoading }: TokenTableProps) => {
         <div className="bg-white flex items-center justify-center h-40">
           <div className="flex flex-col items-center gap-3 animate-fade-in">
             <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-            <p className="text-gray-500 text-sm font-medium">Loading tokens from contracts...</p>
+            <p className="text-gray-500 text-sm font-medium">Loading tokens from subgraph...</p>
           </div>
         </div>
       </div>
@@ -110,23 +141,30 @@ const TokenTable = ({ tokens, onManage, isLoading }: TokenTableProps) => {
       </div>
 
       {/* Table Body */}
-      {tokens.map((token, index) => (
+      {tokens.map((token, index) => {
+        const isIncomplete = token.setupStatus !== 'complete';
+        
+        return (
         <div
           key={token.id}
-          className="bg-white flex items-center h-13 px-3 border-b border-gray-100 last:border-b-0 
+          className={`bg-white flex items-center h-13 px-3 border-b border-gray-100 last:border-b-0 
                      transition-all duration-200 ease-out
                      hover:bg-linear-to-r hover:from-gray-50 hover:to-white
                      hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]
-                     group cursor-default"
+                     group cursor-default
+                     ${isIncomplete ? 'bg-amber-50/50' : ''}`}
           style={{
             animationDelay: `${index * 50}ms`,
           }}
         >
-          {/* Name */}
+          {/* Name with Status Badge */}
           <div className="w-44">
-            <span className="text-sm text-black font-medium transition-colors duration-200 group-hover:text-gray-900">
-              {token.name}
-            </span>
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-black font-medium transition-colors duration-200 group-hover:text-gray-900">
+                {token.name}
+              </span>
+              <SetupStatusBadge status={token.setupStatus} />
+            </div>
           </div>
 
           {/* Ticker */}
@@ -157,7 +195,7 @@ const TokenTable = ({ tokens, onManage, isLoading }: TokenTableProps) => {
 
           {/* Max Supply */}
           <div className="flex-1">
-            <span className="text-sm text-black font-normal tabular-nums">{token.maxSupply}</span>
+            <span className="text-sm text-black font-normal tabular-nums">{token.maxSupplyFormatted}</span>
           </div>
 
           {/* Address L1 */}
@@ -188,19 +226,33 @@ const TokenTable = ({ tokens, onManage, isLoading }: TokenTableProps) => {
 
           {/* Action */}
           <div className="w-20">
-            <button
-              onClick={() => onManage(token)}
-              className="bg-black text-white text-sm font-medium h-7 px-2.5 rounded-lg 
-                         transition-colors duration-150 cursor-pointer
-                         hover:bg-gray-800
-                         active:scale-[0.98]
-                         focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-            >
-              Manage
-            </button>
+            {isIncomplete ? (
+              <button
+                onClick={() => onCompleteSetup(token)}
+                className="bg-orange-500 text-white text-sm font-medium h-7 px-2 rounded-lg 
+                           transition-colors duration-150 cursor-pointer whitespace-nowrap
+                           hover:bg-orange-600
+                           active:scale-[0.98]
+                           focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2"
+              >
+                Setup
+              </button>
+            ) : (
+              <button
+                onClick={() => onManage(token)}
+                className="bg-black text-white text-sm font-medium h-7 px-2.5 rounded-lg 
+                           transition-colors duration-150 cursor-pointer
+                           hover:bg-gray-800
+                           active:scale-[0.98]
+                           focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+              >
+                Manage
+              </button>
+            )}
           </div>
         </div>
-      ))}
+        );
+      })}
 
       {/* Empty state */}
       {tokens.length === 0 && (
@@ -237,11 +289,22 @@ const TokenTable = ({ tokens, onManage, isLoading }: TokenTableProps) => {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { tokens, isLoading, l1TokenCount, l2TokenCount } = useFactoryTokens();
+  const { tokens, isLoading, l1TokenCount, l2TokenCount, refetch } = useSubgraphTokens();
 
-  const handleManage = (token: FactoryToken) => {
+  const handleManage = (token: TokenPair) => {
     // Navigate to token manager using token address as the identifier
     navigate(`/manage/${token.address}`);
+  };
+
+  const handleCompleteSetup = (token: TokenPair) => {
+    // Navigate to setup completion flow with the token info
+    if (token.setupStatus === 'pending-l2') {
+      // Need to create L2 token - go to create with L1 token pre-filled
+      navigate(`/create?step=l2&l1Token=${token.addressL1}`);
+    } else if (token.setupStatus === 'pending-bridge') {
+      // Need to set bridge - go to bridge setup
+      navigate(`/setup-bridge?l1Token=${token.addressL1}&l2Token=${token.addressL2}`);
+    }
   };
 
   const handleCreateToken = () => {
@@ -269,45 +332,60 @@ export default function Dashboard() {
               </span>
             )}
           </div>
-          <button
-            onClick={handleCreateToken}
-            className="bg-black text-white text-sm font-medium h-9 px-4 rounded-lg 
-                       flex items-center gap-2 cursor-pointer
-                       transition-all duration-150
-                       hover:bg-gray-800
-                       active:scale-[0.98]
-                       focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2
-                       group"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="transition-transform duration-150"
+          <div className="flex items-center gap-2">
+            <button
+              onClick={refetch}
+              disabled={isLoading}
+              className="text-gray-500 text-sm font-medium h-9 px-3 rounded-lg 
+                         flex items-center gap-2 cursor-pointer
+                         transition-all duration-150
+                         hover:bg-gray-100 hover:text-gray-700
+                         disabled:opacity-50 disabled:cursor-not-allowed
+                         focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+              title="Refresh tokens"
             >
-              <path
-                d="M8 3.33334V12.6667"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M3.33334 8H12.6667"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>Create Token</span>
-          </button>
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={handleCreateToken}
+              className="bg-black text-white text-sm font-medium h-9 px-4 rounded-lg 
+                         flex items-center gap-2 cursor-pointer
+                         transition-all duration-150
+                         hover:bg-gray-800
+                         active:scale-[0.98]
+                         focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2
+                         group"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="transition-transform duration-150"
+              >
+                <path
+                  d="M8 3.33334V12.6667"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M3.33334 8H12.6667"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span>Create Token</span>
+            </button>
+          </div>
         </div>
 
         {/* Token Table */}
-        <TokenTable tokens={tokens} onManage={handleManage} isLoading={isLoading} />
+        <TokenTable tokens={tokens} onManage={handleManage} onCompleteSetup={handleCompleteSetup} isLoading={isLoading} onRefresh={refetch} />
       </div>
     </div>
   );

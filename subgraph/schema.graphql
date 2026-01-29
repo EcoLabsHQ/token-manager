@@ -1,5 +1,47 @@
-type ExampleEntity @entity {
+# Token Factory entity - tracks both L1 and L2 factories
+type TokenFactory @entity {
+  id: Bytes! # Factory address
+  chain: String! # "ethereum" or "celo"
+  tokenCount: BigInt!
+  tokens: [Token!]! @derivedFrom(field: "factory")
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+# Token entity - represents tokens created by factories
+type Token @entity {
+  id: Bytes! # Token address
+  factory: TokenFactory!
+  tokenAddress: Bytes!
+  name: String!
+  symbol: String!
+  decimals: Int!
+  initialSupply: BigInt!
+  maxSupply: BigInt!
+  owner: Bytes!
+  chain: String! # "ethereum" or "celo"
+  # For L2 tokens that have a remote L1 token
+  remoteToken: Bytes
+  # Bridge configuration
+  bridge: Bytes
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  createdTxHash: Bytes!
+}
+
+# TokenCreated event entity for historical tracking
+type TokenCreatedEvent @entity(immutable: true) {
   id: Bytes!
-  count: BigInt!
-  implementation: Bytes! # address
+  factory: Bytes!
+  tokenAddress: Bytes!
+  name: String!
+  symbol: String!
+  decimals: Int!
+  initialSupply: BigInt!
+  maxSupply: BigInt!
+  owner: Bytes!
+  chain: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
 }

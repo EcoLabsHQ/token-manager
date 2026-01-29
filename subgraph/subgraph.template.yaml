@@ -5,12 +5,12 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum
-    name: L2SuperChainTokenFactory
-    network: celo-sepolia
+    name: {{dataSourceName}}
+    network: {{network}}
     source:
-      address: "0x85858635C2cc9ef156669af68C738490e365Ee70"
-      abi: L2SuperChainTokenFactory
-      startBlock: 16286937
+      address: "{{address}}"
+      abi: {{abiName}}
+      startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -20,19 +20,20 @@ dataSources:
         - Token
         - TokenCreatedEvent
       abis:
-        - name: L2SuperChainTokenFactory
-          file: ./abis/L2SuperChainTokenFactory.json
+        - name: {{abiName}}
+          file: ./abis/{{abiFile}}
         - name: L2SuperChainToken
           file: ./abis/L2SuperChainToken.json
       eventHandlers:
-        - event: TokenCreated(indexed address,string,string,uint8,uint256,uint256,indexed address)
-          handler: handleL2TokenCreated
-      file: ./src/l2-token-factory.ts
+        - event: {{eventSignature}}
+          handler: {{handler}}
+      file: ./src/{{mappingFile}}
 
+{{#hasTokenTemplate}}
 templates:
   - kind: ethereum
     name: L2SuperChainToken
-    network: celo-sepolia
+    network: {{network}}
     source:
       abi: L2SuperChainToken
     mapping:
@@ -50,3 +51,4 @@ templates:
         - event: BridgeUpdated(indexed address)
           handler: handleBridgeUpdated
       file: ./src/l2-token.ts
+{{/hasTokenTemplate}}
