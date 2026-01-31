@@ -79,16 +79,34 @@ contract L2SuperChainToken is
         _disableInitializers();
     }
 
+    /**
+     * @dev Initializes the token
+     * @param owner_ Address of the token owner
+     * @param name_ Name of the token
+     * @param symbol_ Symbol of the token
+     * @param decimals_ Number of decimals
+     * @param initialSupply_ Initial supply to mint to owner
+     * @param maxSupply_ Maximum supply
+     * @param bridge_ Address of the bridge contract (optional, use address(0) if not applicable)
+     * @param remoteToken_ Address of the remote token on L1 (optional, use address(0) if not applicable)
+     */
     function initialize(
         address owner_,
         string memory name_,
         string memory symbol_,
         uint8 decimals_,
         uint256 initialSupply_,
-        uint256 maxSupply_
+        uint256 maxSupply_,
+        address bridge_,
+        address remoteToken_
     ) public initializer {
         if (owner_ == address(0)) revert ZeroAddress();
         if (initialSupply_ > maxSupply_) revert ExceedsMaxSupply();
+        // bridge_ and remoteToken_ can be address(0) for Celo-native tokens
+        // They must both be set or both be zero
+        if ((bridge_ == address(0)) || (remoteToken_ == address(0))) {
+            revert ZeroAddress(); // Both must be set or both must be zero
+        }
 
         __ERC20_init(name_, symbol_);
         __ERC20Permit_init(name_);
@@ -97,14 +115,21 @@ contract L2SuperChainToken is
 
         L2SuperChainTokenStorage storage $ = _getL2SuperChainTokenStorage();
         $.maxSupply = maxSupply_;
-        $.remoteToken = address(0);
-        $.bridge = address(0);
+        $.remoteToken = remoteToken_;
+        $.bridge = bridge_;
         $.decimals = decimals_;
 
         _transferOwnership(owner_);
 
         if (initialSupply_ > 0) {
             _mint(owner_, initialSupply_);
+        }
+
+        if (bridge_ != address(0)) {
+            emit BridgeUpdated(bridge_);
+        }
+        if (remoteToken_ != address(0)) {
+            emit RemoteTokenUpdated(remoteToken_);
         }
     }
 

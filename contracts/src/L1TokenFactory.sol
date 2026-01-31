@@ -9,19 +9,21 @@ import {
 import {
     Initializable
 } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-
 import {
     UUPSUpgradeable
 } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @title L1TokenFactory
  * @dev Factory contract to create instances of L1Token on Ethereum L1
  */
-contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @dev Event emitted when a new L1Token is created
     event TokenCreated(
         address indexed tokenAddress,
@@ -33,10 +35,17 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         address indexed owner
     );
 
+    /// @dev Event emitted when the creation fee is updated
+    event CreationFeeUpdated(uint256 newFee);
+    /// @dev Event emitted when the fee recipient is updated
+    event FeeRecipientUpdated(address indexed newRecipient);
+
     struct L1TokenFactoryStorage {
         address[] allTokens;
         mapping(address => bool) isTokenFromFactory;
         address implementation;
+        uint256 creationFee;
+        address feeRecipient;
     }
 
     function _getL1TokenFactoryStorage()
@@ -62,7 +71,10 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
         require(_implementation != address(0), "Implementation cannot be zero address");
         $.implementation = _implementation;
+        $.creationFee = 0;
+        $.feeRecipient = _owner;
         __Ownable_init(_owner);
+        __ReentrancyGuard_init();
     }
 
     function _authorizeUpgrade(
@@ -75,6 +87,14 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     function implementation() external view returns (address) {
         return _getL1TokenFactoryStorage().implementation;
+    }
+
+    function creationFee() external view returns (uint256) {
+        return _getL1TokenFactoryStorage().creationFee;
+    }
+
+    function feeRecipient() external view returns (address) {
+        return _getL1TokenFactoryStorage().feeRecipient;
     }
 
     function allTokens(uint256 index) external view returns (address) {
@@ -98,6 +118,27 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     }
 
     /**
+     * @dev Sets the creation fee
+     * @param _fee The new creation fee in wei
+     */
+    function setCreationFee(uint256 _fee) external onlyOwner {
+        L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
+        $.creationFee = _fee;
+        emit CreationFeeUpdated(_fee);
+    }
+
+    /**
+     * @dev Sets the fee recipient address
+     * @param _recipient The new fee recipient address
+     */
+    function setFeeRecipient(address _recipient) external onlyOwner {
+        require(_recipient != address(0), "Recipient cannot be zero address");
+        L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
+        $.feeRecipient = _recipient;
+        emit FeeRecipientUpdated(_recipient);
+    }
+
+    /**
      * @dev Creates a new L1Token
      * @param name_ Name of the token
      * @param symbol_ Symbol of the token
@@ -114,12 +155,21 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         uint256 maxSupply_,
         uint8 decimals_,
         address owner_
-    ) external returns (address tokenAddress) {
+    ) external payable nonReentrant returns (address tokenAddress) {
         L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
+        
+        // Checks
         require(owner_ != address(0), "Owner cannot be zero address");
         require(maxSupply_ > 0, "Max supply must be greater than zero");
         require(initialSupply_ <= maxSupply_, "Initial supply cannot exceed max supply");
+        require(msg.value >= $.creationFee, "Insufficient fee");
 
+        // Cache fee values before state changes
+        uint256 feeAmount = $.creationFee;
+        address recipient = $.feeRecipient;
+        uint256 refundAmount = msg.value - feeAmount;
+
+        // Effects - Create token and update state first
         bytes memory initData = abi.encodeWithSelector(
             L1Token.initialize.selector,
             name_,
@@ -138,6 +188,17 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         $.isTokenFromFactory[newToken] = true;
 
         emit TokenCreated(newToken, name_, symbol_, initialSupply_, maxSupply_, decimals_, owner_);
+
+        // Interactions - External calls last (CEI pattern)
+        if (feeAmount > 0 && recipient != address(0)) {
+            (bool success, ) = recipient.call{value: feeAmount}("");
+            require(success, "Fee transfer failed");
+        }
+
+        if (refundAmount > 0) {
+            (bool refundSuccess, ) = msg.sender.call{value: refundAmount}("");
+            require(refundSuccess, "Refund failed");
+        }
 
         return newToken;
     }
