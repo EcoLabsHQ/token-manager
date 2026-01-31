@@ -1,23 +1,19 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Copy, Check, ArrowLeft, Loader2 } from 'lucide-react';
-import { useTokenStorage, useTokenManager, type Token } from '../hooks';
+import { useTokenManager } from '../hooks';
+import { formatNumberWithCommas, parseFormattedNumber, formatDisplayNumber } from '../lib/utils';
 
-// Chain icons
+// Chain icons using PNG images
 const EthereumIcon = () => (
-  <div className="w-7 h-7 rounded-lg bg-[#627eea] flex items-center justify-center border-[1.5px] border-white shadow-sm">
-    <svg width="12" height="18" viewBox="0 0 8 13" fill="none">
-      <path d="M4 0L0 6.5L4 8.5L8 6.5L4 0Z" fill="white" fillOpacity="0.6" />
-      <path d="M4 9.5L0 7.5L4 13L8 7.5L4 9.5Z" fill="white" />
-    </svg>
+  <div className="w-7 h-7 rounded-lg overflow-hidden border-[1.5px] border-white shadow-sm">
+    <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
   </div>
 );
 
 const CeloIcon = () => (
-  <div className="w-7 h-7 rounded-lg bg-[#fcff52] flex items-center justify-center border-[1.5px] border-white shadow-sm">
-    <svg width="14" height="14" viewBox="0 0 10 10" fill="none">
-      <circle cx="5" cy="5" r="4" stroke="#1a1a1a" strokeWidth="1.5" fill="none" />
-    </svg>
+  <div className="w-7 h-7 rounded-lg overflow-hidden border-[1.5px] border-white shadow-sm">
+    <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
   </div>
 );
 
@@ -38,14 +34,14 @@ const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMenuProps)
   ];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 w-56 flex flex-col gap-5">
-      <h3 className="text-base font-semibold text-black tracking-tight">Navigate</h3>
-      <div className="flex flex-col gap-1">
+    <>
+      {/* Mobile horizontal menu */}
+      <div className="bg-white border border-gray-200 rounded-xl p-2 flex gap-1 overflow-x-auto md:hidden">
         {menuItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onSectionChange(item.id)}
-            className={`h-9 px-3.5 rounded-lg text-sm font-medium text-left transition-all duration-150 cursor-pointer
+            className={`h-8 px-3 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 cursor-pointer flex-shrink-0
               ${activeSection === item.id
                 ? 'bg-gray-100 text-black'
                 : 'text-black hover:bg-gray-50'
@@ -54,19 +50,49 @@ const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMenuProps)
             {item.label}
           </button>
         ))}
-        <div className="h-px bg-gray-200 my-2" />
         <button
           onClick={() => onSectionChange('admin')}
-          className={`h-9 px-3.5 rounded-lg text-sm font-medium text-left transition-all duration-150 cursor-pointer
+          className={`h-8 px-3 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 cursor-pointer flex-shrink-0
             ${activeSection === 'admin'
               ? 'bg-gray-100 text-black'
               : 'text-black hover:bg-gray-50'
             }`}
         >
-          Admin / Ownership
+          Admin
         </button>
       </div>
-    </div>
+      
+      {/* Desktop vertical menu */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 w-56 hidden md:flex flex-col gap-5 flex-shrink-0">
+        <h3 className="text-base font-semibold text-black tracking-tight">Navigate</h3>
+        <div className="flex flex-col gap-1">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => onSectionChange(item.id)}
+              className={`h-9 px-3.5 rounded-lg text-sm font-medium text-left transition-all duration-150 cursor-pointer
+                ${activeSection === item.id
+                  ? 'bg-gray-100 text-black'
+                  : 'text-black hover:bg-gray-50'
+                }`}
+            >
+              {item.label}
+            </button>
+          ))}
+          <div className="h-px bg-gray-200 my-2" />
+          <button
+            onClick={() => onSectionChange('admin')}
+            className={`h-9 px-3.5 rounded-lg text-sm font-medium text-left transition-all duration-150 cursor-pointer
+              ${activeSection === 'admin'
+                ? 'bg-gray-100 text-black'
+                : 'text-black hover:bg-gray-50'
+              }`}
+          >
+            Admin / Ownership
+          </button>
+        </div>
+      </div>
+    </>
   );
 };
 
@@ -79,25 +105,41 @@ interface InputFieldProps {
   suffix?: string;
   disabled?: boolean;
   readOnly?: boolean;
+  formatNumber?: boolean;
 }
 
-const InputField = ({ label, value, onChange, placeholder, suffix, disabled, readOnly }: InputFieldProps) => (
-  <div className="flex flex-col gap-1.5 flex-1">
-    <label className="text-sm text-gray-500 leading-relaxed">{label}</label>
-    <div className={`border border-gray-300 rounded-md flex items-center px-2.5 py-2 ${disabled ? 'bg-gray-50' : 'bg-white'}`}>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        readOnly={readOnly}
-        className="flex-1 text-sm text-black outline-none bg-transparent placeholder:text-gray-400"
-      />
-      {suffix && <span className="text-sm text-black ml-2">{suffix}</span>}
+const InputField = ({ label, value, onChange, placeholder, suffix, disabled, readOnly, formatNumber }: InputFieldProps) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (formatNumber) {
+      const rawValue = parseFormattedNumber(e.target.value);
+      // Only allow numeric input
+      if (rawValue && !/^\d*\.?\d*$/.test(rawValue)) return;
+      onChange(rawValue);
+    } else {
+      onChange(e.target.value);
+    }
+  };
+
+  const displayValue = formatNumber ? formatNumberWithCommas(value) : value;
+
+  return (
+    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+      <label className="text-xs sm:text-sm text-gray-500 leading-relaxed">{label}</label>
+      <div className={`border border-gray-300 rounded-md flex items-center px-2 sm:px-2.5 py-1.5 sm:py-2 ${disabled ? 'bg-gray-50' : 'bg-white'}`}>
+        <input
+          type="text"
+          value={displayValue}
+          onChange={handleChange}
+          placeholder={placeholder}
+          disabled={disabled}
+          readOnly={readOnly}
+          className="flex-1 text-xs sm:text-sm text-black outline-none bg-transparent placeholder:text-gray-400 min-w-0"
+        />
+        {suffix && <span className="text-xs sm:text-sm text-black ml-2 flex-shrink-0">{suffix}</span>}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Read-only Field Component
 interface ReadOnlyFieldProps {
@@ -117,19 +159,19 @@ const ReadOnlyField = ({ label, value, onCopy }: ReadOnlyFieldProps) => {
   };
 
   return (
-    <div className="flex flex-col gap-1 flex-1">
-      <label className="text-sm text-gray-500 leading-relaxed">{label}</label>
-      <div className="border border-gray-300 rounded-md flex items-center px-2.5 py-2 bg-white">
-        <span className="flex-1 text-sm text-black font-mono truncate">{value}</span>
+    <div className="flex flex-col gap-1 flex-1 min-w-0">
+      <label className="text-xs sm:text-sm text-gray-500 leading-relaxed">{label}</label>
+      <div className="border border-gray-300 rounded-md flex items-center px-2 sm:px-2.5 py-1.5 sm:py-2 bg-white">
+        <span className="flex-1 text-xs sm:text-sm text-black font-mono truncate">{value}</span>
         {onCopy && (
           <button
             onClick={handleCopy}
-            className="p-1 rounded transition-colors hover:bg-gray-100 cursor-pointer"
+            className="p-1 rounded transition-colors hover:bg-gray-100 cursor-pointer flex-shrink-0"
           >
             {copied ? (
-              <Check className="w-4 h-4 text-green-500" />
+              <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />
             ) : (
-              <Copy className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+              <Copy className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 hover:text-gray-600" />
             )}
           </button>
         )}
@@ -151,7 +193,7 @@ const ActionButton = ({ label, onClick, disabled, variant = 'primary', loading }
   <button
     onClick={onClick}
     disabled={disabled || loading}
-    className={`h-9 px-3.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer flex items-center justify-center gap-2
+    className={`h-8 sm:h-9 px-3 sm:px-3.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-150 cursor-pointer flex items-center justify-center gap-2
       ${disabled || loading
         ? 'bg-black/15 text-white cursor-not-allowed'
         : variant === 'danger'
@@ -160,7 +202,7 @@ const ActionButton = ({ label, onClick, disabled, variant = 'primary', loading }
       }
       focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2`}
   >
-    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+    {loading && <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />}
     {label}
   </button>
 );
@@ -172,8 +214,8 @@ interface SectionCardProps {
 }
 
 const SectionCard = ({ title, children }: SectionCardProps) => (
-  <div className="border border-gray-200 rounded-2xl p-5 flex flex-col gap-4">
-    <h4 className="text-sm font-semibold text-black tracking-tight">{title}</h4>
+  <div className="border border-gray-200 rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-4">
+    <h4 className="text-xs sm:text-sm font-semibold text-black tracking-tight">{title}</h4>
     {children}
   </div>
 );
@@ -209,7 +251,7 @@ const TransferSection = ({ symbol, onTransfer, isLoading }: TransferSectionProps
 
   return (
     <SectionCard title="Transfer">
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <InputField
           label="To"
           value={toAddress}
@@ -220,12 +262,13 @@ const TransferSection = ({ symbol, onTransfer, isLoading }: TransferSectionProps
           label="Amount"
           value={amount}
           onChange={setAmount}
-          placeholder="123456"
+          placeholder="1,000,000"
           suffix={symbol}
+          formatNumber
         />
       </div>
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-      {success && <p className="text-green-500 text-sm">Transfer successful!</p>}
+      {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-xs sm:text-sm">Transfer successful!</p>}
       <ActionButton label="Transfer" onClick={handleTransfer} disabled={!isValid} loading={isLoading} />
     </SectionCard>
   );
@@ -264,11 +307,11 @@ const MintSection = ({ symbol, onMint, isLoading, isOwner }: MintSectionProps) =
   return (
     <SectionCard title="Mint">
       {!isOwner && (
-        <p className="text-amber-600 text-sm bg-amber-50 p-2 rounded-lg">
+        <p className="text-amber-600 text-xs sm:text-sm bg-amber-50 p-2 rounded-lg">
           ⚠️ Only the token owner can mint new tokens.
         </p>
       )}
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <InputField
           label="To"
           value={toAddress}
@@ -280,13 +323,14 @@ const MintSection = ({ symbol, onMint, isLoading, isOwner }: MintSectionProps) =
           label="Amount"
           value={amount}
           onChange={setAmount}
-          placeholder="123456"
+          placeholder="1,000,000"
           suffix={symbol}
           disabled={!isOwner}
+          formatNumber
         />
       </div>
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-      {success && <p className="text-green-500 text-sm">Mint successful!</p>}
+      {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-xs sm:text-sm">Mint successful!</p>}
       <ActionButton label="Mint" onClick={handleMint} disabled={!isValid || !isOwner} loading={isLoading} />
     </SectionCard>
   );
@@ -322,18 +366,19 @@ const BurnSection = ({ symbol, onBurn, isLoading, userBalance }: BurnSectionProp
 
   return (
     <SectionCard title="Burn">
-      <p className="text-sm text-gray-600">
-        Your balance: {parseFloat(userBalance).toLocaleString()} {symbol}
+      <p className="text-xs sm:text-sm text-gray-600">
+        Your balance: {formatDisplayNumber(userBalance)} {symbol}
       </p>
       <InputField
         label="Amount"
         value={amount}
         onChange={setAmount}
-        placeholder="123456"
+        placeholder="1,000,000"
         suffix={symbol}
+        formatNumber
       />
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-      {success && <p className="text-green-500 text-sm">Burn successful!</p>}
+      {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-xs sm:text-sm">Burn successful!</p>}
       <ActionButton label="Burn" onClick={handleBurn} disabled={!isValid} variant="danger" loading={isLoading} />
     </SectionCard>
   );
@@ -367,20 +412,20 @@ const PauseSection = ({ isPaused, onPause, onUnpause, isLoading, isOwner }: Paus
   return (
     <SectionCard title="Pause Contract">
       {!isOwner && (
-        <p className="text-amber-600 text-sm bg-amber-50 p-2 rounded-lg">
+        <p className="text-amber-600 text-xs sm:text-sm bg-amber-50 p-2 rounded-lg">
           ⚠️ Only the token owner can pause/unpause the contract.
         </p>
       )}
-      <p className="text-sm text-gray-600">
+      <p className="text-xs sm:text-sm text-gray-600">
         {isPaused
           ? 'The contract is currently paused. All transfers are disabled.'
           : 'Pause the contract to disable all token transfers.'}
       </p>
-      <div className={`px-3 py-2 rounded-lg text-sm font-medium ${isPaused ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+      <div className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium ${isPaused ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
         Status: {isPaused ? 'Paused' : 'Active'}
       </div>
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-      {success && <p className="text-green-500 text-sm">Operation successful!</p>}
+      {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-xs sm:text-sm">Operation successful!</p>}
       <ActionButton
         label={isPaused ? 'Unpause' : 'Pause'}
         onClick={handleToggle}
@@ -423,13 +468,13 @@ const TransferOwnershipSection = ({ onTransferOwnership, isLoading, isOwner, cur
   return (
     <SectionCard title="Transfer ownership">
       {!isOwner && (
-        <p className="text-amber-600 text-sm bg-amber-50 p-2 rounded-lg">
+        <p className="text-amber-600 text-xs sm:text-sm bg-amber-50 p-2 rounded-lg">
           ⚠️ Only the current owner can transfer ownership.
         </p>
       )}
-      <div className="text-sm text-gray-600">
+      <div className="text-xs sm:text-sm text-gray-600">
         <span className="font-medium">Current owner:</span>{' '}
-        <span className="font-mono text-xs">{currentOwner}</span>
+        <span className="font-mono text-[10px] sm:text-xs break-all">{currentOwner}</span>
       </div>
       <InputField
         label="New Owner Address"
@@ -438,11 +483,11 @@ const TransferOwnershipSection = ({ onTransferOwnership, isLoading, isOwner, cur
         placeholder="0x..."
         disabled={!isOwner}
       />
-      <p className="text-xs text-gray-500">
+      <p className="text-[10px] sm:text-xs text-gray-500">
         Note: The new owner will need to call acceptOwnership() to complete the transfer.
       </p>
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-      {success && <p className="text-green-500 text-sm">Ownership transfer initiated!</p>}
+      {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-xs sm:text-sm">Ownership transfer initiated!</p>}
       <ActionButton label="Transfer Ownership" onClick={handleTransfer} disabled={!isValid || !isOwner} loading={isLoading} />
     </SectionCard>
   );
@@ -450,38 +495,122 @@ const TransferOwnershipSection = ({ onTransferOwnership, isLoading, isOwner, cur
 
 // Token Info Header
 interface TokenInfoHeaderProps {
-  token: Token;
+  tokenAddress: string;
+  name: string;
+  symbol: string;
+  isL2Token: boolean;
   totalSupply: string;
   userBalance: string;
   decimals: number;
+  // For Ethereum Enabled tokens - show both L1 and L2
+  isEthereumEnabled?: boolean;
+  l1TokenAddress?: string;
+  l2TokenAddress?: string;
+  l1TokenManager?: ReturnType<typeof useTokenManager>;
+  l2TokenManager?: ReturnType<typeof useTokenManager>;
 }
 
-const TokenInfoHeader = ({ token, totalSupply, userBalance, decimals }: TokenInfoHeaderProps) => {
-  const tokenAddress = token.type === 'ethereum-enabled' 
-    ? (token.addressL1 || token.addressL2 || '')
-    : (token.addressL2 || '');
+const TokenInfoHeader = ({ 
+  tokenAddress, 
+  name, 
+  symbol, 
+  isL2Token, 
+  totalSupply, 
+  userBalance, 
+  decimals,
+  isEthereumEnabled,
+  l1TokenAddress,
+  l2TokenAddress,
+  l1TokenManager,
+  l2TokenManager
+}: TokenInfoHeaderProps) => {
+  // If Ethereum Enabled, show both tokens
+  if (isEthereumEnabled && l1TokenAddress && l2TokenAddress && l1TokenManager && l2TokenManager) {
+    return (
+      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-5">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
+            {name} ({symbol})
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs sm:text-sm text-gray-600">Ethereum Enabled</span>
+            <div className="flex items-center">
+              <EthereumIcon />
+              <div className="-ml-2">
+                <CeloIcon />
+              </div>
+            </div>
+          </div>
+        </div>
 
+        {/* L1 Token Info */}
+        <div className="border border-gray-200 rounded-xl p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-5 h-5 rounded overflow-hidden flex-shrink-0">
+              <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
+            </div>
+            <span className="text-sm font-semibold text-black">Ethereum L1 Token</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            <ReadOnlyField
+              label="Token address"
+              value={l1TokenAddress}
+              onCopy={() => {}}
+            />
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
+              <ReadOnlyField label="Total Supply" value={formatDisplayNumber(l1TokenManager.totalSupply)} />
+              <ReadOnlyField label="My Balance" value={formatDisplayNumber(l1TokenManager.userBalance)} />
+            </div>
+          </div>
+        </div>
+
+        {/* L2 Token Info */}
+        <div className="border border-gray-200 rounded-xl p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-5 h-5 rounded overflow-hidden flex-shrink-0">
+              <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
+            </div>
+            <span className="text-sm font-semibold text-black">Celo L2 Token</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            <ReadOnlyField
+              label="Token address"
+              value={l2TokenAddress}
+              onCopy={() => {}}
+            />
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
+              <ReadOnlyField label="Total Supply" value={formatDisplayNumber(l2TokenManager.totalSupply)} />
+              <ReadOnlyField label="My Balance" value={formatDisplayNumber(l2TokenManager.userBalance)} />
+            </div>
+          </div>
+        </div>
+
+        {/* Common Stats */}
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
+          <ReadOnlyField label="Decimals" value={decimals.toString()} />
+        </div>
+      </div>
+    );
+  }
+
+  // Single token display (Celo-Native or fallback)
   return (
-    <div className="bg-white rounded-2xl p-5 flex flex-col gap-5">
+    <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-black tracking-tight">
-          {token.name} ({token.symbol})
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
+          {name} ({symbol})
         </h2>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">
-            {token.type === 'ethereum-enabled' ? 'Ethereum Enabled' : 'Celo-Native'}
+          <span className="text-xs sm:text-sm text-gray-600">
+            {isL2Token ? 'Celo L2' : 'Ethereum L1'}
           </span>
           <div className="flex items-center">
-            {token.type === 'ethereum-enabled' ? (
-              <>
-                <EthereumIcon />
-                <div className="-ml-1.5">
-                  <CeloIcon />
-                </div>
-              </>
-            ) : (
+            {isL2Token ? (
               <CeloIcon />
+            ) : (
+              <EthereumIcon />
             )}
           </div>
         </div>
@@ -495,10 +624,10 @@ const TokenInfoHeader = ({ token, totalSupply, userBalance, decimals }: TokenInf
       />
 
       {/* Stats */}
-      <div className="flex gap-2.5">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
         <ReadOnlyField label="Decimals" value={decimals.toString()} />
-        <ReadOnlyField label="Total Supply" value={parseFloat(totalSupply).toLocaleString()} />
-        <ReadOnlyField label="My Balance" value={parseFloat(userBalance).toLocaleString()} />
+        <ReadOnlyField label="Total Supply" value={formatDisplayNumber(totalSupply)} />
+        <ReadOnlyField label="My Balance" value={formatDisplayNumber(userBalance)} />
       </div>
     </div>
   );
@@ -507,11 +636,10 @@ const TokenInfoHeader = ({ token, totalSupply, userBalance, decimals }: TokenInf
 // Main Content Area
 interface ContentAreaProps {
   activeSection: MenuSection;
-  token: Token;
   tokenManager: ReturnType<typeof useTokenManager>;
 }
 
-const ContentArea = ({ activeSection, token, tokenManager }: ContentAreaProps) => {
+const ContentArea = ({ activeSection, tokenManager }: ContentAreaProps) => {
   const {
     symbol,
     isPaused,
@@ -534,7 +662,7 @@ const ContentArea = ({ activeSection, token, tokenManager }: ContentAreaProps) =
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">General</h3>
             <TransferSection 
-              symbol={symbol || token.symbol} 
+              symbol={symbol || ''} 
               onTransfer={transfer}
               isLoading={isLoading}
             />
@@ -545,7 +673,7 @@ const ContentArea = ({ activeSection, token, tokenManager }: ContentAreaProps) =
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">General</h3>
             <MintSection 
-              symbol={symbol || token.symbol} 
+              symbol={symbol || ''} 
               onMint={mint}
               isLoading={isLoading}
               isOwner={isOwner}
@@ -557,7 +685,7 @@ const ContentArea = ({ activeSection, token, tokenManager }: ContentAreaProps) =
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">General</h3>
             <BurnSection 
-              symbol={symbol || token.symbol} 
+              symbol={symbol || ''} 
               onBurn={burn}
               isLoading={isLoading}
               userBalance={userBalance}
@@ -595,7 +723,7 @@ const ContentArea = ({ activeSection, token, tokenManager }: ContentAreaProps) =
   };
 
   return (
-    <div className="bg-white rounded-2xl p-5 flex-1 flex flex-col">
+    <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex-1 flex flex-col">
       {renderContent()}
     </div>
   );
@@ -604,26 +732,61 @@ const ContentArea = ({ activeSection, token, tokenManager }: ContentAreaProps) =
 // Main TokenManager Component
 export default function TokenManager() {
   const { tokenAddress } = useParams<{ tokenAddress: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { tokens } = useTokenStorage();
   const [activeSection, setActiveSection] = useState<MenuSection>('transfer');
+  const [isL2Token, setIsL2Token] = useState<boolean | null>(null);
 
-  // Find the token by address
-  const token = tokens.find(
-    (t) => t.addressL1 === tokenAddress || t.addressL2 === tokenAddress || t.id === tokenAddress
-  );
+  // Check if this is an Ethereum Enabled token with both L1 and L2
+  const l2TokenFromParams = searchParams.get('l2Token');
+  const tokenType = searchParams.get('type');
+  const isEthereumEnabled = tokenType === 'ethereum-enabled' && !!l2TokenFromParams;
 
-  // Determine if we're managing L2 token (Celo) or L1 token (Ethereum)
-  const isL2Token = token?.addressL2 === tokenAddress || token?.type === 'celo-native';
-  const contractAddress = isL2Token ? token?.addressL2 : token?.addressL1;
-
-  // Initialize token manager hook
-  const tokenManager = useTokenManager({
-    tokenAddress: contractAddress,
-    isL2Token,
+  // Initialize token managers for L1 (the tokenAddress param)
+  const tokenManagerL1 = useTokenManager({
+    tokenAddress: tokenAddress,
+    isL2Token: false,
   });
 
-  if (!token) {
+  // Initialize token manager for L2 (from query params if ethereum-enabled, otherwise try the main address)
+  const tokenManagerL2 = useTokenManager({
+    tokenAddress: isEthereumEnabled ? l2TokenFromParams : tokenAddress,
+    isL2Token: true,
+  });
+
+  // Determine which chain has the token based on whether we get a name back
+  useEffect(() => {
+    if (isEthereumEnabled) {
+      // For ethereum-enabled, we always use L1 as primary for actions
+      setIsL2Token(false);
+    } else if (tokenManagerL2.name) {
+      setIsL2Token(true);
+    } else if (tokenManagerL1.name) {
+      setIsL2Token(false);
+    }
+  }, [tokenManagerL2.name, tokenManagerL1.name, isEthereumEnabled]);
+
+  // Use the appropriate token manager for actions
+  const tokenManager = isL2Token === false ? tokenManagerL1 : tokenManagerL2;
+
+  // Loading state while determining which chain
+  const isLoadingToken = isL2Token === null && !tokenManagerL2.name && !tokenManagerL1.name;
+
+  if (isLoadingToken) {
+    return (
+      <div className="bg-gray-100 flex flex-col flex-1 min-h-0 w-full p-6 items-center justify-center">
+        <div className="bg-white rounded-2xl p-8 text-center max-w-md">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
+          <h2 className="text-lg font-semibold text-black mb-2">Loading Token...</h2>
+          <p className="text-sm text-gray-500">
+            Fetching token information from the blockchain.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tokenManager.name) {
     return (
       <div className="bg-gray-100 flex flex-col flex-1 min-h-0 w-full p-6 items-center justify-center">
         <div className="bg-white rounded-2xl p-8 text-center max-w-md">
@@ -640,7 +803,7 @@ export default function TokenManager() {
           </div>
           <h2 className="text-lg font-semibold text-black mb-2">Token Not Found</h2>
           <p className="text-sm text-gray-500 mb-4">
-            The token you're looking for doesn't exist or has been removed.
+            The token you're looking for doesn't exist or couldn't be loaded.
           </p>
           <button
             onClick={() => navigate('/')}
@@ -657,29 +820,37 @@ export default function TokenManager() {
   }
 
   return (
-    <div className="bg-gray-100 flex flex-col flex-1 min-h-0 w-full p-6 animate-fade-in items-center">
+    <div className="bg-gray-100 flex flex-col flex-1 min-h-0 w-full p-3 sm:p-6 animate-fade-in items-center">
       <div className="w-full max-w-[960px]">
         {/* Back Button */}
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-sm text-gray-600 hover:text-black transition-colors mb-4 cursor-pointer"
+          className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 hover:text-black transition-colors mb-3 sm:mb-4 cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
           Back to Dashboard
         </button>
 
         {/* Token Info Header */}
         <TokenInfoHeader 
-          token={token} 
+          tokenAddress={tokenAddress || ''} 
+          name={tokenManager.name || ''}
+          symbol={tokenManager.symbol || ''}
+          isL2Token={isL2Token ?? true}
           totalSupply={tokenManager.totalSupply}
           userBalance={tokenManager.userBalance}
           decimals={tokenManager.decimals}
+          isEthereumEnabled={isEthereumEnabled}
+          l1TokenAddress={isEthereumEnabled ? tokenAddress : undefined}
+          l2TokenAddress={isEthereumEnabled ? l2TokenFromParams || undefined : undefined}
+          l1TokenManager={isEthereumEnabled ? tokenManagerL1 : undefined}
+          l2TokenManager={isEthereumEnabled ? tokenManagerL2 : undefined}
         />
 
         {/* Main Content */}
-        <div className="flex gap-3 mt-3">
+        <div className="flex flex-col md:flex-row gap-3 mt-3">
           <NavigationMenu activeSection={activeSection} onSectionChange={setActiveSection} />
-          <ContentArea activeSection={activeSection} token={token} tokenManager={tokenManager} />
+          <ContentArea activeSection={activeSection} tokenManager={tokenManager} />
         </div>
       </div>
     </div>

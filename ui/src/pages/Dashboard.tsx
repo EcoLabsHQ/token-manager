@@ -32,21 +32,16 @@ const SetupStatusBadge = ({ status }: { status: TokenSetupStatus }) => {
   );
 };
 
-// Chain icons
+// Chain icons using PNG images
 const EthereumIcon = () => (
-  <div className="w-4 h-4 rounded bg-[#627eea] flex items-center justify-center">
-    <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
-      <path d="M4 0L0 6.5L4 8.5L8 6.5L4 0Z" fill="white" fillOpacity="0.6" />
-      <path d="M4 9.5L0 7.5L4 13L8 7.5L4 9.5Z" fill="white" />
-    </svg>
+  <div className="w-4 h-4 rounded overflow-hidden">
+    <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
   </div>
 );
 
 const CeloIcon = () => (
-  <div className="w-4 h-4 rounded bg-[#fcff52] flex items-center justify-center">
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-      <circle cx="5" cy="5" r="4" stroke="#1a1a1a" strokeWidth="1.5" fill="none" />
-    </svg>
+  <div className="w-4 h-4 rounded overflow-hidden">
+    <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
   </div>
 );
 
@@ -62,6 +57,12 @@ const EXPLORER_URLS = {
   celo: 'https://sepolia.celoscan.io/address/',
 };
 
+// Truncate address for display
+const truncateAddress = (address: string) => {
+  if (!address) return '';
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
 const AddressWithActions = ({ address, chain, onCopy }: AddressWithActionsProps) => {
   const [copied, setCopied] = useState(false);
   const explorerUrl = `${EXPLORER_URLS[chain]}${address}`;
@@ -73,29 +74,29 @@ const AddressWithActions = ({ address, chain, onCopy }: AddressWithActionsProps)
   };
 
   return (
-    <div className="flex items-center gap-1 group">
-      <span className="text-sm text-black font-normal transition-colors duration-200 group-hover:text-gray-600">
-        {address}
+    <div className="flex items-center gap-0.5">
+      <span className="text-sm text-black font-mono" title={address}>
+        {truncateAddress(address)}
       </span>
       <button
         onClick={handleCopy}
-        className="p-1 rounded-md transition-colors duration-150 hover:bg-gray-100 cursor-pointer"
+        className="p-0.5 rounded transition-colors duration-150 hover:bg-gray-100 cursor-pointer"
         title="Copy address"
       >
         {copied ? (
-          <Check className="w-4 h-4 text-green-500 animate-in fade-in duration-200" />
+          <Check className="w-3.5 h-3.5 text-green-500" />
         ) : (
-          <Copy className="w-4 h-4 text-gray-400 transition-colors duration-200 hover:text-gray-700" />
+          <Copy className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" />
         )}
       </button>
       <a
         href={explorerUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="p-1 rounded-md transition-colors duration-150 hover:bg-gray-100 cursor-pointer"
+        className="p-0.5 rounded transition-colors duration-150 hover:bg-gray-100 cursor-pointer"
         title={`View on ${chain === 'ethereum' ? 'Etherscan' : 'Celoscan'}`}
       >
-        <ExternalLink className="w-4 h-4 text-gray-400 transition-colors duration-200 hover:text-gray-700" />
+        <ExternalLink className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" />
       </a>
     </div>
   );
@@ -128,127 +129,191 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
   }
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm transition-shadow duration-300 hover:shadow-md">
-      {/* Table Header */}
-      <div className="bg-gray-50/80 border-b border-gray-200 flex items-center p-3">
-        <div className="w-44 text-gray-500 text-sm font-medium">Name</div>
-        <div className="w-44 text-gray-500 text-sm font-medium">Ticker</div>
-        <div className="flex-1 text-gray-500 text-sm font-medium">Type</div>
-        <div className="flex-1 text-gray-500 text-sm font-medium">Max Supply</div>
-        <div className="flex-1 text-gray-500 text-sm font-medium">Address (L1)</div>
-        <div className="flex-1 text-gray-500 text-sm font-medium">Address (L2)</div>
-        <div className="w-20 text-gray-500 text-sm font-medium">Action</div>
+    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      {/* Mobile/Tablet Table Header */}
+      <div className="bg-gray-50/80 border-b border-gray-200 flex items-center px-3 py-2.5 lg:hidden">
+        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
+        <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
+        <div className="w-24 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
+        <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
+      </div>
+      
+      {/* Desktop Table Header */}
+      <div className="bg-gray-50/80 border-b border-gray-200 hidden lg:flex items-center px-4 py-3">
+        <div className="w-[140px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
+        <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
+        <div className="w-[140px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
+        <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Max Supply</div>
+        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide pl-4">Address (L1)</div>
+        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide">Address (L2)</div>
+        <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
       </div>
 
       {/* Table Body */}
-      {tokens.map((token, index) => {
+      {tokens.map((token) => {
         const isIncomplete = token.setupStatus !== 'complete';
         
         return (
-        <div
-          key={token.id}
-          className={`bg-white flex items-center h-13 px-3 border-b border-gray-100 last:border-b-0 
-                     transition-all duration-200 ease-out
-                     hover:bg-linear-to-r hover:from-gray-50 hover:to-white
-                     hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]
-                     group cursor-default
-                     ${isIncomplete ? 'bg-amber-50/50' : ''}`}
-          style={{
-            animationDelay: `${index * 50}ms`,
-          }}
-        >
-          {/* Name with Status Badge */}
-          <div className="w-44">
-            <div className="flex flex-col gap-1">
-              <span className="text-sm text-black font-medium transition-colors duration-200 group-hover:text-gray-900">
-                {token.name}
-              </span>
-              <SetupStatusBadge status={token.setupStatus} />
+        <div key={token.id}>
+          {/* Mobile/Tablet Row */}
+          <div
+            className={`bg-white flex items-center min-h-[48px] px-3 py-2 border-b border-gray-100 last:border-b-0 
+                       hover:bg-gray-50 lg:hidden
+                       ${isIncomplete ? 'bg-amber-50/50' : ''}`}
+          >
+            {/* Name with Status Badge */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm text-black font-medium truncate">
+                  {token.name}
+                </span>
+                <SetupStatusBadge status={token.setupStatus} />
+              </div>
             </div>
-          </div>
 
-          {/* Ticker */}
-          <div className="w-44">
-            <span className="text-sm text-gray-600 font-mono bg-gray-100 px-2 py-0.5 rounded transition-all duration-200 group-hover:bg-gray-200 group-hover:text-gray-800">
-              {token.symbol}
-            </span>
-          </div>
+            {/* Ticker */}
+            <div className="w-16 shrink-0">
+              <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                {token.symbol}
+              </span>
+            </div>
 
-          {/* Type */}
-          <div className="flex-1 flex items-center gap-2">
-            <span className="text-sm text-black font-normal">
-              {token.type === 'ethereum-enabled' ? 'Ethereum Enabled' : 'Celo-Native'}
-            </span>
-            <div className="flex items-center transition-transform duration-200 group-hover:translate-x-0.5">
-              {token.type === 'ethereum-enabled' ? (
-                <div className="flex items-center">
-                  <EthereumIcon />
-                  <div className="-ml-1">
-                    <CeloIcon />
+            {/* Type */}
+            <div className="w-24 flex items-center gap-1 shrink-0">
+              <div className="flex items-center">
+                {token.type === 'ethereum-enabled' ? (
+                  <div className="flex items-center">
+                    <EthereumIcon />
+                    <div className="-ml-1">
+                      <CeloIcon />
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <CeloIcon />
+                )}
+              </div>
+              <span className="text-xs text-gray-600 hidden sm:inline">
+                {token.type === 'ethereum-enabled' ? 'ETH' : 'Celo'}
+              </span>
+            </div>
+
+            {/* Action */}
+            <div className="w-16 shrink-0 text-right">
+              {isIncomplete ? (
+                <button
+                  onClick={() => onCompleteSetup(token)}
+                  className="bg-orange-500 text-white text-xs font-medium h-7 px-2.5 rounded-lg 
+                             hover:bg-orange-600 cursor-pointer"
+                >
+                  Setup
+                </button>
               ) : (
-                <CeloIcon />
+                <button
+                  onClick={() => onManage(token)}
+                  className="bg-black text-white text-xs font-medium h-7 px-2.5 rounded-lg 
+                             hover:bg-gray-800 cursor-pointer"
+                >
+                  Manage
+                </button>
               )}
             </div>
           </div>
+          
+          {/* Desktop Row */}
+          <div
+            className={`bg-white hidden lg:flex items-center min-h-[52px] px-4 py-2 border-b border-gray-100 last:border-b-0 
+                       hover:bg-gray-50
+                       ${isIncomplete ? 'bg-amber-50/50' : ''}`}
+          >
+            {/* Name with Status Badge */}
+            <div className="w-[140px] shrink-0">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm text-black font-medium truncate" title={token.name}>
+                  {token.name}
+                </span>
+                <SetupStatusBadge status={token.setupStatus} />
+              </div>
+            </div>
 
-          {/* Max Supply */}
-          <div className="flex-1">
-            <span className="text-sm text-black font-normal tabular-nums">{token.maxSupplyFormatted}</span>
-          </div>
+            {/* Ticker */}
+            <div className="w-[80px] shrink-0">
+              <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                {token.symbol}
+              </span>
+            </div>
 
-          {/* Address L1 */}
-          <div className="flex-1">
-            {token.addressL1 ? (
-              <AddressWithActions
-                address={token.addressL1}
-                chain="ethereum"
-                onCopy={() => handleCopy(token.addressL1 || '')}
-              />
-            ) : (
-              <span className="text-sm text-gray-400 font-normal">—</span>
-            )}
-          </div>
+            {/* Type */}
+            <div className="w-[140px] shrink-0 flex items-center gap-1.5">
+              <div className="flex items-center">
+                {token.type === 'ethereum-enabled' ? (
+                  <div className="flex items-center">
+                    <EthereumIcon />
+                    <div className="-ml-1">
+                      <CeloIcon />
+                    </div>
+                  </div>
+                ) : (
+                  <CeloIcon />
+                )}
+              </div>
+              <span className="text-xs text-gray-600">
+                {token.type === 'ethereum-enabled' ? 'Ethereum Enabled' : 'Celo-Native'}
+              </span>
+            </div>
 
-          {/* Address L2 */}
-          <div className="flex-1">
-            {token.addressL2 ? (
-              <AddressWithActions
-                address={token.addressL2}
-                chain="celo"
-                onCopy={() => handleCopy(token.addressL2 || '')}
-              />
-            ) : (
-              <span className="text-sm text-gray-400 font-normal">—</span>
-            )}
-          </div>
+            {/* Max Supply */}
+            <div className="w-[100px] shrink-0 text-right">
+              <span className="text-sm text-black tabular-nums">{token.maxSupplyFormatted}</span>
+            </div>
 
-          {/* Action */}
-          <div className="w-20">
-            {isIncomplete ? (
-              <button
-                onClick={() => onCompleteSetup(token)}
-                className="bg-orange-500 text-white text-sm font-medium h-7 px-2 rounded-lg 
-                           transition-colors duration-150 cursor-pointer whitespace-nowrap
-                           hover:bg-orange-600
-                           active:scale-[0.98]
-                           focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2"
-              >
-                Setup
-              </button>
-            ) : (
-              <button
-                onClick={() => onManage(token)}
-                className="bg-black text-white text-sm font-medium h-7 px-2.5 rounded-lg 
-                           transition-colors duration-150 cursor-pointer
-                           hover:bg-gray-800
-                           active:scale-[0.98]
-                           focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-              >
-                Manage
-              </button>
-            )}
+            {/* Address L1 */}
+            <div className="flex-1 pl-4 min-w-0">
+              {token.addressL1 ? (
+                <AddressWithActions
+                  address={token.addressL1}
+                  chain="ethereum"
+                  onCopy={() => handleCopy(token.addressL1 || '')}
+                />
+              ) : (
+                <span className="text-sm text-gray-400">—</span>
+              )}
+            </div>
+
+            {/* Address L2 */}
+            <div className="flex-1 min-w-0">
+              {token.addressL2 ? (
+                <AddressWithActions
+                  address={token.addressL2}
+                  chain="celo"
+                  onCopy={() => handleCopy(token.addressL2 || '')}
+                />
+              ) : (
+                <span className="text-sm text-gray-400">—</span>
+              )}
+            </div>
+
+            {/* Action */}
+            <div className="w-[80px] shrink-0 text-right">
+              {isIncomplete ? (
+                <button
+                  onClick={() => onCompleteSetup(token)}
+                  className="bg-orange-500 text-white text-xs font-medium h-7 px-3 rounded-lg 
+                             transition-colors duration-150 cursor-pointer whitespace-nowrap
+                             hover:bg-orange-600"
+                >
+                  Setup
+                </button>
+              ) : (
+                <button
+                  onClick={() => onManage(token)}
+                  className="bg-black text-white text-xs font-medium h-7 px-3 rounded-lg 
+                             transition-colors duration-150 cursor-pointer
+                             hover:bg-gray-800"
+                >
+                  Manage
+                </button>
+              )}
+            </div>
           </div>
         </div>
         );
@@ -290,10 +355,23 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
 export default function Dashboard() {
   const navigate = useNavigate();
   const { tokens, isLoading, l1TokenCount, l2TokenCount, refetch } = useSubgraphTokens();
+  const [hideIncomplete, setHideIncomplete] = useState(false);
+
+  // Filter tokens based on hideIncomplete setting
+  const filteredTokens = hideIncomplete 
+    ? tokens.filter(t => t.setupStatus === 'complete')
+    : tokens;
+  
+  const incompleteCount = tokens.filter(t => t.setupStatus !== 'complete').length;
 
   const handleManage = (token: TokenPair) => {
     // Navigate to token manager using token address as the identifier
-    navigate(`/manage/${token.address}`);
+    // For ethereum-enabled tokens, also pass L2 address for dual management
+    if (token.type === 'ethereum-enabled' && token.addressL1 && token.addressL2) {
+      navigate(`/manage/${token.addressL1}?l2Token=${token.addressL2}&type=ethereum-enabled`);
+    } else {
+      navigate(`/manage/${token.address}`);
+    }
   };
 
   const handleCompleteSetup = (token: TokenPair) => {
@@ -312,20 +390,20 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-gray-100 flex flex-col flex-1 min-h-0 w-full p-6 animate-fade-in">
+    <div className="bg-gray-100 flex flex-col flex-1 min-h-0 w-full p-3 sm:p-6 animate-fade-in">
       {/* My Tokens Section */}
-      <div className="bg-white rounded-2xl p-5 flex flex-col gap-5 shadow-sm transition-shadow duration-300 hover:shadow-md animate-slide-up">
+      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-4 sm:gap-5 shadow-sm transition-shadow duration-300 hover:shadow-md animate-slide-up">
         {/* Section Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold text-black tracking-tight">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
               My Tokens
             </h2>
             {!isLoading && (
-              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                {tokens.length} token{tokens.length !== 1 ? 's' : ''}
+              <span className="text-xs sm:text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                {filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''}
                 {l1TokenCount > 0 && l2TokenCount > 0 && (
-                  <span className="text-gray-400 ml-1">
+                  <span className="text-gray-400 ml-1 hidden sm:inline">
                     ({l1TokenCount} L1, {l2TokenCount} L2)
                   </span>
                 )}
@@ -333,10 +411,41 @@ export default function Dashboard() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Hide incomplete toggle */}
+            {incompleteCount > 0 && (
+              <button
+                onClick={() => setHideIncomplete(!hideIncomplete)}
+                className={`text-xs font-medium h-8 px-3 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all duration-150
+                  ${hideIncomplete 
+                    ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                title={hideIncomplete ? 'Show incomplete tokens' : 'Hide incomplete tokens'}
+              >
+                {hideIncomplete ? (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <span className="hidden sm:inline">Show {incompleteCount} hidden</span>
+                    <span className="sm:hidden">{incompleteCount}</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                    <span className="hidden sm:inline">Hide {incompleteCount} incomplete</span>
+                    <span className="sm:hidden">{incompleteCount}</span>
+                  </>
+                )}
+              </button>
+            )}
             <button
               onClick={refetch}
               disabled={isLoading}
-              className="text-gray-500 text-sm font-medium h-9 px-3 rounded-lg 
+              className="text-gray-500 text-sm font-medium h-8 sm:h-9 px-2 sm:px-3 rounded-lg 
                          flex items-center gap-2 cursor-pointer
                          transition-all duration-150
                          hover:bg-gray-100 hover:text-gray-700
@@ -348,8 +457,8 @@ export default function Dashboard() {
             </button>
             <button
               onClick={handleCreateToken}
-              className="bg-black text-white text-sm font-medium h-9 px-4 rounded-lg 
-                         flex items-center gap-2 cursor-pointer
+              className="bg-black text-white text-xs sm:text-sm font-medium h-8 sm:h-9 px-3 sm:px-4 rounded-lg 
+                         flex items-center gap-1.5 sm:gap-2 cursor-pointer
                          transition-all duration-150
                          hover:bg-gray-800
                          active:scale-[0.98]
@@ -362,7 +471,7 @@ export default function Dashboard() {
                 viewBox="0 0 16 16"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                className="transition-transform duration-150"
+                className="transition-transform duration-150 w-3.5 h-3.5 sm:w-4 sm:h-4"
               >
                 <path
                   d="M8 3.33334V12.6667"
@@ -379,13 +488,14 @@ export default function Dashboard() {
                   strokeLinejoin="round"
                 />
               </svg>
-              <span>Create Token</span>
+              <span className="hidden xs:inline">Create Token</span>
+              <span className="xs:hidden">Create</span>
             </button>
           </div>
         </div>
 
         {/* Token Table */}
-        <TokenTable tokens={tokens} onManage={handleManage} onCompleteSetup={handleCompleteSetup} isLoading={isLoading} onRefresh={refetch} />
+        <TokenTable tokens={filteredTokens} onManage={handleManage} onCompleteSetup={handleCompleteSetup} isLoading={isLoading} onRefresh={refetch} />
       </div>
     </div>
   );

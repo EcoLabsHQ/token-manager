@@ -28,59 +28,62 @@ export function Nav() {
   const { caipNetwork } = useAppKitNetwork();
 
   return (
-    <nav className="bg-white flex items-center justify-between px-6 py-4.5 shadow-[1px_2px_9px_0px_rgba(0,0,0,0.03)] w-full">
+    <nav className="bg-white flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4.5 shadow-[1px_2px_9px_0px_rgba(0,0,0,0.03)] w-full">
       {/* Logo */}
-      <div className="flex items-center">
-        <div className="flex items-center px-3 gap-1.5">
+      <div className="flex items-center min-w-0">
+        <div className="flex items-center px-1 sm:px-3 gap-1.5">
           <img 
             src={imgVector} 
             alt="Logo" 
-            className="w-[18.7px] h-[20.9px]" 
+            className="w-[18.7px] h-[20.9px] flex-shrink-0" 
           />
-          <span className="font-semibold text-[19.8px] text-black tracking-[-0.55px]">
-            Celo Token Manager
+          <span className="font-semibold text-base sm:text-[19.8px] text-black tracking-[-0.55px] truncate hidden xs:inline">
+            Token Manager
+          </span>
+          <span className="font-semibold text-base text-black tracking-[-0.55px] xs:hidden">
+            Token Manager
           </span>
         </div>
       </div>
 
       {/* Right side - Network selector and wallet */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {/* Network selector button */}
         <button 
           onClick={() => open({ view: 'Networks' })}
-          className="bg-white border border-gray-200 flex items-center gap-1 h-9 px-2.5 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+          className="bg-white border border-gray-200 flex items-center gap-1 h-8 sm:h-9 px-2 sm:px-2.5 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
         >
-          <img src={imgIcons} alt="Network" className="w-5 h-5" />
+          <img src={imgIcons} alt="Network" className="w-4 h-4 sm:w-5 sm:h-5" />
           {caipNetwork && (
-            <span className="text-xs text-gray-600 hidden sm:inline">
+            <span className="text-xs text-gray-600 hidden md:inline">
               {caipNetwork.name}
             </span>
           )}
-          <img src={imgChevronDown} alt="Expand" className="w-2 h-1" />
+          <img src={imgChevronDown} alt="Expand" className="w-2 h-1 hidden sm:block" />
         </button>
 
         {/* Wallet button */}
         {isConnected && address ? (
           <button 
             onClick={() => open({ view: 'Account' })}
-            className="bg-white border border-gray-200 flex items-center gap-1.5 h-9 pl-2.5 pr-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+            className="bg-white border border-gray-200 flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2 sm:pl-2.5 sm:pr-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center flex-shrink-0">
               <span className="text-[10px] font-bold text-white">
                 {address.slice(2, 4).toUpperCase()}
               </span>
             </div>
-            <span className="font-medium text-[13px] text-black tracking-[0.25px]">
+            <span className="font-medium text-xs sm:text-[13px] text-black tracking-[0.25px] hidden sm:inline">
               {formatAddress(address)}
             </span>
           </button>
         ) : (
           <button 
             onClick={() => open()}
-            className="bg-black text-white flex items-center gap-1.5 h-9 px-4 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
+            className="bg-black text-white flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-4 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
           >
-            <WalletIcon className="w-4 h-4" />
-            <span className="font-medium text-[13px] tracking-[0.25px]">
+            <WalletIcon className="w-4 h-4 flex-shrink-0" />
+            <span className="font-medium text-xs sm:text-[13px] tracking-[0.25px] hidden sm:inline">
               Connect Wallet
             </span>
           </button>

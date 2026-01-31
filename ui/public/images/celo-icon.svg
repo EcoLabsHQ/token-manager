@@ -1,6 +1,0 @@
-<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="Icons">
-<rect width="40" height="40" rx="6" fill="var(--fill-0, #FCFF52)"/>
-<path id="Vector" fill-rule="evenodd" clip-rule="evenodd" d="M30 10H10V30H29.9996V23.0186H26.6805C25.5364 25.5655 22.9611 27.3393 20.014 27.3393C15.951 27.3393 12.6607 24.0206 12.6607 19.986C12.6607 15.9514 15.951 12.6611 20.014 12.6611C23.0183 12.6611 25.5935 14.4924 26.7381 17.096H30V10Z" fill="var(--fill-0, black)"/>
-</g>
-</svg>
