@@ -1,16 +1,19 @@
 // Factory addresses deployed on different chains
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
-    address: '0x3E12C8100338Fee0D7cb09b439a88E3224b8f703',
+    address: '0xCD37A5129e65D08C937B6fAf9d1304A1B0509f78',
     chainId: 11155111, // Sepolia
     name: 'L1TokenFactory',
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
-    address: '0x85858635C2cc9ef156669af68C738490e365Ee70',
+    address: '0x84ADf0b288083269cB384B257f0Cd538FE6fefcE',
     chainId: 11142220, // Celo Sepolia (Alfajores)
     name: 'L2SuperChainTokenFactory',
   },
 } as const;
+
+// Backend API URL for promo codes
+export const PROMO_API_URL = import.meta.env.VITE_PROMO_API_URL || 'http://localhost:3001';
 
 // ABI for L1TokenFactory
 export const L1_TOKEN_FACTORY_ABI = [
@@ -26,7 +29,32 @@ export const L1_TOKEN_FACTORY_ABI = [
       { name: 'owner_', type: 'address' },
     ],
     outputs: [{ name: 'tokenAddress', type: 'address' }],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
+  },
+  {
+    name: 'createTokenWithPromo',
+    type: 'function',
+    inputs: [
+      { name: 'name_', type: 'string' },
+      { name: 'symbol_', type: 'string' },
+      { name: 'initialSupply_', type: 'uint256' },
+      { name: 'maxSupply_', type: 'uint256' },
+      { name: 'decimals_', type: 'uint8' },
+      { name: 'owner_', type: 'address' },
+      { name: 'promoFee_', type: 'uint256' },
+      { name: 'promoNonce_', type: 'bytes32' },
+      { name: 'expiresAt_', type: 'uint256' },
+      { name: 'signature_', type: 'bytes' },
+    ],
+    outputs: [{ name: 'tokenAddress', type: 'address' }],
+    stateMutability: 'payable',
+  },
+  {
+    name: 'creationFee',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
   },
   {
     name: 'TokenCreated',
@@ -202,7 +230,33 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
       { name: 'salt_', type: 'bytes' },
     ],
     outputs: [{ name: 'tokenAddress', type: 'address' }],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
+  },
+  {
+    name: 'createTokenWithPromo',
+    type: 'function',
+    inputs: [
+      { name: 'owner_', type: 'address' },
+      { name: 'name_', type: 'string' },
+      { name: 'symbol_', type: 'string' },
+      { name: 'decimals_', type: 'uint8' },
+      { name: 'initialSupply_', type: 'uint256' },
+      { name: 'maxSupply_', type: 'uint256' },
+      { name: 'salt_', type: 'bytes' },
+      { name: 'promoFee_', type: 'uint256' },
+      { name: 'promoNonce_', type: 'bytes32' },
+      { name: 'expiresAt_', type: 'uint256' },
+      { name: 'signature_', type: 'bytes' },
+    ],
+    outputs: [{ name: 'tokenAddress', type: 'address' }],
+    stateMutability: 'payable',
+  },
+  {
+    name: 'creationFee',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
   },
   {
     name: 'TokenCreated',

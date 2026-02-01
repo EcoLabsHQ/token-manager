@@ -331,6 +331,10 @@ function Review({
   deployError,
   isConnected,
   onConnectWallet,
+  promoCode,
+  onPromoCodeChange,
+  promoError,
+  isValidatingPromo,
 }: {
   form: UseFormReturn<TokenFormData>;
   tokenType: TokenType | null;
@@ -339,6 +343,10 @@ function Review({
   deployError: string | null;
   isConnected: boolean;
   onConnectWallet: () => void;
+  promoCode: string;
+  onPromoCodeChange: (code: string) => void;
+  promoError: string | null;
+  isValidatingPromo: boolean;
 }) {
   const { watch } = form;
   const formData = watch();
@@ -416,9 +424,19 @@ function Review({
             <label className="text-gray-500 text-xs sm:text-sm">Promo Code (optional)</label>
             <input
               type="text"
-              placeholder="Promo code"
-              className="bg-gray-50 border border-gray-300 rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="Enter promo code"
+              value={promoCode}
+              onChange={(e) => onPromoCodeChange(e.target.value.toUpperCase())}
+              className={`bg-gray-50 border rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                promoError ? 'border-red-300' : 'border-gray-300'
+              }`}
             />
+            {promoError && (
+              <span className="text-red-500 text-[10px] sm:text-xs">{promoError}</span>
+            )}
+            {isValidatingPromo && (
+              <span className="text-gray-500 text-[10px] sm:text-xs">Validating...</span>
+            )}
           </div>
 
           {/* Cost Summary */}
@@ -492,7 +510,7 @@ function Review({
 export function CreateTokenPage() {
   const navigate = useNavigate();
   const { open } = useAppKit();
-  const { isConnected } = useAppKitAccount();
+  const { isConnected, address } = useAppKitAccount();
   const {
     form,
     tokenType,
@@ -508,6 +526,7 @@ export function CreateTokenPage() {
     hasResumableDeployment,
     resumeDeployment,
     cancelResumableDeployment,
+    promo,
   } = useCreateToken();
 
   const handleViewToken = () => {
@@ -520,6 +539,17 @@ export function CreateTokenPage() {
 
   const handleConnectWallet = () => {
     open();
+  };
+
+  const handleDeploy = async () => {
+    // If there's a promo code, validate it first
+    if (promo.promoCode && address) {
+      const isL1 = tokenType === 'ethereum-enabled';
+      const promoResult = await promo.validatePromoCode(promo.promoCode, address, isL1);
+      startDeployment(promoResult);
+    } else {
+      startDeployment(null);
+    }
   };
 
   const formData = form.watch();
@@ -552,10 +582,14 @@ export function CreateTokenPage() {
             form={form}
             tokenType={tokenType}
             onBack={goToPreviousStep}
-            onDeploy={startDeployment}
+            onDeploy={handleDeploy}
             deployError={deployError}
             isConnected={isConnected}
             onConnectWallet={handleConnectWallet}
+            promoCode={promo.promoCode}
+            onPromoCodeChange={promo.setPromoCode}
+            promoError={promo.promoError}
+            isValidatingPromo={promo.isValidating}
           />
         )}
       </div>

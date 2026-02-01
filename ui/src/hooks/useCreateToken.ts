@@ -22,6 +22,7 @@ import {
   type TokenType,
 } from '../lib/schemas';
 import { useTokenStorage } from './useTokenStorage';
+import { usePromoCode, type PromoValidationResult } from './usePromoCode';
 import {
   CONTRACTS,
   L1_TOKEN_FACTORY_ABI,
@@ -95,6 +96,7 @@ export function useCreateToken() {
   const l2Client = usePublicClient({ chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId });
   const { switchChainAsync } = useSwitchChain();
   const { addToken } = useTokenStorage();
+  const promo = usePromoCode();
   const form = useForm<TokenFormData>({
     resolver: zodResolver(tokenFormSchema),
     defaultValues: defaultTokenFormValues,
@@ -118,7 +120,7 @@ export function useCreateToken() {
     return receipt;
   };
 
-  const startDeployment = useCallback(async () => {
+  const startDeployment = useCallback(async (promoData?: PromoValidationResult | null) => {
     if (!tokenType || !address || !walletClient) return;
     const formData = form.getValues();
     if (!(await form.trigger())) {
@@ -136,38 +138,77 @@ export function useCreateToken() {
 
       if (tokenType === 'celo-native') {
         setDeployingStep(1);
-        const receipt = await sendTx(
-          {
-            address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
-            abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
-            functionName: 'createToken',
-            args: [
-              getAddress(address),
-              formData.name,
-              formData.symbol,
-              formData.decimals,
-              parseUnits(formData.initialSupply, formData.decimals),
-              parseUnits(formData.maxSupply, formData.decimals),
-              salt,
-            ],
-            chain: { id: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId } as any,
-          },
-          l2Client,
-        );
+        
+        // Use promo if available
+        const txParams = promoData ? {
+          address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+          abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
+          functionName: 'createTokenWithPromo' as const,
+          args: [
+            getAddress(address),
+            formData.name,
+            formData.symbol,
+            formData.decimals,
+            parseUnits(formData.initialSupply, formData.decimals),
+            parseUnits(formData.maxSupply, formData.decimals),
+            salt,
+            BigInt(promoData.promoFee),
+            promoData.promoNonce as `0x${string}`,
+            BigInt(promoData.expiresAt),
+            promoData.signature as `0x${string}`,
+          ],
+          value: BigInt(promoData.promoFee),
+          chain: { id: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId } as any,
+        } : {
+          address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+          abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
+          functionName: 'createToken' as const,
+          args: [
+            getAddress(address),
+            formData.name,
+            formData.symbol,
+            formData.decimals,
+            parseUnits(formData.initialSupply, formData.decimals),
+            parseUnits(formData.maxSupply, formData.decimals),
+            salt,
+          ],
+          chain: { id: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId } as any,
+        };
+        
+        const receipt = await sendTx(txParams, l2Client);
         const l2Addr = extractToken(receipt, L2_SUPERCHAIN_TOKEN_FACTORY_ABI)!;
         result = { l2Address: l2Addr };
       } else {
         setDeployingStep(1);
-        const l1Receipt = await sendTx(
-          {
-            address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
-            abi: L1_TOKEN_FACTORY_ABI,
-            functionName: 'createToken',
-            args: [formData.name, formData.symbol, parseUnits(formData.initialSupply, formData.decimals), parseUnits(formData.maxSupply, formData.decimals), formData.decimals, getAddress(address)],
-            chain: { id: CONTRACTS.L1_TOKEN_FACTORY.chainId } as any,
-          },
-          l1Client,
-        );
+        
+        // Use promo for L1 if available
+        const l1TxParams = promoData ? {
+          address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
+          abi: L1_TOKEN_FACTORY_ABI,
+          functionName: 'createTokenWithPromo' as const,
+          args: [
+            formData.name,
+            formData.symbol,
+            parseUnits(formData.initialSupply, formData.decimals),
+            parseUnits(formData.maxSupply, formData.decimals),
+            formData.decimals,
+            getAddress(address),
+            BigInt(promoData.promoFee),
+            promoData.promoNonce as `0x${string}`,
+            BigInt(promoData.expiresAt),
+            promoData.signature as `0x${string}`,
+          ],
+          value: BigInt(promoData.promoFee),
+          chain: { id: CONTRACTS.L1_TOKEN_FACTORY.chainId } as any,
+        } : {
+          address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
+          abi: L1_TOKEN_FACTORY_ABI,
+          functionName: 'createToken' as const,
+          args: [formData.name, formData.symbol, parseUnits(formData.initialSupply, formData.decimals), parseUnits(formData.maxSupply, formData.decimals), formData.decimals, getAddress(address)],
+          chain: { id: CONTRACTS.L1_TOKEN_FACTORY.chainId } as any,
+        };
+        
+        const l1Receipt = await sendTx(l1TxParams, l1Client);
         const l1Addr = extractToken(l1Receipt, L1_TOKEN_FACTORY_ABI)!;
 
         setDeployingStep(2);
@@ -284,7 +325,8 @@ export function useCreateToken() {
     setDeployError(null);
     setIsSwitchingChain(false);
     form.reset(defaultTokenFormValues);
-  }, [form]);
+    promo.clearPromo();
+  }, [form, promo]);
 
   return {
     form,
@@ -303,6 +345,7 @@ export function useCreateToken() {
     resumeDeployment: async () => {},
     cancelResumableDeployment: () => {},
     reset,
+    promo,
     l1Factory: {
       isConnected: !!address,
       isCorrectChain: chainId === CONTRACTS.L1_TOKEN_FACTORY.chainId,

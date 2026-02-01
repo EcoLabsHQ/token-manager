@@ -16,7 +16,7 @@ optimizer_runs = 200
 [etherscan]
 celo = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
 sepolia = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
-celo-sepolia = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
+celo-sepolia = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE", url = "https://api-sepolia.celoscan.io/api" }
 
 
 [rpc_endpoints]

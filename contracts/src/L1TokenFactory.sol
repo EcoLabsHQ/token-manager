@@ -7,6 +7,12 @@ import {
     ERC1967Proxy
 } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
+    ECDSA
+} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {
+    MessageHashUtils
+} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {
     Initializable
 } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {
@@ -16,14 +22,14 @@ import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {
-    ReentrancyGuardUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title L1TokenFactory
  * @dev Factory contract to create instances of L1Token on Ethereum L1
  */
-contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuard {
     /// @dev Event emitted when a new L1Token is created
     event TokenCreated(
         address indexed tokenAddress,
@@ -39,6 +45,10 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
     event CreationFeeUpdated(uint256 newFee);
     /// @dev Event emitted when the fee recipient is updated
     event FeeRecipientUpdated(address indexed newRecipient);
+    /// @dev Event emitted when the promo signer is updated
+    event PromoSignerUpdated(address indexed newSigner);
+    /// @dev Event emitted when a promo code is used
+    event PromoCodeUsed(address indexed user, bytes32 indexed promoCodeHash, uint256 discountedFee);
 
     struct L1TokenFactoryStorage {
         address[] allTokens;
@@ -46,6 +56,8 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         address implementation;
         uint256 creationFee;
         address feeRecipient;
+        address promoSigner;
+        mapping(bytes32 => bool) usedPromoNonces;
     }
 
     function _getL1TokenFactoryStorage()
@@ -73,8 +85,8 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         $.implementation = _implementation;
         $.creationFee = 0;
         $.feeRecipient = _owner;
+        $.promoSigner = _owner;
         __Ownable_init(_owner);
-        __ReentrancyGuard_init();
     }
 
     function _authorizeUpgrade(
@@ -95,6 +107,14 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
 
     function feeRecipient() external view returns (address) {
         return _getL1TokenFactoryStorage().feeRecipient;
+    }
+
+    function promoSigner() external view returns (address) {
+        return _getL1TokenFactoryStorage().promoSigner;
+    }
+
+    function isPromoNonceUsed(bytes32 nonce) external view returns (bool) {
+        return _getL1TokenFactoryStorage().usedPromoNonces[nonce];
     }
 
     function allTokens(uint256 index) external view returns (address) {
@@ -136,6 +156,17 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
         $.feeRecipient = _recipient;
         emit FeeRecipientUpdated(_recipient);
+    }
+
+    /**
+     * @dev Sets the promo signer address
+     * @param _signer The new promo signer address
+     */
+    function setPromoSigner(address _signer) external onlyOwner {
+        require(_signer != address(0), "Signer cannot be zero address");
+        L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
+        $.promoSigner = _signer;
+        emit PromoSignerUpdated(_signer);
     }
 
     /**
@@ -188,6 +219,101 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         $.isTokenFromFactory[newToken] = true;
 
         emit TokenCreated(newToken, name_, symbol_, initialSupply_, maxSupply_, decimals_, owner_);
+
+        // Interactions - External calls last (CEI pattern)
+        if (feeAmount > 0 && recipient != address(0)) {
+            (bool success, ) = recipient.call{value: feeAmount}("");
+            require(success, "Fee transfer failed");
+        }
+
+        if (refundAmount > 0) {
+            (bool refundSuccess, ) = msg.sender.call{value: refundAmount}("");
+            require(refundSuccess, "Refund failed");
+        }
+
+        return newToken;
+    }
+
+    /**
+     * @dev Creates a new L1Token with a promotional fee
+     * @param name_ Name of the token
+     * @param symbol_ Symbol of the token
+     * @param initialSupply_ Initial supply of the token (minted to owner)
+     * @param maxSupply_ Maximum supply of the token
+     * @param decimals_ Number of decimals for the token
+     * @param owner_ Address of the token owner
+     * @param promoFee_ The promotional fee amount
+     * @param promoNonce_ Unique nonce for this promo code usage
+     * @param expiresAt_ Timestamp when the promo expires
+     * @param signature_ Signature from the promo signer
+     * @return tokenAddress The address of the newly created token
+     */
+    function createTokenWithPromo(
+        string memory name_,
+        string memory symbol_,
+        uint256 initialSupply_,
+        uint256 maxSupply_,
+        uint8 decimals_,
+        address owner_,
+        uint256 promoFee_,
+        bytes32 promoNonce_,
+        uint256 expiresAt_,
+        bytes memory signature_
+    ) external payable nonReentrant returns (address tokenAddress) {
+        L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
+        
+        // Verify promo signature
+        require(!$.usedPromoNonces[promoNonce_], "Promo nonce already used");
+        require(block.timestamp <= expiresAt_, "Promo code expired");
+        
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                msg.sender,
+                promoFee_,
+                promoNonce_,
+                expiresAt_,
+                block.chainid,
+                address(this)
+            )
+        );
+        bytes32 ethSignedHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        address recoveredSigner = ECDSA.recover(ethSignedHash, signature_);
+        require(recoveredSigner == $.promoSigner, "Invalid promo signature");
+        
+        // Mark nonce as used
+        $.usedPromoNonces[promoNonce_] = true;
+        
+        // Checks
+        require(owner_ != address(0), "Owner cannot be zero address");
+        require(maxSupply_ > 0, "Max supply must be greater than zero");
+        require(initialSupply_ <= maxSupply_, "Initial supply cannot exceed max supply");
+        require(msg.value >= promoFee_, "Insufficient fee");
+
+        // Cache fee values before state changes
+        uint256 feeAmount = promoFee_;
+        address recipient = $.feeRecipient;
+        uint256 refundAmount = msg.value - feeAmount;
+
+        // Effects - Create token and update state first
+        bytes memory initData = abi.encodeWithSelector(
+            L1Token.initialize.selector,
+            name_,
+            symbol_,
+            initialSupply_,
+            maxSupply_,
+            decimals_,
+            owner_
+        );
+
+        address newToken = address(
+            new ERC1967Proxy($.implementation, initData)
+        );
+
+        $.allTokens.push(newToken);
+        $.isTokenFromFactory[newToken] = true;
+
+        emit TokenCreated(newToken, name_, symbol_, initialSupply_, maxSupply_, decimals_, owner_);
+        emit PromoCodeUsed(msg.sender, promoNonce_, promoFee_);
 
         // Interactions - External calls last (CEI pattern)
         if (feeAmount > 0 && recipient != address(0)) {
