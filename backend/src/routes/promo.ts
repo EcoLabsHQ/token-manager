@@ -36,8 +36,14 @@ router.post('/validate', async (req: Request, res: Response) => {
 
     const { code, userAddress, chainId, factoryAddress } = parseResult.data;
 
-    // Look up promo code
-    const promoCode = await getPromoCode(code.toUpperCase());
+    // Try to find promo code with chainId suffix first, then without
+    const codeWithChain = `${code.toUpperCase()}:${chainId}`;
+    let promoCode = await getPromoCode(codeWithChain);
+    
+    // If not found with chainId, try the base code
+    if (!promoCode) {
+      promoCode = await getPromoCode(code.toUpperCase());
+    }
 
     if (!promoCode) {
       return res.status(404).json({
@@ -89,8 +95,8 @@ router.post('/validate', async (req: Request, res: Response) => {
       factoryAddress,
     });
 
-    // Increment usage counter
-    await incrementPromoUsage(code.toUpperCase());
+    // Increment usage counter (use the actual code found in DB)
+    await incrementPromoUsage(promoCode.code);
 
     return res.json({
       success: true,
@@ -125,11 +131,23 @@ router.get('/signer', (_req: Request, res: Response) => {
 /**
  * GET /api/promo/check/:code
  * Checks if a promo code is valid without using it
+ * Query params: chainId (optional) - if provided, will check for CODE:CHAINID first
  */
 router.get('/check/:code', async (req: Request, res: Response) => {
   const { code } = req.params;
+  const chainId = req.query.chainId ? parseInt(req.query.chainId as string) : null;
 
-  const promoCode = await getPromoCode(code.toUpperCase());
+  // Try to find promo code with chainId suffix first, then without
+  let promoCode = null;
+  if (chainId) {
+    const codeWithChain = `${code.toUpperCase()}:${chainId}`;
+    promoCode = await getPromoCode(codeWithChain);
+  }
+  
+  // If not found with chainId, try the base code
+  if (!promoCode) {
+    promoCode = await getPromoCode(code.toUpperCase());
+  }
 
   if (!promoCode) {
     return res.status(404).json({

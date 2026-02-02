@@ -6,6 +6,7 @@ import {
   usePublicClient,
   useWalletClient,
   useSwitchChain,
+  useReadContract,
 } from 'wagmi';
 import {
   parseUnits,
@@ -67,8 +68,6 @@ const BRIDGE_ABI = [
   },
 ] as const;
 
-const SET_REMOTE_TOKEN_ABI = [{ name: 'setRemoteToken', type: 'function', inputs: [{ name: '_remoteToken', type: 'address' }], outputs: [], stateMutability: 'nonpayable' }] as const;
-const SET_BRIDGE_ABI = [{ name: 'setBridge', type: 'function', inputs: [{ name: '_bridge', type: 'address' }], outputs: [], stateMutability: 'nonpayable' }] as const;
 const L2_BRIDGE = celoSepolia.contracts.l2StandardBridge.address;
 
 const extractToken = (r: TransactionReceipt, abi: any): string | null => {
@@ -96,7 +95,28 @@ export function useCreateToken() {
   const l2Client = usePublicClient({ chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId });
   const { switchChainAsync } = useSwitchChain();
   const { addToken } = useTokenStorage();
-  const promo = usePromoCode();
+  
+  // Determine which chain we'll deploy to based on token type
+  const deployChainId = tokenType === 'ethereum-enabled' 
+    ? CONTRACTS.L1_TOKEN_FACTORY.chainId 
+    : CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId;
+  
+  const promo = usePromoCode(deployChainId);
+
+  // Read creationFee from factories
+  const { data: l1CreationFee } = useReadContract({
+    address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
+    abi: L1_TOKEN_FACTORY_ABI,
+    functionName: 'creationFee',
+    chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
+  });
+
+  const { data: l2CreationFee } = useReadContract({
+    address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+    abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
+    functionName: 'creationFee',
+    chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
+  });
   const form = useForm<TokenFormData>({
     resolver: zodResolver(tokenFormSchema),
     defaultValues: defaultTokenFormValues,
@@ -172,6 +192,7 @@ export function useCreateToken() {
             parseUnits(formData.maxSupply, formData.decimals),
             salt,
           ],
+          value: l2CreationFee ?? 0n,
           chain: { id: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId } as any,
         };
         
@@ -205,6 +226,7 @@ export function useCreateToken() {
           abi: L1_TOKEN_FACTORY_ABI,
           functionName: 'createToken' as const,
           args: [formData.name, formData.symbol, parseUnits(formData.initialSupply, formData.decimals), parseUnits(formData.maxSupply, formData.decimals), formData.decimals, getAddress(address)],
+          value: l1CreationFee ?? 0n,
           chain: { id: CONTRACTS.L1_TOKEN_FACTORY.chainId } as any,
         };
         
@@ -212,28 +234,32 @@ export function useCreateToken() {
         const l1Addr = extractToken(l1Receipt, L1_TOKEN_FACTORY_ABI)!;
 
         setDeployingStep(2);
+        // Use createTokenWithBridge for L2 - NO FEE (already paid on L1)
+        // This function also sets bridge and remoteToken automatically
         const l2Receipt = await sendTx(
           {
             address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
             abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
-            functionName: 'createToken',
-            args: [getAddress(address), formData.name, formData.symbol, formData.decimals, parseUnits(formData.initialSupply, formData.decimals), parseUnits(formData.maxSupply, formData.decimals), salt],
+            functionName: 'createTokenWithBridge',
+            args: [
+              getAddress(address),
+              formData.name,
+              formData.symbol,
+              formData.decimals,
+              parseUnits(formData.initialSupply, formData.decimals),
+              parseUnits(formData.maxSupply, formData.decimals),
+              getAddress(L2_BRIDGE),
+              getAddress(l1Addr),
+              salt,
+            ],
             chain: { id: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId } as any,
           },
           l2Client,
         );
         const l2Addr = extractToken(l2Receipt, L2_SUPERCHAIN_TOKEN_FACTORY_ABI)!;
 
-        // Configure bridge: setRemoteToken + setBridge
+        // Bridge and remoteToken are already configured by createTokenWithBridge
         setDeployingStep(3);
-        await sendTx(
-          { address: getAddress(l2Addr), abi: SET_REMOTE_TOKEN_ABI, functionName: 'setRemoteToken', args: [getAddress(l1Addr)], chain: { id: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId } as any },
-          l2Client,
-        );
-        await sendTx(
-          { address: getAddress(l2Addr), abi: SET_BRIDGE_ABI, functionName: 'setBridge', args: [getAddress(L2_BRIDGE)], chain: { id: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId } as any },
-          l2Client,
-        );
 
         if (+formData.initialSupply > 0) {
           setDeployingStep(4);
@@ -357,5 +383,7 @@ export function useCreateToken() {
       isLoading: isDeploying,
     },
     isSwitchingChain,
+    l1CreationFee: l1CreationFee ?? 0n,
+    l2CreationFee: l2CreationFee ?? 0n,
   };
 }

@@ -1,7 +1,7 @@
 {
   "network": "celo-sepolia",
   "dataSourceName": "L2SuperChainTokenFactory",
-  "address": "0x85858635C2cc9ef156669af68C738490e365Ee70",
+  "address": "0xda572dDA586970a0b844d2E7a2e55fe3af35b225",
   "startBlock": 16286937,
   "abiName": "L2SuperChainTokenFactory",
   "abiFile": "L2SuperChainTokenFactory.json",

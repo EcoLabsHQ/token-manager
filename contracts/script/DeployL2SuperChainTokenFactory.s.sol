@@ -9,7 +9,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 contract DeployL2SuperChainTokenFactory is Script {
     /// @dev Salt for CREATE2 - ensures deterministic address across chains
     bytes32 private constant FACTORY_SALT =
-        keccak256("celopg.l2.superchain.token.factory.v2");
+        keccak256("l2.superchain.token.factory.v1");
 
     function run() external {
         address owner = msg.sender;

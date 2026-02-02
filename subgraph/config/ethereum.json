@@ -1,7 +1,7 @@
 {
   "network": "sepolia",
   "dataSourceName": "L1TokenFactory",
-  "address": "0x3E12C8100338Fee0D7cb09b439a88E3224b8f703",
+  "address": "0xf87eA3325c6F5Be2119D40747752BB255CdF1eE8",
   "startBlock": 7500000,
   "abiName": "L1TokenFactory",
   "abiFile": "L1TokenFactory.json",

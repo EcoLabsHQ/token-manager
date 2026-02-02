@@ -1,12 +1,12 @@
 // Factory addresses deployed on different chains
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
-    address: '0xCD37A5129e65D08C937B6fAf9d1304A1B0509f78',
+    address: '0xf87eA3325c6F5Be2119D40747752BB255CdF1eE8',
     chainId: 11155111, // Sepolia
     name: 'L1TokenFactory',
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
-    address: '0x84ADf0b288083269cB384B257f0Cd538FE6fefcE',
+    address: '0xda572dDA586970a0b844d2E7a2e55fe3af35b225',
     chainId: 11142220, // Celo Sepolia (Alfajores)
     name: 'L2SuperChainTokenFactory',
   },
@@ -231,6 +231,23 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
     ],
     outputs: [{ name: 'tokenAddress', type: 'address' }],
     stateMutability: 'payable',
+  },
+  {
+    name: 'createTokenWithBridge',
+    type: 'function',
+    inputs: [
+      { name: 'owner_', type: 'address' },
+      { name: 'name_', type: 'string' },
+      { name: 'symbol_', type: 'string' },
+      { name: 'decimals_', type: 'uint8' },
+      { name: 'initialSupply_', type: 'uint256' },
+      { name: 'maxSupply_', type: 'uint256' },
+      { name: 'bridge_', type: 'address' },
+      { name: 'remoteToken_', type: 'address' },
+      { name: 'salt_', type: 'bytes' },
+    ],
+    outputs: [{ name: 'tokenAddress', type: 'address' }],
+    stateMutability: 'nonpayable',
   },
   {
     name: 'createTokenWithPromo',

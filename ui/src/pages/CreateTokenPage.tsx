@@ -334,7 +334,11 @@ function Review({
   promoCode,
   onPromoCodeChange,
   promoError,
-  isValidatingPromo,
+  promoStatus,
+  isCheckingPromo,
+  checkResult,
+  l1CreationFee,
+  l2CreationFee,
 }: {
   form: UseFormReturn<TokenFormData>;
   tokenType: TokenType | null;
@@ -346,11 +350,30 @@ function Review({
   promoCode: string;
   onPromoCodeChange: (code: string) => void;
   promoError: string | null;
-  isValidatingPromo: boolean;
+  promoStatus: 'idle' | 'checking' | 'valid' | 'invalid' | 'error';
+  isCheckingPromo: boolean;
+  checkResult: { discountFee: string } | null;
+  l1CreationFee: bigint;
+  l2CreationFee: bigint;
 }) {
   const { watch } = form;
   const formData = watch();
-  const deploymentCost = tokenType === 'ethereum-enabled' ? '1,000 CELO ($120.00)' : '100 CELO ($12.00)';
+  
+  // Format the creation fee for display
+  const formatFee = (fee: bigint, symbol: string) => {
+    const formatted = Number(fee) / 1e18;
+    return `${formatted.toFixed(4)} ${symbol}`;
+  };
+  
+  // Determine which fee to show based on token type
+  const displayFee = tokenType === 'ethereum-enabled' 
+    ? formatFee(l1CreationFee, 'ETH') + ' + ' + formatFee(l2CreationFee, 'CELO')
+    : formatFee(l2CreationFee, 'CELO');
+  
+  // If promo is valid, show the discounted fee
+  const finalFee = promoStatus === 'valid' && checkResult
+    ? `${(Number(checkResult.discountFee) / 1e18).toFixed(4)} ${tokenType === 'ethereum-enabled' ? 'ETH' : 'CELO'}`
+    : displayFee;
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-[456px] px-2 sm:px-0 animate-fade-in">
@@ -422,33 +445,61 @@ function Review({
           {/* Promo Code */}
           <div className="flex flex-col gap-1">
             <label className="text-gray-500 text-xs sm:text-sm">Promo Code (optional)</label>
-            <input
-              type="text"
-              placeholder="Enter promo code"
-              value={promoCode}
-              onChange={(e) => onPromoCodeChange(e.target.value.toUpperCase())}
-              className={`bg-gray-50 border rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                promoError ? 'border-red-300' : 'border-gray-300'
-              }`}
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Enter promo code"
+                value={promoCode}
+                onChange={(e) => onPromoCodeChange(e.target.value)}
+                className={`w-full bg-gray-50 border rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 pr-10 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                  promoStatus === 'invalid' || promoStatus === 'error' ? 'border-red-300' : 
+                  promoStatus === 'valid' ? 'border-green-300' : 'border-gray-300'
+                }`}
+              />
+              {/* Status Icon */}
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                {promoStatus === 'checking' && (
+                  <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+                {promoStatus === 'valid' && (
+                  <svg className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+                {(promoStatus === 'invalid' || promoStatus === 'error') && promoCode && (
+                  <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+              </div>
+            </div>
             {promoError && (
               <span className="text-red-500 text-[10px] sm:text-xs">{promoError}</span>
             )}
-            {isValidatingPromo && (
-              <span className="text-gray-500 text-[10px] sm:text-xs">Validating...</span>
+            {promoStatus === 'valid' && checkResult && (
+              <span className="text-green-600 text-[10px] sm:text-xs">
+                ✓ Valid! Fee: {(Number(checkResult.discountFee) / 1e18).toFixed(4)} {tokenType === 'ethereum-enabled' ? 'ETH' : 'CELO'}
+              </span>
             )}
           </div>
 
           {/* Cost Summary */}
           <div className="bg-gray-50 rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 flex flex-col gap-1 sm:gap-1.5">
             <div className="flex justify-between">
-              <span className="text-gray-600 text-xs sm:text-sm">Deployment Cost:</span>
-              <span className="text-gray-600 text-xs sm:text-sm text-right">{deploymentCost}</span>
+              <span className="text-gray-600 text-xs sm:text-sm">Creation Fee:</span>
+              <span className={`text-xs sm:text-sm text-right ${promoStatus === 'valid' ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
+                {promoStatus === 'valid' ? '✓ ' : ''}{finalFee}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 text-xs sm:text-sm">Estimated Gas Fee:</span>
-              <span className="text-gray-600 text-xs sm:text-sm text-right">0.000004 ETH ($0.01)</span>
-            </div>
+            {promoStatus === 'valid' && checkResult && (
+              <div className="flex justify-between">
+                <span className="text-gray-400 text-xs sm:text-sm line-through">Original Fee:</span>
+                <span className="text-gray-400 text-xs sm:text-sm text-right line-through">{displayFee}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -483,9 +534,10 @@ function Review({
           <button
             type="button"
             onClick={onDeploy}
-            className="flex-1 bg-black text-white h-9 sm:h-10 rounded-lg font-medium text-xs sm:text-sm tracking-[0.25px] hover:bg-gray-900 transition-colors cursor-pointer"
+            disabled={isCheckingPromo || (promoCode.length > 0 && promoStatus !== 'valid' && promoStatus !== 'idle')}
+            className="flex-1 bg-black text-white h-9 sm:h-10 rounded-lg font-medium text-xs sm:text-sm tracking-[0.25px] hover:bg-gray-900 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Deploy Token
+            {isCheckingPromo ? 'Checking promo...' : 'Deploy Token'}
           </button>
         ) : (
           <button
@@ -527,6 +579,8 @@ export function CreateTokenPage() {
     resumeDeployment,
     cancelResumableDeployment,
     promo,
+    l1CreationFee,
+    l2CreationFee,
   } = useCreateToken();
 
   const handleViewToken = () => {
@@ -589,7 +643,11 @@ export function CreateTokenPage() {
             promoCode={promo.promoCode}
             onPromoCodeChange={promo.setPromoCode}
             promoError={promo.promoError}
-            isValidatingPromo={promo.isValidating}
+            promoStatus={promo.promoStatus}
+            isCheckingPromo={promo.isChecking}
+            checkResult={promo.checkResult}
+            l1CreationFee={l1CreationFee}
+            l2CreationFee={l2CreationFee}
           />
         )}
       </div>

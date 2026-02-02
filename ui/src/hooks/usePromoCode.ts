@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { PROMO_API_URL, CONTRACTS } from '@/config/contracts';
 
 export interface PromoValidationResult {
@@ -21,27 +21,94 @@ export interface PromoCheckResult {
   reason?: string;
 }
 
-export function usePromoCode() {
+export type PromoStatus = 'idle' | 'checking' | 'valid' | 'invalid' | 'error';
+
+export function usePromoCode(chainId?: number) {
   const [isValidating, setIsValidating] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoData, setPromoData] = useState<PromoValidationResult | null>(null);
-  const [promoCode, setPromoCode] = useState('');
+  const [promoCode, setPromoCodeState] = useState('');
+  const [promoStatus, setPromoStatus] = useState<PromoStatus>('idle');
+  const [checkResult, setCheckResult] = useState<PromoCheckResult | null>(null);
+  
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const checkPromoCode = useCallback(async (code: string): Promise<PromoCheckResult | null> => {
-    if (!code.trim()) return null;
+  // Debounced check when promo code changes
+  const setPromoCode = useCallback((code: string) => {
+    const upperCode = code.toUpperCase();
+    setPromoCodeState(upperCode);
     
-    try {
-      const res = await fetch(`${PROMO_API_URL}/api/promo/check/${encodeURIComponent(code)}`);
-      const data = await res.json();
-      
-      if (!data.success) {
-        return null;
-      }
-      
-      return data.data as PromoCheckResult;
-    } catch {
-      return null;
+    // Clear previous state
+    setPromoError(null);
+    setCheckResult(null);
+    
+    // Clear previous debounce
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
+    
+    // Abort previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    if (!upperCode.trim()) {
+      setPromoStatus('idle');
+      return;
+    }
+    
+    setPromoStatus('checking');
+    setIsChecking(true);
+    
+    // Debounce the check
+    debounceRef.current = setTimeout(async () => {
+      try {
+        abortControllerRef.current = new AbortController();
+        
+        const queryParams = chainId ? `?chainId=${chainId}` : '';
+        const res = await fetch(
+          `${PROMO_API_URL}/api/promo/check/${encodeURIComponent(upperCode)}${queryParams}`,
+          { signal: abortControllerRef.current.signal }
+        );
+        const data = await res.json();
+        
+        if (!data.success) {
+          setPromoStatus('invalid');
+          setPromoError(data.error || 'Invalid promo code');
+          setCheckResult(null);
+        } else if (!data.data.isValid) {
+          setPromoStatus('invalid');
+          const reason = data.data.reason;
+          setPromoError(
+            reason === 'expired' ? 'Promo code has expired' :
+            reason === 'exhausted' ? 'Promo code has been fully used' :
+            reason === 'inactive' ? 'Promo code is inactive' :
+            'Invalid promo code'
+          );
+          setCheckResult(data.data);
+        } else {
+          setPromoStatus('valid');
+          setPromoError(null);
+          setCheckResult(data.data);
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        setPromoStatus('error');
+        setPromoError('Failed to check promo code');
+      } finally {
+        setIsChecking(false);
+      }
+    }, 500); // 500ms debounce
+  }, [chainId]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
   }, []);
 
   const validatePromoCode = useCallback(async (
@@ -59,7 +126,7 @@ export function usePromoCode() {
     setPromoError(null);
 
     try {
-      const chainId = isL1 
+      const targetChainId = isL1 
         ? CONTRACTS.L1_TOKEN_FACTORY.chainId 
         : CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId;
       const factoryAddress = isL1 
@@ -72,7 +139,7 @@ export function usePromoCode() {
         body: JSON.stringify({
           code: code.toUpperCase(),
           userAddress,
-          chainId,
+          chainId: targetChainId,
           factoryAddress,
         }),
       });
@@ -97,9 +164,13 @@ export function usePromoCode() {
   }, []);
 
   const clearPromo = useCallback(() => {
-    setPromoCode('');
+    setPromoCodeState('');
     setPromoData(null);
     setPromoError(null);
+    setPromoStatus('idle');
+    setCheckResult(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortControllerRef.current) abortControllerRef.current.abort();
   }, []);
 
   return {
@@ -107,9 +178,11 @@ export function usePromoCode() {
     setPromoCode,
     promoData,
     promoError,
+    promoStatus,
+    checkResult,
     isValidating,
+    isChecking,
     validatePromoCode,
-    checkPromoCode,
     clearPromo,
   };
 }

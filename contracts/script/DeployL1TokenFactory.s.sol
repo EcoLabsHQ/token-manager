@@ -9,6 +9,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 contract DeployL1TokenFactory is Script {
     function run() external {
         address owner = msg.sender;
+        console.log("Deploying L1TokenFactory with owner:", owner);
 
         vm.startBroadcast();
 

@@ -104,7 +104,7 @@ contract L2SuperChainToken is
         if (initialSupply_ > maxSupply_) revert ExceedsMaxSupply();
         // bridge_ and remoteToken_ can be address(0) for Celo-native tokens
         // They must both be set or both be zero
-        if ((bridge_ == address(0)) || (remoteToken_ == address(0))) {
+        if ((bridge_ == address(0)) != (remoteToken_ == address(0))) {
             revert ZeroAddress(); // Both must be set or both must be zero
         }
 
