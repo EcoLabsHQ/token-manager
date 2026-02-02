@@ -16,7 +16,7 @@ export const tokenFormSchema = z.object({
     .string()
     .min(1, 'Token symbol is required')
     .max(11, 'Token symbol must be 11 characters or less')
-    .regex(/^[A-Z0-9]+$/, 'Token symbol must be uppercase letters and numbers only')
+    .regex(/^[a-zA-Z0-9]+$/, 'Token symbol must contain letters and numbers only')
     .transform((val) => val.toUpperCase()),
   
   initialSupply: z

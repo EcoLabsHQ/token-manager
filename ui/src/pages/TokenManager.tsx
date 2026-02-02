@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Copy, Check, ArrowLeft, Loader2 } from 'lucide-react';
 import { useTokenManager } from '../hooks';
@@ -225,9 +225,10 @@ interface TransferSectionProps {
   symbol: string;
   onTransfer: (to: string, amount: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
+  onSuccess?: () => void;
 }
 
-const TransferSection = ({ symbol, onTransfer, isLoading }: TransferSectionProps) => {
+const TransferSection = ({ symbol, onTransfer, isLoading, onSuccess }: TransferSectionProps) => {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -243,6 +244,7 @@ const TransferSection = ({ symbol, onTransfer, isLoading }: TransferSectionProps
       setSuccess(true);
       setToAddress('');
       setAmount('');
+      onSuccess?.();
       setTimeout(() => setSuccess(false), 3000);
     } else {
       setError(result.error || 'Transfer failed');
@@ -280,9 +282,10 @@ interface MintSectionProps {
   onMint: (to: string, amount: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
   isOwner: boolean;
+  onSuccess?: () => void;
 }
 
-const MintSection = ({ symbol, onMint, isLoading, isOwner }: MintSectionProps) => {
+const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess }: MintSectionProps) => {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -298,6 +301,7 @@ const MintSection = ({ symbol, onMint, isLoading, isOwner }: MintSectionProps) =
       setSuccess(true);
       setToAddress('');
       setAmount('');
+      onSuccess?.();
       setTimeout(() => setSuccess(false), 3000);
     } else {
       setError(result.error || 'Mint failed');
@@ -342,9 +346,10 @@ interface BurnSectionProps {
   onBurn: (amount: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
   userBalance: string;
+  onSuccess?: () => void;
 }
 
-const BurnSection = ({ symbol, onBurn, isLoading, userBalance }: BurnSectionProps) => {
+const BurnSection = ({ symbol, onBurn, isLoading, userBalance, onSuccess }: BurnSectionProps) => {
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -358,6 +363,7 @@ const BurnSection = ({ symbol, onBurn, isLoading, userBalance }: BurnSectionProp
     if (result.success) {
       setSuccess(true);
       setAmount('');
+      onSuccess?.();
       setTimeout(() => setSuccess(false), 3000);
     } else {
       setError(result.error || 'Burn failed');
@@ -391,9 +397,10 @@ interface PauseSectionProps {
   onUnpause: () => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
   isOwner: boolean;
+  onSuccess?: () => void;
 }
 
-const PauseSection = ({ isPaused, onPause, onUnpause, isLoading, isOwner }: PauseSectionProps) => {
+const PauseSection = ({ isPaused, onPause, onUnpause, isLoading, isOwner, onSuccess }: PauseSectionProps) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -403,6 +410,7 @@ const PauseSection = ({ isPaused, onPause, onUnpause, isLoading, isOwner }: Paus
     const result = isPaused ? await onUnpause() : await onPause();
     if (result.success) {
       setSuccess(true);
+      onSuccess?.();
       setTimeout(() => setSuccess(false), 3000);
     } else {
       setError(result.error || 'Operation failed');
@@ -443,9 +451,10 @@ interface TransferOwnershipSectionProps {
   isLoading: boolean;
   isOwner: boolean;
   currentOwner: string;
+  onSuccess?: () => void;
 }
 
-const TransferOwnershipSection = ({ onTransferOwnership, isLoading, isOwner, currentOwner }: TransferOwnershipSectionProps) => {
+const TransferOwnershipSection = ({ onTransferOwnership, isLoading, isOwner, currentOwner, onSuccess }: TransferOwnershipSectionProps) => {
   const [newOwner, setNewOwner] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -459,6 +468,7 @@ const TransferOwnershipSection = ({ onTransferOwnership, isLoading, isOwner, cur
     if (result.success) {
       setSuccess(true);
       setNewOwner('');
+      onSuccess?.();
       setTimeout(() => setSuccess(false), 3000);
     } else {
       setError(result.error || 'Transfer ownership failed');
@@ -637,9 +647,10 @@ const TokenInfoHeader = ({
 interface ContentAreaProps {
   activeSection: MenuSection;
   tokenManager: ReturnType<typeof useTokenManager>;
+  onOperationSuccess?: () => void;
 }
 
-const ContentArea = ({ activeSection, tokenManager }: ContentAreaProps) => {
+const ContentArea = ({ activeSection, tokenManager, onOperationSuccess }: ContentAreaProps) => {
   const {
     symbol,
     isPaused,
@@ -665,6 +676,7 @@ const ContentArea = ({ activeSection, tokenManager }: ContentAreaProps) => {
               symbol={symbol || ''} 
               onTransfer={transfer}
               isLoading={isLoading}
+              onSuccess={onOperationSuccess}
             />
           </div>
         );
@@ -677,6 +689,7 @@ const ContentArea = ({ activeSection, tokenManager }: ContentAreaProps) => {
               onMint={mint}
               isLoading={isLoading}
               isOwner={isOwner}
+              onSuccess={onOperationSuccess}
             />
           </div>
         );
@@ -689,6 +702,7 @@ const ContentArea = ({ activeSection, tokenManager }: ContentAreaProps) => {
               onBurn={burn}
               isLoading={isLoading}
               userBalance={userBalance}
+              onSuccess={onOperationSuccess}
             />
           </div>
         );
@@ -702,6 +716,7 @@ const ContentArea = ({ activeSection, tokenManager }: ContentAreaProps) => {
               onUnpause={unpause}
               isLoading={isLoading}
               isOwner={isOwner}
+              onSuccess={onOperationSuccess}
             />
           </div>
         );
@@ -714,6 +729,7 @@ const ContentArea = ({ activeSection, tokenManager }: ContentAreaProps) => {
               isLoading={isLoading}
               isOwner={isOwner}
               currentOwner={owner || ''}
+              onSuccess={onOperationSuccess}
             />
           </div>
         );
@@ -755,19 +771,31 @@ export default function TokenManager() {
   });
 
   // Determine which chain has the token based on whether we get a name back
+  // Priority: ethereum-enabled > L1 (Ethereum) > L2 (Celo)
   useEffect(() => {
     if (isEthereumEnabled) {
       // For ethereum-enabled, we always use L1 as primary for actions
       setIsL2Token(false);
-    } else if (tokenManagerL2.name) {
-      setIsL2Token(true);
     } else if (tokenManagerL1.name) {
+      // Check L1 first (Ethereum Mainnet / Sepolia)
       setIsL2Token(false);
+    } else if (tokenManagerL2.name) {
+      // Fallback to L2 (Celo)
+      setIsL2Token(true);
     }
   }, [tokenManagerL2.name, tokenManagerL1.name, isEthereumEnabled]);
 
   // Use the appropriate token manager for actions
   const tokenManager = isL2Token === false ? tokenManagerL1 : tokenManagerL2;
+
+  // Refresh all token data (both L1 and L2 for Ethereum Enabled tokens)
+  const refreshAllTokenData = useCallback(() => {
+    if (isEthereumEnabled) {
+      Promise.all([tokenManagerL1.refetch(), tokenManagerL2.refetch()]);
+    } else {
+      tokenManager.refetch();
+    }
+  }, [isEthereumEnabled, tokenManagerL1, tokenManagerL2, tokenManager]);
 
   // Loading state while determining which chain
   const isLoadingToken = isL2Token === null && !tokenManagerL2.name && !tokenManagerL1.name;
@@ -836,7 +864,7 @@ export default function TokenManager() {
           tokenAddress={tokenAddress || ''} 
           name={tokenManager.name || ''}
           symbol={tokenManager.symbol || ''}
-          isL2Token={isL2Token ?? true}
+          isL2Token={isL2Token ?? false}
           totalSupply={tokenManager.totalSupply}
           userBalance={tokenManager.userBalance}
           decimals={tokenManager.decimals}
@@ -850,7 +878,7 @@ export default function TokenManager() {
         {/* Main Content */}
         <div className="flex flex-col md:flex-row gap-3 mt-3">
           <NavigationMenu activeSection={activeSection} onSectionChange={setActiveSection} />
-          <ContentArea activeSection={activeSection} tokenManager={tokenManager} />
+          <ContentArea activeSection={activeSection} tokenManager={tokenManager} onOperationSuccess={refreshAllTokenData} />
         </div>
       </div>
     </div>

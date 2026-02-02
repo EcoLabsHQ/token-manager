@@ -72,14 +72,28 @@ export function DeployingModal({ tokenType, currentStep, isSwitchingChain }: Dep
                         isCompleted 
                           ? 'bg-green-500' 
                           : isActive 
-                            ? 'bg-green-100 border-2 border-green-500' 
+                            ? 'bg-blue-50' 
                             : 'bg-gray-100'
                       }`}>
                         {isCompleted && (
                           <CheckIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         )}
                         {isActive && (
-                          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full animate-pulse" />
+                          <svg className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle 
+                              className="opacity-25" 
+                              cx="12" 
+                              cy="12" 
+                              r="10" 
+                              stroke="#3B82F6" 
+                              strokeWidth="3"
+                            />
+                            <path 
+                              className="opacity-100" 
+                              fill="#3B82F6" 
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
                         )}
                       </div>
                       {/* Chain badge */}

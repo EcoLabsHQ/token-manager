@@ -139,7 +139,7 @@ export default function SetupBridge() {
   };
 
   const handleGoBack = () => {
-    navigate('/');
+    navigate('/', { state: { fromTokenCreation: true } });
   };
 
   if (!l1Token || !l2Token) {

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { useSubgraphTokens, type TokenPair, type TokenSetupStatus } from '../hooks/useSubgraphTokens';
 
@@ -354,8 +354,26 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { tokens, isLoading, l1TokenCount, l2TokenCount, refetch } = useSubgraphTokens();
   const [hideIncomplete, setHideIncomplete] = useState(false);
+
+  // Auto-refetch when coming from token creation (subgraph may need time to index)
+  useEffect(() => {
+    const state = location.state as { fromTokenCreation?: boolean } | null;
+    if (state?.fromTokenCreation) {
+      // Clear the state to prevent repeated refetches
+      window.history.replaceState({}, document.title);
+      // Refetch immediately and then again after delays to catch subgraph updates
+      refetch();
+      const timer1 = setTimeout(() => refetch(), 3000);
+      const timer2 = setTimeout(() => refetch(), 8000);
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+  }, [location.state, refetch]);
 
   // Filter tokens based on hideIncomplete setting
   const filteredTokens = hideIncomplete 

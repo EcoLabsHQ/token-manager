@@ -186,7 +186,9 @@ function TokenInformation({
             placeholder="e.g., MTK"
             {...register('symbol', {
               onChange: (e) => {
-                e.target.value = e.target.value.toUpperCase();
+                const upperValue = e.target.value.toUpperCase();
+                e.target.value = upperValue;
+                setValue('symbol', upperValue);
               }
             })}
             className={`bg-gray-50 border rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
@@ -272,18 +274,18 @@ function TokenInformation({
             <div className="flex gap-1">
               <button
                 type="button"
-                onClick={() => setValue('decimals', Math.min(decimals + 1, 18))}
-                className="bg-gray-50 border border-gray-300 rounded-lg w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 cursor-pointer text-sm sm:text-base"
-              >
-                +
-              </button>
-              <button
-                type="button"
                 onClick={() => setValue('decimals', Math.max(decimals - 1, 0))}
                 className={`bg-gray-50 border border-gray-300 rounded-lg w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 text-sm sm:text-base ${decimals <= 0 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
                 disabled={decimals <= 0}
               >
                 -
+              </button>
+              <button
+                type="button"
+                onClick={() => setValue('decimals', Math.min(decimals + 1, 18))}
+                className="bg-gray-50 border border-gray-300 rounded-lg w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 cursor-pointer text-sm sm:text-base"
+              >
+                +
               </button>
             </div>
           </div>
@@ -584,7 +586,7 @@ export function CreateTokenPage() {
   } = useCreateToken();
 
   const handleViewToken = () => {
-    navigate('/');
+    navigate('/', { state: { fromTokenCreation: true } });
   };
 
   const handleCancel = () => {

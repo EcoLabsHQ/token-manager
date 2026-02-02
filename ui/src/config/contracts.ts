@@ -13,7 +13,9 @@ export const CONTRACTS = {
 } as const;
 
 // Backend API URL for promo codes
-export const PROMO_API_URL = import.meta.env.VITE_PROMO_API_URL || 'http://localhost:3001';
+const isDevelopment = import.meta.env.DEV;
+export const PROMO_API_URL = import.meta.env.VITE_PROMO_API_URL || 
+  (isDevelopment ? 'http://localhost:3001' : 'https://minter-production-6bba.up.railway.app');
 
 // ABI for L1TokenFactory
 export const L1_TOKEN_FACTORY_ABI = [
