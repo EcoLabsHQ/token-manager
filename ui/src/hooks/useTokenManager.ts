@@ -1,4 +1,5 @@
-import { useAccount, useWriteContract, useReadContract, usePublicClient, useReadContracts } from 'wagmi';
+import { useAccount, useWriteContract, useReadContract, useReadContracts, useSwitchChain, useConfig } from 'wagmi';
+import { getPublicClient } from 'wagmi/actions';
 import { useState, useCallback } from 'react';
 import { parseUnits, formatUnits, getAddress } from 'viem';
 import { CONTRACTS, L2_SUPERCHAIN_TOKEN_ABI } from '@/config/contracts';
@@ -43,13 +44,14 @@ const TOKEN_ABI = [
 
 export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams) => {
   const { address, chainId } = useAccount();
-  const publicClient = usePublicClient();
+  const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
+  const config = useConfig();
   
   const [isLoading, setIsLoading] = useState(false);
+  const [isSwitchingChain, setIsSwitchingChain] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastTxHash, setLastTxHash] = useState<string | null>(null);
-
-  const { writeContractAsync } = useWriteContract();
 
   const expectedChainId = isL2Token 
     ? CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId 
@@ -131,7 +133,7 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
 
   const isOwner = address && owner ? address.toLowerCase() === owner.toLowerCase() : false;
 
-  // Helper to execute transaction
+  // Helper to execute transaction with auto chain switch
   const executeTransaction = useCallback(
     async (
       functionName: string,
@@ -146,12 +148,23 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
         return { success: false, error: 'Token address not set' };
       }
 
-      // Chain switching is handled by the UI - writeContractAsync uses explicit chainId
-
       setIsLoading(true);
       setError(null);
 
       try {
+        // Auto switch chain if needed
+        if (chainId !== expectedChainId) {
+          console.log(`Auto-switching chain from ${chainId} to ${expectedChainId}...`);
+          setIsSwitchingChain(true);
+          try {
+            await switchChainAsync({ chainId: expectedChainId });
+            // Small delay to ensure wallet is ready after chain switch
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } finally {
+            setIsSwitchingChain(false);
+          }
+        }
+
         const txHash = await writeContractAsync({
           address: getAddress(tokenAddress),
           abi: TOKEN_ABI,
@@ -162,9 +175,11 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
 
         setLastTxHash(txHash);
 
-        // Wait for confirmation
-        if (publicClient) {
-          await publicClient.waitForTransactionReceipt({
+        // Wait for confirmation using the correct chain's public client
+        // Get the client dynamically to ensure we're using the right chain after switch
+        const targetPublicClient = getPublicClient(config, { chainId: expectedChainId });
+        if (targetPublicClient) {
+          await targetPublicClient.waitForTransactionReceipt({
             hash: txHash,
             confirmations: 1,
           });
@@ -180,10 +195,11 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
         const errorMessage = err instanceof Error ? err.message : 'Transaction failed';
         setError(errorMessage);
         setIsLoading(false);
+        setIsSwitchingChain(false);
         return { success: false, error: errorMessage };
       }
     },
-    [address, isCorrectChain, isL2Token, tokenAddress, writeContractAsync, publicClient, refetchTokenData, refetchBalance]
+    [address, chainId, expectedChainId, tokenAddress, writeContractAsync, switchChainAsync, config, refetchTokenData, refetchBalance]
   );
 
   // Transfer tokens
@@ -300,6 +316,7 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
     
     // State
     isLoading,
+    isSwitchingChain,
     error,
     lastTxHash,
     

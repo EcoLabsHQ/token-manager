@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Copy, Check, ArrowLeft, Loader2 } from 'lucide-react';
+import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft } from 'lucide-react';
 import { useTokenManager } from '../hooks';
+import { useAccount, useWalletClient, usePublicClient, useSwitchChain } from 'wagmi';
+import { parseUnits, getAddress } from 'viem';
+import { celoSepolia } from 'viem/chains';
+import { CONTRACTS } from '@/config/contracts';
 import { formatNumberWithCommas, parseFormattedNumber, formatDisplayNumber } from '../lib/utils';
+import { MultistepProgressModal, type MultistepProgressStep } from '../components';
 
 // Chain icons using PNG images
 const EthereumIcon = () => (
@@ -18,18 +23,20 @@ const CeloIcon = () => (
 );
 
 // Menu Items
-type MenuSection = 'transfer' | 'mint' | 'burn' | 'pause' | 'admin';
+type MenuSection = 'transfer' | 'mint' | 'burn' | 'bridge' | 'pause' | 'admin';
 
 interface NavigationMenuProps {
   activeSection: MenuSection;
   onSectionChange: (section: MenuSection) => void;
+  showBridge?: boolean;
 }
 
-const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMenuProps) => {
+const NavigationMenu = ({ activeSection, onSectionChange, showBridge = false }: NavigationMenuProps) => {
   const menuItems: { id: MenuSection; label: string }[] = [
     { id: 'transfer', label: 'Transfer' },
     { id: 'mint', label: 'Mint' },
     { id: 'burn', label: 'Burn' },
+    ...(showBridge ? [{ id: 'bridge' as MenuSection, label: 'Bridge' }] : []),
     { id: 'pause', label: 'Pause' },
   ];
 
@@ -220,15 +227,27 @@ const SectionCard = ({ title, children }: SectionCardProps) => (
   </div>
 );
 
+// Paused Warning Component
+const PausedWarning = () => (
+  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+    <span className="text-red-500 text-lg">⚠️</span>
+    <div>
+      <p className="text-red-700 font-medium text-sm">Token is Paused</p>
+      <p className="text-red-600 text-xs mt-0.5">All token operations are disabled while the contract is paused.</p>
+    </div>
+  </div>
+);
+
 // Transfer Section
 interface TransferSectionProps {
   symbol: string;
   onTransfer: (to: string, amount: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
   onSuccess?: () => void;
+  isPaused?: boolean;
 }
 
-const TransferSection = ({ symbol, onTransfer, isLoading, onSuccess }: TransferSectionProps) => {
+const TransferSection = ({ symbol, onTransfer, isLoading, onSuccess, isPaused = false }: TransferSectionProps) => {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -253,6 +272,7 @@ const TransferSection = ({ symbol, onTransfer, isLoading, onSuccess }: TransferS
 
   return (
     <SectionCard title="Transfer">
+      {isPaused && <PausedWarning />}
       <div className="flex flex-col sm:flex-row gap-3">
         <InputField
           label="To"
@@ -271,7 +291,7 @@ const TransferSection = ({ symbol, onTransfer, isLoading, onSuccess }: TransferS
       </div>
       {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
       {success && <p className="text-green-500 text-xs sm:text-sm">Transfer successful!</p>}
-      <ActionButton label="Transfer" onClick={handleTransfer} disabled={!isValid} loading={isLoading} />
+      <ActionButton label="Transfer" onClick={handleTransfer} disabled={!isValid || isPaused} loading={isLoading} />
     </SectionCard>
   );
 };
@@ -283,9 +303,10 @@ interface MintSectionProps {
   isLoading: boolean;
   isOwner: boolean;
   onSuccess?: () => void;
+  isPaused?: boolean;
 }
 
-const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess }: MintSectionProps) => {
+const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess, isPaused = false }: MintSectionProps) => {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -310,6 +331,7 @@ const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess }: MintSect
 
   return (
     <SectionCard title="Mint">
+      {isPaused && <PausedWarning />}
       {!isOwner && (
         <p className="text-amber-600 text-xs sm:text-sm bg-amber-50 p-2 rounded-lg">
           ⚠️ Only the token owner can mint new tokens.
@@ -335,7 +357,7 @@ const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess }: MintSect
       </div>
       {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
       {success && <p className="text-green-500 text-xs sm:text-sm">Mint successful!</p>}
-      <ActionButton label="Mint" onClick={handleMint} disabled={!isValid || !isOwner} loading={isLoading} />
+      <ActionButton label="Mint" onClick={handleMint} disabled={!isValid || !isOwner || isPaused} loading={isLoading} />
     </SectionCard>
   );
 };
@@ -347,9 +369,10 @@ interface BurnSectionProps {
   isLoading: boolean;
   userBalance: string;
   onSuccess?: () => void;
+  isPaused?: boolean;
 }
 
-const BurnSection = ({ symbol, onBurn, isLoading, userBalance, onSuccess }: BurnSectionProps) => {
+const BurnSection = ({ symbol, onBurn, isLoading, userBalance, onSuccess, isPaused = false }: BurnSectionProps) => {
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -372,6 +395,7 @@ const BurnSection = ({ symbol, onBurn, isLoading, userBalance, onSuccess }: Burn
 
   return (
     <SectionCard title="Burn">
+      {isPaused && <PausedWarning />}
       <p className="text-xs sm:text-sm text-gray-600">
         Your balance: {formatDisplayNumber(userBalance)} {symbol}
       </p>
@@ -385,7 +409,7 @@ const BurnSection = ({ symbol, onBurn, isLoading, userBalance, onSuccess }: Burn
       />
       {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
       {success && <p className="text-green-500 text-xs sm:text-sm">Burn successful!</p>}
-      <ActionButton label="Burn" onClick={handleBurn} disabled={!isValid} variant="danger" loading={isLoading} />
+      <ActionButton label="Burn" onClick={handleBurn} disabled={!isValid || isPaused} variant="danger" loading={isLoading} />
     </SectionCard>
   );
 };
@@ -442,6 +466,275 @@ const PauseSection = ({ isPaused, onPause, onUnpause, isLoading, isOwner, onSucc
         loading={isLoading}
       />
     </SectionCard>
+  );
+};
+
+// Bridge Section
+interface BridgeSectionProps {
+  symbol: string;
+  decimals: number;
+  l1TokenAddress: string;
+  l2TokenAddress: string;
+  l1Balance: string;
+  l2Balance: string;
+  onSuccess?: () => void;
+  isPaused?: boolean;
+}
+
+// ERC20 ABI for approve
+const ERC20_APPROVE_ABI = [
+  {
+    name: 'approve',
+    type: 'function',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+] as const;
+
+const BridgeSection = ({ 
+  symbol, 
+  decimals, 
+  l1TokenAddress, 
+  l2TokenAddress, 
+  l1Balance, 
+  l2Balance,
+  onSuccess,
+  isPaused = false
+}: BridgeSectionProps) => {
+  const [amount, setAmount] = useState('');
+  const [direction, setDirection] = useState<'l1-to-l2' | 'l2-to-l1'>('l1-to-l2');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [bridgeStep, setBridgeStep] = useState<'idle' | 'approving' | 'bridging'>('idle');
+  const [txHash, setTxHash] = useState<string | null>(null);
+
+  const { address, chainId } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const { switchChainAsync } = useSwitchChain();
+  const l1PublicClient = usePublicClient({ chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId });
+
+  const sourceBalance = direction === 'l1-to-l2' ? l1Balance : l2Balance;
+  const isValid = parseFloat(amount) > 0 && parseFloat(amount) <= parseFloat(sourceBalance);
+
+  const handleBridge = async () => {
+    if (!address || !walletClient || !l1PublicClient) return;
+    
+    setError(null);
+    setSuccess(false);
+    setIsLoading(true);
+    setTxHash(null);
+    setBridgeStep('idle');
+
+    try {
+      if (direction === 'l1-to-l2') {
+        // Bridge from L1 (Sepolia) to L2 (Celo)
+        // First ensure we're on L1
+        if (chainId !== CONTRACTS.L1_TOKEN_FACTORY.chainId) {
+          await switchChainAsync({ chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId });
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        const amountBigInt = parseUnits(amount, decimals);
+        const L1_STANDARD_BRIDGE_ADDRESS = celoSepolia.contracts.l1StandardBridge[11155111].address;
+
+        // Step 1: Approve the bridge to spend tokens
+        setBridgeStep('approving');
+        const approveTx = await walletClient.writeContract({
+          address: getAddress(l1TokenAddress),
+          abi: ERC20_APPROVE_ABI,
+          functionName: 'approve',
+          args: [getAddress(L1_STANDARD_BRIDGE_ADDRESS), amountBigInt],
+          chain: walletClient.chain,
+          account: walletClient.account,
+        });
+
+        await l1PublicClient.waitForTransactionReceipt({ hash: approveTx });
+
+        // Step 2: Deposit tokens to bridge
+        setBridgeStep('bridging');
+        const { depositERC20 } = await import('@eth-optimism/viem/actions');
+
+        const depositTx = await depositERC20(walletClient, {
+          tokenAddress: getAddress(l1TokenAddress),
+          remoteTokenAddress: getAddress(l2TokenAddress),
+          amount: amountBigInt,
+          to: address,
+          minGasLimit: 2000000,
+          l1StandardBridgeAddress: L1_STANDARD_BRIDGE_ADDRESS,
+          unsafe: true,
+        });
+
+        setTxHash(depositTx);
+
+        const receipt = await l1PublicClient.waitForTransactionReceipt({
+          hash: depositTx,
+        });
+
+        if (receipt.status === 'reverted') {
+          throw new Error('Bridge transaction reverted');
+        }
+
+        setSuccess(true);
+        setAmount('');
+        setBridgeStep('idle');
+        onSuccess?.();
+        setTimeout(() => setSuccess(false), 5000);
+      } else {
+        // Bridge from L2 to L1 - pending implementation
+        setError('L2 to L1 bridge withdrawals are not yet implemented. Please use the official bridge.');
+      }
+    } catch (err) {
+      console.error('Bridge error:', err);
+      setError(err instanceof Error ? err.message : 'Bridge failed');
+      setBridgeStep('idle');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getButtonLabel = () => {
+    if (bridgeStep === 'approving') return 'Approving...';
+    if (bridgeStep === 'bridging') return 'Bridging...';
+    if (isLoading) return 'Processing...';
+    return `Bridge to ${direction === 'l1-to-l2' ? 'Celo L2' : 'Ethereum L1'}`;
+  };
+
+  // Define bridge steps for the modal
+  const bridgeSteps: MultistepProgressStep[] = direction === 'l1-to-l2' ? [
+    { title: 'Approve Token Transfer', description: 'Approving bridge to spend your tokens', chain: 'ethereum' },
+    { title: 'Bridge Tokens to L2', description: 'Transferring tokens from Ethereum to Celo', chain: 'ethereum' },
+  ] : [
+    { title: 'Initiate Withdrawal', description: 'Starting withdrawal from Celo to Ethereum', chain: 'celo' },
+    { title: 'Wait for Challenge Period', description: '7-day challenge period for security', chain: 'ethereum' },
+    { title: 'Finalize Withdrawal', description: 'Claiming tokens on Ethereum', chain: 'ethereum' },
+  ];
+
+  // Get current step number (1-indexed) for the modal
+  const getCurrentStepNumber = () => {
+    if (bridgeStep === 'approving') return 1;
+    if (bridgeStep === 'bridging') return 2;
+    return 0;
+  };
+
+  return (
+    <>
+    <SectionCard title="Bridge Tokens">
+      {isPaused && <PausedWarning />}
+      <p className="text-xs sm:text-sm text-gray-600">
+        Transfer tokens between Ethereum L1 (Sepolia) and Celo L2.
+      </p>
+
+      {/* Direction Selector */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setDirection('l1-to-l2')}
+          className={`flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+            direction === 'l1-to-l2'
+              ? 'bg-blue-100 text-blue-700 border-2 border-blue-500'
+              : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <img src="/images/ethereum.png" alt="Ethereum" className="w-4 h-4 rounded" />
+            <ArrowRightLeft className="w-3 h-3" />
+            <img src="/images/celo.png" alt="Celo" className="w-4 h-4 rounded" />
+          </div>
+          <div className="mt-1">L1 → L2</div>
+        </button>
+        <button
+          onClick={() => setDirection('l2-to-l1')}
+          className={`flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+            direction === 'l2-to-l1'
+              ? 'bg-blue-100 text-blue-700 border-2 border-blue-500'
+              : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <img src="/images/celo.png" alt="Celo" className="w-4 h-4 rounded" />
+            <ArrowRightLeft className="w-3 h-3" />
+            <img src="/images/ethereum.png" alt="Ethereum" className="w-4 h-4 rounded" />
+          </div>
+          <div className="mt-1">L2 → L1</div>
+        </button>
+      </div>
+
+      {/* Balance Info */}
+      <div className="bg-gray-50 rounded-lg p-3 text-xs sm:text-sm">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Available to bridge:</span>
+          <span className="font-medium">{formatDisplayNumber(sourceBalance)} {symbol}</span>
+        </div>
+      </div>
+
+      {/* Amount Input */}
+      <InputField
+        label="Amount"
+        value={amount}
+        onChange={setAmount}
+        placeholder="0.00"
+        suffix={symbol}
+        formatNumber
+      />
+
+      {/* Quick Amount Buttons */}
+      <div className="flex gap-2">
+        {[25, 50, 75, 100].map((pct) => (
+          <button
+            key={pct}
+            onClick={() => setAmount((parseFloat(sourceBalance) * pct / 100).toString())}
+            className="flex-1 py-1.5 px-2 rounded text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer transition-colors"
+          >
+            {pct}%
+          </button>
+        ))}
+      </div>
+
+      {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+      {success && (
+        <div className="text-green-500 text-xs sm:text-sm">
+          <p>Bridge transaction submitted successfully!</p>
+          {txHash && (
+            <a
+              href={`https://sepolia.etherscan.io/tx/${txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-green-600"
+            >
+              View on Etherscan
+            </a>
+          )}
+          <p className="text-gray-500 mt-1">Note: Tokens may take a few minutes to appear on the destination chain.</p>
+        </div>
+      )}
+
+      <ActionButton
+        label={getButtonLabel()}
+        onClick={handleBridge}
+        disabled={!isValid || direction === 'l2-to-l1' || isPaused}
+        loading={isLoading}
+      />
+
+      {direction === 'l2-to-l1' && (
+        <p className="text-amber-600 text-xs bg-amber-50 p-2 rounded-lg">
+          ⚠️ L2 to L1 withdrawals require a 7-day challenge period. Please use the official Celo bridge for withdrawals.
+        </p>
+      )}
+    </SectionCard>
+
+    {/* Bridge Progress Modal */}
+    <MultistepProgressModal
+      title={`Bridging ${symbol} Tokens`}
+      steps={bridgeSteps}
+      currentStep={getCurrentStepNumber()}
+      isOpen={isLoading && bridgeStep !== 'idle'}
+      estimatedTime="2 min"
+    />
+    </>
   );
 };
 
@@ -648,14 +941,23 @@ interface ContentAreaProps {
   activeSection: MenuSection;
   tokenManager: ReturnType<typeof useTokenManager>;
   onOperationSuccess?: () => void;
+  // Bridge props (for Ethereum Enabled tokens)
+  bridgeProps?: {
+    l1TokenAddress: string;
+    l2TokenAddress: string;
+    l1Balance: string;
+    l2Balance: string;
+    decimals: number;
+  };
 }
 
-const ContentArea = ({ activeSection, tokenManager, onOperationSuccess }: ContentAreaProps) => {
+const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, bridgeProps }: ContentAreaProps) => {
   const {
     symbol,
     isPaused,
     isOwner,
     isLoading,
+    isSwitchingChain,
     userBalance,
     owner,
     transfer,
@@ -666,6 +968,9 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess }: Conten
     transferOwnership,
   } = tokenManager;
 
+  // Combine loading states for better UX
+  const isOperationLoading = isLoading || isSwitchingChain;
+
   const renderContent = () => {
     switch (activeSection) {
       case 'transfer':
@@ -675,8 +980,9 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess }: Conten
             <TransferSection 
               symbol={symbol || ''} 
               onTransfer={transfer}
-              isLoading={isLoading}
+              isLoading={isOperationLoading}
               onSuccess={onOperationSuccess}
+              isPaused={isPaused}
             />
           </div>
         );
@@ -687,9 +993,10 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess }: Conten
             <MintSection 
               symbol={symbol || ''} 
               onMint={mint}
-              isLoading={isLoading}
+              isLoading={isOperationLoading}
               isOwner={isOwner}
               onSuccess={onOperationSuccess}
+              isPaused={isPaused}
             />
           </div>
         );
@@ -700,9 +1007,10 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess }: Conten
             <BurnSection 
               symbol={symbol || ''} 
               onBurn={burn}
-              isLoading={isLoading}
+              isLoading={isOperationLoading}
               userBalance={userBalance}
               onSuccess={onOperationSuccess}
+              isPaused={isPaused}
             />
           </div>
         );
@@ -714,9 +1022,26 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess }: Conten
               isPaused={isPaused} 
               onPause={pause}
               onUnpause={unpause}
-              isLoading={isLoading}
+              isLoading={isOperationLoading}
               isOwner={isOwner}
               onSuccess={onOperationSuccess}
+            />
+          </div>
+        );
+      case 'bridge':
+        if (!bridgeProps) return null;
+        return (
+          <div className="flex flex-col gap-5">
+            <h3 className="text-base font-semibold text-black">Cross-Chain Bridge</h3>
+            <BridgeSection 
+              symbol={symbol || ''}
+              decimals={bridgeProps.decimals}
+              l1TokenAddress={bridgeProps.l1TokenAddress}
+              l2TokenAddress={bridgeProps.l2TokenAddress}
+              l1Balance={bridgeProps.l1Balance}
+              l2Balance={bridgeProps.l2Balance}
+              onSuccess={onOperationSuccess}
+              isPaused={isPaused}
             />
           </div>
         );
@@ -726,7 +1051,7 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess }: Conten
             <h3 className="text-base font-semibold text-black">Ownership</h3>
             <TransferOwnershipSection 
               onTransferOwnership={transferOwnership}
-              isLoading={isLoading}
+              isLoading={isOperationLoading}
               isOwner={isOwner}
               currentOwner={owner || ''}
               onSuccess={onOperationSuccess}
@@ -789,11 +1114,11 @@ export default function TokenManager() {
   const tokenManager = isL2Token === false ? tokenManagerL1 : tokenManagerL2;
 
   // Refresh all token data (both L1 and L2 for Ethereum Enabled tokens)
-  const refreshAllTokenData = useCallback(() => {
+  const refreshAllTokenData = useCallback(async () => {
     if (isEthereumEnabled) {
-      Promise.all([tokenManagerL1.refetch(), tokenManagerL2.refetch()]);
+      await Promise.all([tokenManagerL1.refetch(), tokenManagerL2.refetch()]);
     } else {
-      tokenManager.refetch();
+      await tokenManager.refetch();
     }
   }, [isEthereumEnabled, tokenManagerL1, tokenManagerL2, tokenManager]);
 
@@ -877,8 +1202,23 @@ export default function TokenManager() {
 
         {/* Main Content */}
         <div className="flex flex-col md:flex-row gap-3 mt-3">
-          <NavigationMenu activeSection={activeSection} onSectionChange={setActiveSection} />
-          <ContentArea activeSection={activeSection} tokenManager={tokenManager} onOperationSuccess={refreshAllTokenData} />
+          <NavigationMenu 
+            activeSection={activeSection} 
+            onSectionChange={setActiveSection} 
+            showBridge={isEthereumEnabled}
+          />
+          <ContentArea 
+            activeSection={activeSection} 
+            tokenManager={tokenManager} 
+            onOperationSuccess={refreshAllTokenData}
+            bridgeProps={isEthereumEnabled ? {
+              l1TokenAddress: tokenAddress || '',
+              l2TokenAddress: l2TokenFromParams || '',
+              l1Balance: tokenManagerL1.userBalance,
+              l2Balance: tokenManagerL2.userBalance,
+              decimals: tokenManager.decimals,
+            } : undefined}
+          />
         </div>
       </div>
     </div>

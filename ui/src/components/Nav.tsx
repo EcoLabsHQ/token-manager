@@ -1,9 +1,21 @@
+import { Link } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitNetwork } from '@reown/appkit/react';
 
 // Local image paths
 const imgVector = "/images/logo.svg";
-const imgIcons = "/images/network-icon.svg";
 const imgChevronDown = "/images/chevron-down.svg";
+
+// Network image mapping
+const networkImages: Record<number, string> = {
+  11155111: "/images/ethereum.png", // Sepolia
+  11142220: "/images/celo.png",     // Celo Sepolia (Alfajores)
+};
+
+// Get network image based on chainId
+function getNetworkImage(chainId?: number): string {
+  if (!chainId) return "/images/network-icon.svg";
+  return networkImages[chainId] || "/images/network-icon.svg";
+}
 
 // Wallet icon component
 function WalletIcon({ className }: { className?: string }) {
@@ -31,7 +43,7 @@ export function Nav() {
     <nav className="bg-white flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4.5 shadow-[1px_2px_9px_0px_rgba(0,0,0,0.03)] w-full">
       {/* Logo */}
       <div className="flex items-center min-w-0">
-        <div className="flex items-center px-1 sm:px-3 gap-1.5">
+        <Link to="/" className="flex items-center px-1 sm:px-3 gap-1.5 hover:opacity-80 transition-opacity">
           <img 
             src={imgVector} 
             alt="Logo" 
@@ -43,7 +55,7 @@ export function Nav() {
           <span className="font-semibold text-base text-black tracking-[-0.55px] xs:hidden">
             Token Manager
           </span>
-        </div>
+        </Link>
       </div>
 
       {/* Right side - Network selector and wallet */}
@@ -53,13 +65,16 @@ export function Nav() {
           onClick={() => open({ view: 'Networks' })}
           className="bg-white border border-gray-200 flex items-center gap-1 h-8 sm:h-9 px-2 sm:px-2.5 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
         >
-          <img src={imgIcons} alt="Network" className="w-4 h-4 sm:w-5 sm:h-5" />
+          <img 
+            src={getNetworkImage(caipNetwork?.id)} 
+            alt={caipNetwork?.name || "Network"} 
+            className="w-4 h-4 sm:w-5 sm:h-5 rounded-full" 
+          />
           {caipNetwork && (
             <span className="text-xs text-gray-600 hidden md:inline">
               {caipNetwork.name}
             </span>
           )}
-          <img src={imgChevronDown} alt="Expand" className="w-2 h-1 hidden sm:block" />
         </button>
 
         {/* Wallet button */}
