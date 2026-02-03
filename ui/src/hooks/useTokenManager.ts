@@ -190,14 +190,30 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
         // Get the client dynamically to ensure we're using the right chain after switch
         const targetPublicClient = getPublicClient(config, { chainId: expectedChainId });
         if (targetPublicClient) {
-          await targetPublicClient.waitForTransactionReceipt({
+          const receipt = await targetPublicClient.waitForTransactionReceipt({
             hash: txHash,
             confirmations: 1,
           });
+
+          // Check if transaction was reverted
+          if (receipt.status === 'reverted') {
+            setError('Transaction reverted on chain');
+            setIsLoading(false);
+            return { success: false, error: 'Transaction reverted on chain', txHash };
+          }
         }
+
+        // Small delay to ensure RPC state is updated (especially for Celo L2)
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Refetch data after transaction
         await Promise.all([refetchTokenData(), refetchBalance()]);
+
+        // Double refetch after a short delay to catch any RPC propagation delays
+        setTimeout(() => {
+          refetchTokenData();
+          refetchBalance();
+        }, 2000);
 
         console.log(successMessage || `${functionName} successful:`, txHash);
         setIsLoading(false);
