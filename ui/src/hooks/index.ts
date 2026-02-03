@@ -14,6 +14,9 @@ export { useL2TokenFactory, type CreateL2TokenParams } from './useL2TokenFactory
 // Token Manager Hook
 export { useTokenManager, type TokenManagerParams, type TransactionResult } from './useTokenManager';
 
+// Accept Ownership Hook
+export { useAcceptOwnership, type AcceptOwnershipResult } from './useAcceptOwnership';
+
 // Chain Switching Hook
 export { useAutoChainSwitch, type ChainSwitchResult, type TargetChain } from './useAutoChainSwitch';
 

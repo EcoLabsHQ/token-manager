@@ -61,4 +61,32 @@ export const QUERIES = {
       }
     }
   `,
+
+  // Obtener transferencias de ownership pendientes donde el usuario es el nuevo owner
+  getPendingOwnershipTransfersByNewOwner: `
+    query GetPendingOwnershipTransfersByNewOwner($newOwner: Bytes!) {
+      pendingOwnershipTransfers(where: { newOwner: $newOwner }) {
+        id
+        previousOwner
+        newOwner
+        createdAt
+        createdAtBlock
+        createdTxHash
+        token {
+          id
+          tokenAddress
+          owner
+          name
+          symbol
+          decimals
+          initialSupply
+          maxSupply
+          chain
+          remoteToken
+          bridge
+          createdAt
+        }
+      }
+    }
+  `,
 } as const;

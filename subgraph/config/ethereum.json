@@ -7,5 +7,6 @@
   "abiFile": "L1TokenFactory.json",
   "eventSignature": "TokenCreated(indexed address,string,string,uint256,uint256,uint8,indexed address)",
   "handler": "handleL1TokenCreated",
-  "mappingFile": "l1-token-factory.ts"
+  "mappingFile": "l1-token-factory.ts",
+  "hasL1TokenTemplate": true
 }

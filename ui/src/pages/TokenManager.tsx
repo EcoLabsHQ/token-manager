@@ -417,29 +417,66 @@ const BurnSection = ({ symbol, onBurn, isLoading, userBalance, onSuccess, isPaus
 // Pause Section
 interface PauseSectionProps {
   isPaused: boolean;
-  onPause: () => Promise<{ success: boolean; error?: string }>;
-  onUnpause: () => Promise<{ success: boolean; error?: string }>;
+  onPause: (onStepChange?: (step: number) => void) => Promise<{ success: boolean; error?: string }>;
+  onUnpause: (onStepChange?: (step: number) => void) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
   isOwner: boolean;
   onSuccess?: () => void;
+  // For Ethereum Enabled tokens
+  isEthereumEnabled?: boolean;
+  l2IsPaused?: boolean;
 }
 
-const PauseSection = ({ isPaused, onPause, onUnpause, isLoading, isOwner, onSuccess }: PauseSectionProps) => {
+const PauseSection = ({ isPaused, onPause, onUnpause, isLoading, isOwner, onSuccess, isEthereumEnabled, l2IsPaused }: PauseSectionProps) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  
+  // Modal state for dual chain operations
+  const [showModal, setShowModal] = useState(false);
+  const [modalCurrentStep, setModalCurrentStep] = useState(0);
+  const [modalTitle, setModalTitle] = useState('');
+
+  const modalSteps = [
+    { title: 'Ethereum (L1)', description: isPaused ? 'Unpausing contract on L1' : 'Pausing contract on L1', chain: 'ethereum' as const },
+    { title: 'Celo (L2)', description: isPaused ? 'Unpausing contract on L2' : 'Pausing contract on L2', chain: 'celo' as const },
+  ];
 
   const handleToggle = async () => {
     setError(null);
     setSuccess(false);
-    const result = isPaused ? await onUnpause() : await onPause();
+    
+    if (isEthereumEnabled) {
+      // Show modal for dual chain operation
+      const action = isPaused ? 'Unpause' : 'Pause';
+      setModalTitle(`${action} Contract`);
+      setModalCurrentStep(1);
+      setShowModal(true);
+    }
+    
+    const result = isPaused 
+      ? await onUnpause(isEthereumEnabled ? setModalCurrentStep : undefined) 
+      : await onPause(isEthereumEnabled ? setModalCurrentStep : undefined);
+    
     if (result.success) {
+      if (isEthereumEnabled) {
+        setModalCurrentStep(3); // All steps complete
+        setTimeout(() => setShowModal(false), 1500);
+      }
       setSuccess(true);
       onSuccess?.();
       setTimeout(() => setSuccess(false), 3000);
     } else {
+      if (isEthereumEnabled) {
+        setShowModal(false);
+      }
       setError(result.error || 'Operation failed');
     }
   };
+
+  // Determine overall paused status for dual chain
+  const bothPaused = isEthereumEnabled ? (isPaused && l2IsPaused) : isPaused;
+  const bothActive = isEthereumEnabled ? (!isPaused && !l2IsPaused) : !isPaused;
+  const mixedState = isEthereumEnabled && isPaused !== l2IsPaused;
 
   return (
     <SectionCard title="Pause Contract">
@@ -448,22 +485,55 @@ const PauseSection = ({ isPaused, onPause, onUnpause, isLoading, isOwner, onSucc
           ⚠️ Only the token owner can pause/unpause the contract.
         </p>
       )}
+      
+      {isEthereumEnabled && (
+        <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+          ℹ️ This is an Ethereum Enabled token. Pause/Unpause will be applied to both L1 and L2 tokens.
+        </p>
+      )}
+      
       <p className="text-xs sm:text-sm text-gray-600">
-        {isPaused
+        {bothPaused
           ? 'The contract is currently paused. All transfers are disabled.'
-          : 'Pause the contract to disable all token transfers.'}
+          : bothActive
+            ? 'Pause the contract to disable all token transfers.'
+            : 'The contracts have mixed pause states.'}
       </p>
-      <div className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium ${isPaused ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-        Status: {isPaused ? 'Paused' : 'Active'}
-      </div>
+      
+      {isEthereumEnabled ? (
+        <div className="space-y-2">
+          <div className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium flex justify-between items-center ${isPaused ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            <span>L1 (Ethereum):</span>
+            <span>{isPaused ? 'Paused' : 'Active'}</span>
+          </div>
+          <div className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium flex justify-between items-center ${l2IsPaused ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            <span>L2 (Celo):</span>
+            <span>{l2IsPaused ? 'Paused' : 'Active'}</span>
+          </div>
+        </div>
+      ) : (
+        <div className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium ${isPaused ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          Status: {isPaused ? 'Paused' : 'Active'}
+        </div>
+      )}
+      
       {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
       {success && <p className="text-green-500 text-xs sm:text-sm">Operation successful!</p>}
+      
       <ActionButton
-        label={isPaused ? 'Unpause' : 'Pause'}
+        label={bothPaused ? 'Unpause' : mixedState ? 'Sync & Pause' : 'Pause'}
         onClick={handleToggle}
-        variant={isPaused ? 'primary' : 'danger'}
+        variant={bothPaused ? 'primary' : 'danger'}
         disabled={!isOwner}
         loading={isLoading}
+      />
+      
+      {/* Progress Modal for Dual Chain */}
+      <MultistepProgressModal
+        isOpen={showModal}
+        title={modalTitle}
+        steps={modalSteps}
+        currentStep={modalCurrentStep}
       />
     </SectionCard>
   );
@@ -741,36 +811,142 @@ const BridgeSection = ({
 // Transfer Ownership Section
 interface TransferOwnershipSectionProps {
   onTransferOwnership: (newOwner: string) => Promise<{ success: boolean; error?: string }>;
+  onAcceptOwnership: () => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
   isOwner: boolean;
+  isPendingOwner: boolean;
   currentOwner: string;
+  pendingOwner?: string;
   onSuccess?: () => void;
+  // For Ethereum Enabled tokens
+  isEthereumEnabled?: boolean;
+  l2PendingOwner?: string;
 }
 
-const TransferOwnershipSection = ({ onTransferOwnership, isLoading, isOwner, currentOwner, onSuccess }: TransferOwnershipSectionProps) => {
+// Steps for the transfer/accept ownership modals
+const TRANSFER_OWNERSHIP_STEPS: MultistepProgressStep[] = [
+  {
+    title: 'Transfer on Ethereum',
+    description: 'Initiating ownership transfer on L1',
+    chain: 'ethereum',
+  },
+  {
+    title: 'Transfer on Celo',
+    description: 'Initiating ownership transfer on L2',
+    chain: 'celo',
+  },
+];
+
+const ACCEPT_OWNERSHIP_STEPS: MultistepProgressStep[] = [
+  {
+    title: 'Accept on Ethereum',
+    description: 'Accepting ownership on L1',
+    chain: 'ethereum',
+  },
+  {
+    title: 'Accept on Celo',
+    description: 'Accepting ownership on L2',
+    chain: 'celo',
+  },
+];
+
+const TransferOwnershipSection = ({ 
+  onTransferOwnership, 
+  onAcceptOwnership,
+  isLoading, 
+  isOwner, 
+  isPendingOwner,
+  currentOwner, 
+  pendingOwner,
+  onSuccess,
+  isEthereumEnabled,
+  l2PendingOwner,
+}: TransferOwnershipSectionProps) => {
   const [newOwner, setNewOwner] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [transferStep, setTransferStep] = useState(0);
+  const [acceptStep, setAcceptStep] = useState(0);
   
   const isValid = newOwner.startsWith('0x') && newOwner.length === 42 && newOwner.toLowerCase() !== currentOwner.toLowerCase();
+  const hasPendingTransfer = pendingOwner && pendingOwner !== '0x0000000000000000000000000000000000000000';
+  const hasL2PendingTransfer = l2PendingOwner && l2PendingOwner !== '0x0000000000000000000000000000000000000000';
 
   const handleTransfer = async () => {
     setError(null);
     setSuccess(false);
+    
+    if (isEthereumEnabled) {
+      setShowTransferModal(true);
+      setTransferStep(1);
+    }
+    
     const result = await onTransferOwnership(newOwner);
+    
+    if (isEthereumEnabled) {
+      if (result.success) {
+        setTransferStep(3); // Completed
+        setTimeout(() => {
+          setShowTransferModal(false);
+          setTransferStep(0);
+        }, 1500);
+      } else if (result.error?.includes('L2')) {
+        setTransferStep(2); // Failed at L2
+      }
+    }
+    
     if (result.success) {
       setSuccess(true);
       setNewOwner('');
       onSuccess?.();
       setTimeout(() => setSuccess(false), 3000);
     } else {
+      setShowTransferModal(false);
+      setTransferStep(0);
       setError(result.error || 'Transfer ownership failed');
     }
   };
 
+  const handleAccept = async () => {
+    setError(null);
+    setSuccess(false);
+    
+    if (isEthereumEnabled) {
+      setShowAcceptModal(true);
+      setAcceptStep(1);
+    }
+    
+    const result = await onAcceptOwnership();
+    
+    if (isEthereumEnabled) {
+      if (result.success) {
+        setAcceptStep(3); // Completed
+        setTimeout(() => {
+          setShowAcceptModal(false);
+          setAcceptStep(0);
+        }, 1500);
+      } else if (result.error?.includes('L2')) {
+        setAcceptStep(2); // Failed at L2
+      }
+    }
+    
+    if (result.success) {
+      setSuccess(true);
+      onSuccess?.();
+      setTimeout(() => setSuccess(false), 3000);
+    } else {
+      setShowAcceptModal(false);
+      setAcceptStep(0);
+      setError(result.error || 'Accept ownership failed');
+    }
+  };
+
   return (
+    <>
     <SectionCard title="Transfer ownership">
-      {!isOwner && (
+      {!isOwner && !isPendingOwner && (
         <p className="text-amber-600 text-xs sm:text-sm bg-amber-50 p-2 rounded-lg">
           ⚠️ Only the current owner can transfer ownership.
         </p>
@@ -779,20 +955,102 @@ const TransferOwnershipSection = ({ onTransferOwnership, isLoading, isOwner, cur
         <span className="font-medium">Current owner:</span>{' '}
         <span className="font-mono text-[10px] sm:text-xs break-all">{currentOwner}</span>
       </div>
-      <InputField
-        label="New Owner Address"
-        value={newOwner}
-        onChange={setNewOwner}
-        placeholder="0x..."
-        disabled={!isOwner}
-      />
-      <p className="text-[10px] sm:text-xs text-gray-500">
-        Note: The new owner will need to call acceptOwnership() to complete the transfer.
-      </p>
+      
+      {/* Pending Owner Section */}
+      {(hasPendingTransfer || (isEthereumEnabled && hasL2PendingTransfer)) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <span className="text-xs sm:text-sm font-medium text-blue-700">
+              Pending Transfer {isEthereumEnabled && '(Dual Chain)'}
+            </span>
+          </div>
+          {isEthereumEnabled ? (
+            <div className="space-y-1">
+              <div className="text-xs sm:text-sm text-gray-600">
+                <span className="font-medium">L1 Pending owner:</span>{' '}
+                <span className="font-mono text-[10px] sm:text-xs break-all">
+                  {hasPendingTransfer ? pendingOwner : 'None'}
+                </span>
+              </div>
+              <div className="text-xs sm:text-sm text-gray-600">
+                <span className="font-medium">L2 Pending owner:</span>{' '}
+                <span className="font-mono text-[10px] sm:text-xs break-all">
+                  {hasL2PendingTransfer ? l2PendingOwner : 'None'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs sm:text-sm text-gray-600">
+              <span className="font-medium">Pending owner:</span>{' '}
+              <span className="font-mono text-[10px] sm:text-xs break-all">{pendingOwner}</span>
+            </div>
+          )}
+          {isPendingOwner && (
+            <div className="pt-2">
+              <p className="text-xs text-blue-600 mb-2">
+                You are the pending owner. Click below to accept ownership
+                {isEthereumEnabled && ' on both chains'}.
+              </p>
+              <ActionButton 
+                label={isEthereumEnabled ? "Accept Ownership (Both Chains)" : "Accept Ownership"}
+                onClick={handleAccept} 
+                disabled={!isPendingOwner} 
+                loading={isLoading} 
+              />
+            </div>
+          )}
+          {!isPendingOwner && isOwner && (
+            <p className="text-xs text-gray-500">
+              Waiting for the pending owner to accept the transfer.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Transfer Form - only show if no pending transfer or if owner wants to change */}
+      {isOwner && (
+        <>
+          <InputField
+            label="New Owner Address"
+            value={newOwner}
+            onChange={setNewOwner}
+            placeholder="0x..."
+            disabled={!isOwner}
+          />
+          <p className="text-[10px] sm:text-xs text-gray-500">
+            Note: The new owner will need to call acceptOwnership() to complete the transfer.
+          </p>
+          <ActionButton label="Transfer Ownership" onClick={handleTransfer} disabled={!isValid || !isOwner} loading={isLoading} />
+        </>
+      )}
+      
       {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
-      {success && <p className="text-green-500 text-xs sm:text-sm">Ownership transfer initiated!</p>}
-      <ActionButton label="Transfer Ownership" onClick={handleTransfer} disabled={!isValid || !isOwner} loading={isLoading} />
+      {success && <p className="text-green-500 text-xs sm:text-sm">✓ Operation completed successfully!</p>}
     </SectionCard>
+
+    {/* Transfer Ownership Progress Modal */}
+    {isEthereumEnabled && (
+      <MultistepProgressModal
+        title="Transferring Ownership"
+        steps={TRANSFER_OWNERSHIP_STEPS}
+        currentStep={transferStep}
+        isOpen={showTransferModal}
+        estimatedTime="1-2 min"
+      />
+    )}
+
+    {/* Accept Ownership Progress Modal */}
+    {isEthereumEnabled && (
+      <MultistepProgressModal
+        title="Accepting Ownership"
+        steps={ACCEPT_OWNERSHIP_STEPS}
+        currentStep={acceptStep}
+        isOpen={showAcceptModal}
+        estimatedTime="1-2 min"
+      />
+    )}
+    </>
   );
 };
 
@@ -949,27 +1207,152 @@ interface ContentAreaProps {
     l2Balance: string;
     decimals: number;
   };
+  // For Ethereum Enabled tokens - dual chain operations
+  isEthereumEnabled?: boolean;
+  l2TokenManager?: ReturnType<typeof useTokenManager>;
 }
 
-const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, bridgeProps }: ContentAreaProps) => {
+const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, bridgeProps, isEthereumEnabled, l2TokenManager }: ContentAreaProps) => {
   const {
     symbol,
     isPaused,
     isOwner,
+    isPendingOwner,
     isLoading,
     isSwitchingChain,
     userBalance,
     owner,
+    pendingOwner,
     transfer,
     mint,
     burn,
     pause,
     unpause,
     transferOwnership,
+    acceptOwnership,
   } = tokenManager;
 
   // Combine loading states for better UX
-  const isOperationLoading = isLoading || isSwitchingChain;
+  const isOperationLoading = isLoading || isSwitchingChain || (l2TokenManager?.isLoading ?? false) || (l2TokenManager?.isSwitchingChain ?? false);
+
+  // Dual-chain transfer ownership for Ethereum Enabled tokens
+  const handleTransferOwnershipDual = async (newOwner: string): Promise<{ success: boolean; error?: string }> => {
+    if (isEthereumEnabled && l2TokenManager) {
+      // Transfer on L1 first
+      const l1Result = await transferOwnership(newOwner);
+      if (!l1Result.success) {
+        return { success: false, error: `L1 transfer failed: ${l1Result.error}` };
+      }
+
+      // Then transfer on L2
+      const l2Result = await l2TokenManager.transferOwnership(newOwner);
+      if (!l2Result.success) {
+        return { success: false, error: `L2 transfer failed: ${l2Result.error}. L1 was successful.` };
+      }
+
+      return { success: true };
+    }
+
+    // Single chain transfer
+    return transferOwnership(newOwner);
+  };
+
+  // Dual-chain accept ownership for Ethereum Enabled tokens
+  const handleAcceptOwnershipDual = async (): Promise<{ success: boolean; error?: string }> => {
+    if (isEthereumEnabled && l2TokenManager) {
+      // Check current ownership status on both chains to handle partial completion
+      const l1IsOwner = isOwner;
+      const l2IsOwner = l2TokenManager.isOwner;
+      const l1IsPendingOwner = isPendingOwner;
+      const l2IsPendingOwner = l2TokenManager.isPendingOwner;
+
+      // If already owner on both, nothing to do
+      if (l1IsOwner && l2IsOwner) {
+        return { success: true };
+      }
+
+      // Accept on L1 only if not already owner and is pending owner
+      if (!l1IsOwner) {
+        if (l1IsPendingOwner) {
+          const l1Result = await acceptOwnership();
+          if (!l1Result.success) {
+            return { success: false, error: `L1 accept failed: ${l1Result.error}` };
+          }
+        } else {
+          return { success: false, error: 'Not pending owner on L1' };
+        }
+      } else {
+        console.log('Already owner on L1, skipping L1 acceptance...');
+      }
+
+      // Accept on L2 only if not already owner and is pending owner
+      if (!l2IsOwner) {
+        if (l2IsPendingOwner) {
+          const l2Result = await l2TokenManager.acceptOwnership();
+          if (!l2Result.success) {
+            return { success: false, error: `L2 accept failed: ${l2Result.error}. L1 was successful.` };
+          }
+        } else {
+          return { success: false, error: 'Not pending owner on L2' };
+        }
+      } else {
+        console.log('Already owner on L2, skipping L2 acceptance...');
+      }
+
+      return { success: true };
+    }
+
+    // Single chain accept
+    return acceptOwnership();
+  };
+
+  // Dual-chain pause for Ethereum Enabled tokens
+  const handlePauseDual = async (onStepChange?: (step: number) => void): Promise<{ success: boolean; error?: string }> => {
+    if (isEthereumEnabled && l2TokenManager) {
+      // Pause on L1 first (step 1)
+      onStepChange?.(1);
+      const l1Result = await pause();
+      if (!l1Result.success) {
+        return { success: false, error: `L1 pause failed: ${l1Result.error}` };
+      }
+
+      // Then pause on L2 (step 2)
+      onStepChange?.(2);
+      const l2Result = await l2TokenManager.pause();
+      if (!l2Result.success) {
+        return { success: false, error: `L2 pause failed: ${l2Result.error}. L1 was paused successfully.` };
+      }
+
+      return { success: true };
+    }
+
+    // Single chain pause
+    return pause();
+  };
+
+  // Dual-chain unpause for Ethereum Enabled tokens
+  const handleUnpauseDual = async (onStepChange?: (step: number) => void): Promise<{ success: boolean; error?: string }> => {
+    if (isEthereumEnabled && l2TokenManager) {
+      // Unpause on L1 first (step 1)
+      onStepChange?.(1);
+      const l1Result = await unpause();
+      if (!l1Result.success) {
+        return { success: false, error: `L1 unpause failed: ${l1Result.error}` };
+      }
+
+      // Then unpause on L2 (step 2)
+      onStepChange?.(2);
+      const l2Result = await l2TokenManager.unpause();
+      if (!l2Result.success) {
+        return { success: false, error: `L2 unpause failed: ${l2Result.error}. L1 was unpaused successfully.` };
+      }
+
+      return { success: true };
+    }
+
+    // Single chain unpause
+    return unpause();
+  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -1020,11 +1403,13 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, bridgePr
             <h3 className="text-base font-semibold text-black">Contract Status</h3>
             <PauseSection 
               isPaused={isPaused} 
-              onPause={pause}
-              onUnpause={unpause}
+              onPause={handlePauseDual}
+              onUnpause={handleUnpauseDual}
               isLoading={isOperationLoading}
               isOwner={isOwner}
               onSuccess={onOperationSuccess}
+              isEthereumEnabled={isEthereumEnabled}
+              l2IsPaused={l2TokenManager?.isPaused}
             />
           </div>
         );
@@ -1049,12 +1434,22 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, bridgePr
         return (
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">Ownership</h3>
+            {isEthereumEnabled && (
+              <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+                ℹ️ This is an Ethereum Enabled token. Ownership changes will be applied to both L1 and L2 tokens.
+              </p>
+            )}
             <TransferOwnershipSection 
-              onTransferOwnership={transferOwnership}
+              onTransferOwnership={handleTransferOwnershipDual}
+              onAcceptOwnership={handleAcceptOwnershipDual}
               isLoading={isOperationLoading}
               isOwner={isOwner}
+              isPendingOwner={isPendingOwner || (l2TokenManager?.isPendingOwner ?? false)}
               currentOwner={owner || ''}
+              pendingOwner={pendingOwner}
               onSuccess={onOperationSuccess}
+              isEthereumEnabled={isEthereumEnabled}
+              l2PendingOwner={l2TokenManager?.pendingOwner}
             />
           </div>
         );
@@ -1218,6 +1613,8 @@ export default function TokenManager() {
               l2Balance: tokenManagerL2.userBalance,
               decimals: tokenManager.decimals,
             } : undefined}
+            isEthereumEnabled={isEthereumEnabled}
+            l2TokenManager={isEthereumEnabled ? tokenManagerL2 : undefined}
           />
         </div>
       </div>

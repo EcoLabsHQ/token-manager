@@ -1,6 +1,7 @@
 import { BigInt, Bytes } from "@graphprotocol/graph-ts"
 import { TokenCreated as TokenCreatedEvent } from "../generated/L1TokenFactory/L1TokenFactory"
 import { TokenFactory, Token, TokenCreatedEvent as TokenCreatedEventEntity } from "../generated/schema"
+import { L1Token as L1TokenTemplate } from "../generated/templates"
 
 const CHAIN = "ethereum"
 
@@ -41,6 +42,9 @@ export function handleL1TokenCreated(event: TokenCreatedEvent): void {
   token.createdAtBlock = event.block.number
   token.createdTxHash = event.transaction.hash
   token.save()
+
+  // Create dynamic data source to track token events (OwnershipTransferStarted, OwnershipTransferred)
+  L1TokenTemplate.create(tokenAddress)
 
   // Create immutable event entity
   const eventId = event.transaction.hash.concatI32(event.logIndex.toI32())

@@ -45,3 +45,14 @@ type TokenCreatedEvent @entity(immutable: true) {
   blockTimestamp: BigInt!
   transactionHash: Bytes!
 }
+
+# Pending ownership transfer entity - tracks ownership transfers in progress
+type PendingOwnershipTransfer @entity {
+  id: Bytes! # token address (since only one pending transfer can exist per token)
+  token: Token!
+  previousOwner: Bytes!
+  newOwner: Bytes!
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  createdTxHash: Bytes!
+}

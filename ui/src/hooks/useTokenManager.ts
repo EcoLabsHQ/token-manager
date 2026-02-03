@@ -104,6 +104,12 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
         functionName: 'paused',
         chainId: expectedChainId,
       },
+      {
+        address: getAddress(tokenAddress),
+        abi: TOKEN_ABI,
+        functionName: 'pendingOwner',
+        chainId: expectedChainId,
+      },
     ] : [],
     query: {
       enabled: !!tokenAddress,
@@ -130,8 +136,13 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
   const maxSupply = tokenData?.[4]?.result as bigint | undefined;
   const owner = tokenData?.[5]?.result as string | undefined;
   const isPaused = tokenData?.[6]?.result as boolean | undefined;
+  const pendingOwner = tokenData?.[7]?.result as string | undefined;
 
   const isOwner = address && owner ? address.toLowerCase() === owner.toLowerCase() : false;
+  const isPendingOwner = address && pendingOwner && pendingOwner !== '0x0000000000000000000000000000000000000000' 
+    ? address.toLowerCase() === pendingOwner.toLowerCase() 
+    : false;
+  const hasPendingTransfer = pendingOwner && pendingOwner !== '0x0000000000000000000000000000000000000000';
 
   // Helper to execute transaction with auto chain switch
   const executeTransaction = useCallback(
@@ -251,7 +262,7 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
     return executeTransaction('unpause', [], 'Contract unpaused');
   }, [isOwner, executeTransaction]);
 
-  // Transfer ownership (owner only)
+  // Transfer ownership - Step 1 (owner only)
   const transferOwnership = useCallback(
     async (newOwner: string): Promise<TransactionResult> => {
       if (!isOwner) {
@@ -260,6 +271,17 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
       return executeTransaction('transferOwnership', [getAddress(newOwner)], 'Ownership transfer initiated');
     },
     [isOwner, executeTransaction]
+  );
+
+  // Accept ownership - Step 2 (pending owner only)
+  const acceptOwnership = useCallback(
+    async (): Promise<TransactionResult> => {
+      if (!isPendingOwner) {
+        return { success: false, error: 'Only pending owner can accept ownership' };
+      }
+      return executeTransaction('acceptOwnership', [], 'Ownership accepted');
+    },
+    [isPendingOwner, executeTransaction]
   );
 
   // Set max supply (owner only)
@@ -295,12 +317,15 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
     totalSupply: formattedTotalSupply,
     maxSupply: formattedMaxSupply,
     owner,
+    pendingOwner,
     isPaused: isPaused ?? false,
+    hasPendingTransfer: hasPendingTransfer ?? false,
     
     // User info
     userAddress: address,
     userBalance: formattedBalance,
     isOwner,
+    isPendingOwner,
     isConnected: !!address,
     isCorrectChain,
     expectedChainId,
@@ -312,6 +337,7 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
     pause,
     unpause,
     transferOwnership,
+    acceptOwnership,
     setMaxSupply,
     
     // State

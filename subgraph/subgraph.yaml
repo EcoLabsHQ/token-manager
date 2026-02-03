@@ -24,10 +24,13 @@ dataSources:
           file: ./abis/L2SuperChainTokenFactory.json
         - name: L2SuperChainToken
           file: ./abis/L2SuperChainToken.json
+        - name: L1Token
+          file: ./abis/L1Token.json
       eventHandlers:
         - event: TokenCreated(indexed address,string,string,uint8,uint256,uint256,indexed address)
           handler: handleL2TokenCreated
       file: ./src/l2-token-factory.ts
+
 
 templates:
   - kind: ethereum
@@ -41,6 +44,7 @@ templates:
       language: wasm/assemblyscript
       entities:
         - Token
+        - PendingOwnershipTransfer
       abis:
         - name: L2SuperChainToken
           file: ./abis/L2SuperChainToken.json
@@ -49,4 +53,8 @@ templates:
           handler: handleRemoteTokenUpdated
         - event: BridgeUpdated(indexed address)
           handler: handleBridgeUpdated
+        - event: OwnershipTransferStarted(indexed address,indexed address)
+          handler: handleOwnershipTransferStarted
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
       file: ./src/l2-token.ts

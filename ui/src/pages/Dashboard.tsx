@@ -1,7 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle, UserCheck } from 'lucide-react';
 import { useSubgraphTokens, type TokenPair, type TokenSetupStatus } from '../hooks/useSubgraphTokens';
+import { usePendingOwnershipTransfers, type PendingOwnershipTransfer } from '../hooks/usePendingOwnershipTransfers';
+import { useAcceptOwnership } from '../hooks/useAcceptOwnership';
+import { MultistepProgressModal, type MultistepProgressStep } from '../components';
+
+// Steps for the accept ownership modal
+const ACCEPT_OWNERSHIP_STEPS: MultistepProgressStep[] = [
+  {
+    title: 'Accept on Ethereum',
+    description: 'Accepting ownership on L1',
+    chain: 'ethereum',
+  },
+  {
+    title: 'Accept on Celo',
+    description: 'Accepting ownership on L2',
+    chain: 'celo',
+  },
+];
 
 // Setup status badge component
 const SetupStatusBadge = ({ status }: { status: TokenSetupStatus }) => {
@@ -351,11 +368,185 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
   );
 };
 
+// Pending Ownership Transfers Table Component
+interface PendingTransfersTableProps {
+  transfers: PendingOwnershipTransfer[];
+  onAccept: (transfer: PendingOwnershipTransfer) => void;
+  isLoading?: boolean;
+  processingTokenId?: string | null;
+}
+
+const PendingTransfersTable = ({ transfers, onAccept, isLoading, processingTokenId }: PendingTransfersTableProps) => {
+  const handleCopy = (text: string) => {
+    if (text) navigator.clipboard.writeText(text);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="border border-purple-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white flex items-center justify-center h-32">
+          <div className="flex flex-col items-center gap-3 animate-fade-in">
+            <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+            <p className="text-gray-500 text-sm font-medium">Loading pending transfers...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (transfers.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="border border-purple-200 rounded-xl overflow-hidden shadow-sm">
+      {/* Table Header */}
+      <div className="bg-purple-50/80 border-b border-purple-200 flex items-center px-4 py-3">
+        <div className="flex-1 text-purple-600 text-xs font-medium uppercase tracking-wide">Token</div>
+        <div className="w-[100px] shrink-0 text-purple-600 text-xs font-medium uppercase tracking-wide">Chain</div>
+        <div className="w-[180px] shrink-0 text-purple-600 text-xs font-medium uppercase tracking-wide hidden lg:block">From</div>
+        <div className="w-[180px] shrink-0 text-purple-600 text-xs font-medium uppercase tracking-wide hidden lg:block">Token Address</div>
+        <div className="w-[100px] shrink-0 text-purple-600 text-xs font-medium uppercase tracking-wide text-right">Action</div>
+      </div>
+
+      {/* Table Body */}
+      {transfers.map((transfer) => (
+        <div
+          key={transfer.id}
+          className="bg-white flex items-center min-h-[52px] px-4 py-3 border-b border-purple-100 last:border-b-0 
+                     hover:bg-purple-50/50"
+        >
+          {/* Token Name & Symbol */}
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-black font-medium truncate" title={transfer.tokenName}>
+                  {transfer.tokenName}
+                </span>
+                {transfer.isEthereumEnabled && (
+                  <span className="text-[10px] bg-gradient-to-r from-blue-100 to-green-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-blue-200/50">
+                    Dual Chain
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-gray-500 font-mono">
+                {transfer.tokenSymbol}
+              </span>
+            </div>
+          </div>
+
+          {/* Chain */}
+          <div className="w-[100px] shrink-0 flex items-center gap-1.5">
+            {transfer.isEthereumEnabled ? (
+              <>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded overflow-hidden">
+                    <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="w-4 h-4 rounded overflow-hidden -ml-1.5">
+                    <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
+                  </div>
+                </div>
+                <span className="text-xs text-gray-600">Both</span>
+              </>
+            ) : transfer.chain === 'ethereum' ? (
+              <>
+                <div className="w-4 h-4 rounded overflow-hidden">
+                  <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-xs text-gray-600">Ethereum</span>
+              </>
+            ) : (
+              <>
+                <div className="w-4 h-4 rounded overflow-hidden">
+                  <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-xs text-gray-600">Celo</span>
+              </>
+            )}
+          </div>
+
+          {/* From Address */}
+          <div className="w-[180px] shrink-0 hidden lg:block">
+            <AddressWithActions
+              address={transfer.previousOwner}
+              chain={transfer.chain as 'ethereum' | 'celo'}
+              onCopy={() => handleCopy(transfer.previousOwner)}
+            />
+          </div>
+
+          {/* Token Address */}
+          <div className="w-[180px] shrink-0 hidden lg:block">
+            {transfer.isEthereumEnabled ? (
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-gray-400">L1:</span>
+                  <AddressWithActions
+                    address={transfer.l1TokenAddress || transfer.tokenAddress}
+                    chain="ethereum"
+                    onCopy={() => handleCopy(transfer.l1TokenAddress || transfer.tokenAddress)}
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-gray-400">L2:</span>
+                  <AddressWithActions
+                    address={transfer.l2TokenAddress || ''}
+                    chain="celo"
+                    onCopy={() => handleCopy(transfer.l2TokenAddress || '')}
+                  />
+                </div>
+              </div>
+            ) : (
+              <AddressWithActions
+                address={transfer.tokenAddress}
+                chain={transfer.chain as 'ethereum' | 'celo'}
+                onCopy={() => handleCopy(transfer.tokenAddress)}
+              />
+            )}
+          </div>
+
+          {/* Action */}
+          <div className="w-[100px] shrink-0 text-right">
+            <button
+              onClick={() => onAccept(transfer)}
+              disabled={processingTokenId === transfer.id}
+              className="bg-purple-600 text-white text-xs font-medium h-7 px-3 rounded-lg 
+                         flex items-center gap-1.5 ml-auto cursor-pointer
+                         hover:bg-purple-700 transition-colors
+                         disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {processingTokenId === transfer.id ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Accepting...
+                </>
+              ) : (
+                <>
+                  <UserCheck className="w-3.5 h-3.5" />
+                  Accept
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { tokens, isLoading, l1TokenCount, l2TokenCount, refetch } = useSubgraphTokens();
+  const { pendingTransfers, isLoading: isPendingLoading, refetch: refetchPending } = usePendingOwnershipTransfers();
+  const { 
+    acceptOwnership, 
+    processingTokenId,
+    isModalOpen,
+    currentStep,
+    isSwitchingChain,
+  } = useAcceptOwnership();
   const [hideIncomplete, setHideIncomplete] = useState(false);
 
   // Auto-refetch when coming from token creation (subgraph may need time to index)
@@ -366,6 +557,7 @@ export default function Dashboard() {
       window.history.replaceState({}, document.title);
       // Refetch immediately and then again after delays to catch subgraph updates
       refetch();
+      refetchPending();
       const timer1 = setTimeout(() => refetch(), 3000);
       const timer2 = setTimeout(() => refetch(), 8000);
       return () => {
@@ -373,7 +565,7 @@ export default function Dashboard() {
         clearTimeout(timer2);
       };
     }
-  }, [location.state, refetch]);
+  }, [location.state, refetch, refetchPending]);
 
   // Filter tokens based on hideIncomplete setting
   const filteredTokens = hideIncomplete 
@@ -403,12 +595,72 @@ export default function Dashboard() {
     }
   };
 
+  const handleAcceptOwnership = async (transfer: PendingOwnershipTransfer) => {
+    const result = await acceptOwnership(transfer);
+    if (result.success) {
+      // Refetch to update the lists after successful acceptance
+      refetch();
+      refetchPending();
+    } else {
+      // Could add toast notification here for error
+      console.error('Failed to accept ownership:', result.error);
+    }
+  };
+
   const handleCreateToken = () => {
     navigate('/create');
   };
 
   return (
-    <div className="bg-gray-100 flex flex-col flex-1 min-h-0 w-full p-3 sm:p-6 animate-fade-in">
+    <div className="bg-gray-100 flex flex-col flex-1 min-h-0 w-full p-3 sm:p-6 animate-fade-in gap-4 sm:gap-6">
+      {/* Pending Ownership Transfers Section */}
+      {pendingTransfers.length > 0 && (
+        <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-4 sm:gap-5 shadow-sm transition-shadow duration-300 hover:shadow-md animate-slide-up border-l-4 border-purple-500">
+          {/* Section Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                  <UserCheck className="w-4 h-4 text-purple-600" />
+                </div>
+                <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
+                  Pending Ownership Transfers
+                </h2>
+              </div>
+              {!isPendingLoading && (
+                <span className="text-xs sm:text-sm text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                  {pendingTransfers.length} pending
+                </span>
+              )}
+            </div>
+            <button
+              onClick={refetchPending}
+              disabled={isPendingLoading}
+              className="text-purple-500 text-sm font-medium h-8 sm:h-9 px-2 sm:px-3 rounded-lg 
+                         flex items-center gap-2 cursor-pointer
+                         transition-all duration-150
+                         hover:bg-purple-50 hover:text-purple-700
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh pending transfers"
+            >
+              <RefreshCw className={`w-4 h-4 ${isPendingLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+          
+          <p className="text-sm text-gray-600">
+            These tokens have been offered to you. Accept ownership to add them to your tokens.
+          </p>
+
+          {/* Pending Transfers Table */}
+          <PendingTransfersTable 
+            transfers={pendingTransfers} 
+            onAccept={handleAcceptOwnership} 
+            isLoading={isPendingLoading}
+            processingTokenId={processingTokenId}
+          />
+        </div>
+      )}
+
       {/* My Tokens Section */}
       <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-4 sm:gap-5 shadow-sm transition-shadow duration-300 hover:shadow-md animate-slide-up">
         {/* Section Header */}
@@ -515,6 +767,16 @@ export default function Dashboard() {
         {/* Token Table */}
         <TokenTable tokens={filteredTokens} onManage={handleManage} onCompleteSetup={handleCompleteSetup} isLoading={isLoading} onRefresh={refetch} />
       </div>
+
+      {/* Accept Ownership Progress Modal */}
+      <MultistepProgressModal
+        title="Accepting Ownership"
+        steps={ACCEPT_OWNERSHIP_STEPS}
+        currentStep={currentStep}
+        isOpen={isModalOpen}
+        estimatedTime="1-2 min"
+        isSwitchingChain={isSwitchingChain}
+      />
     </div>
   );
 }

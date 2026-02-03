@@ -24,12 +24,39 @@ dataSources:
           file: ./abis/{{abiFile}}
         - name: L2SuperChainToken
           file: ./abis/L2SuperChainToken.json
+        - name: L1Token
+          file: ./abis/L1Token.json
       eventHandlers:
         - event: {{eventSignature}}
           handler: {{handler}}
       file: ./src/{{mappingFile}}
 
-{{#hasTokenTemplate}}
+{{#hasL1TokenTemplate}}
+templates:
+  - kind: ethereum
+    name: L1Token
+    network: {{network}}
+    source:
+      abi: L1Token
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Token
+        - PendingOwnershipTransfer
+      abis:
+        - name: L1Token
+          file: ./abis/L1Token.json
+      eventHandlers:
+        - event: OwnershipTransferStarted(indexed address,indexed address)
+          handler: handleOwnershipTransferStarted
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
+      file: ./src/l1-token.ts
+{{/hasL1TokenTemplate}}
+
+{{#hasL2TokenTemplate}}
 templates:
   - kind: ethereum
     name: L2SuperChainToken
@@ -42,6 +69,7 @@ templates:
       language: wasm/assemblyscript
       entities:
         - Token
+        - PendingOwnershipTransfer
       abis:
         - name: L2SuperChainToken
           file: ./abis/L2SuperChainToken.json
@@ -50,5 +78,9 @@ templates:
           handler: handleRemoteTokenUpdated
         - event: BridgeUpdated(indexed address)
           handler: handleBridgeUpdated
+        - event: OwnershipTransferStarted(indexed address,indexed address)
+          handler: handleOwnershipTransferStarted
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
       file: ./src/l2-token.ts
-{{/hasTokenTemplate}}
+{{/hasL2TokenTemplate}}
