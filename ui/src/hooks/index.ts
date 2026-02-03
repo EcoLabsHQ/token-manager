@@ -22,3 +22,13 @@ export { useAutoChainSwitch, type ChainSwitchResult, type TargetChain } from './
 
 // Deployment Persistence Hook
 export { useDeploymentPersistence, type DeploymentState } from './useDeploymentPersistence';
+
+// Bridge Hooks
+export { useBridge } from './useBridge';
+export { useBridgeConfiguration } from './useBridgeConfiguration';
+
+// Withdraw Hook (L2 -> L1 bridging)
+export { useWithdraw, type WithdrawalStatus, type PendingWithdrawal } from './useWithdraw';
+
+// Pending Withdrawals Hook (localStorage persistence)
+export { usePendingWithdrawals, type PendingWithdrawalStorage } from './usePendingWithdrawals';

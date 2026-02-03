@@ -6,4 +6,5 @@ export { DeployingModal } from './DeployingModal';
 export { SuccessModal } from './SuccessModal';
 export { MultistepProgressModal } from './MultistepProgressModal';
 export type { MultistepProgressStep, MultistepProgressModalProps } from './MultistepProgressModal';
+export { WithdrawalProgressModal } from './WithdrawalProgressModal';
 export * from './Icons';
