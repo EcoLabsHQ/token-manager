@@ -61,6 +61,7 @@ export function WithdrawalProgressModal({
   onFinalize,
   isProving,
   isFinalizing,
+  isInitiating: _isInitiating = false,
   symbol,
   amount,
 }: WithdrawalProgressModalProps) {
