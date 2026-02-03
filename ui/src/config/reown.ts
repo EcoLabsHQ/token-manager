@@ -12,15 +12,13 @@ if (!projectId || projectId === 'YOUR_PROJECT_ID') {
   );
 }
 
-// Custom chain configurations with proper icons
-const sepoliaWithIcon: AppKitNetwork = {
+// Chain configurations
+const sepoliaNetwork: AppKitNetwork = {
   ...sepolia,
-  imageUrl: '/images/ethereum.png',
 };
 
-const celoSepoliaWithIcon: AppKitNetwork = {
+const celoSepoliaNetwork: AppKitNetwork = {
   ...celoSepolia,
-  imageUrl: '/images/celo.png',
 };
 
 // Create Wagmi adapter
@@ -33,8 +31,8 @@ export const wagmiAdapter = new WagmiAdapter({
 export const appKit = createAppKit({
   adapters: [wagmiAdapter],
   projectId,
-  networks: [sepoliaWithIcon, celoSepoliaWithIcon],
-  defaultNetwork: sepoliaWithIcon,
+  networks: [sepoliaNetwork, celoSepoliaNetwork],
+  defaultNetwork: sepoliaNetwork,
   metadata: {
     name: 'High Velocity Token Manager',
     description: 'Manage your High Velocity Tokens with ease',

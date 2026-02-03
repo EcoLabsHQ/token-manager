@@ -3,7 +3,6 @@ import { useAppKit, useAppKitAccount, useAppKitNetwork } from '@reown/appkit/rea
 
 // Local image paths
 const imgVector = "/images/logo.svg";
-const imgChevronDown = "/images/chevron-down.svg";
 
 // Network image mapping
 const networkImages: Record<number, string> = {
@@ -12,9 +11,10 @@ const networkImages: Record<number, string> = {
 };
 
 // Get network image based on chainId
-function getNetworkImage(chainId?: number): string {
+function getNetworkImage(chainId?: string | number): string {
   if (!chainId) return "/images/network-icon.svg";
-  return networkImages[chainId] || "/images/network-icon.svg";
+  const id = typeof chainId === 'string' ? parseInt(chainId, 10) : chainId;
+  return networkImages[id] || "/images/network-icon.svg";
 }
 
 // Wallet icon component
