@@ -305,15 +305,28 @@ interface MintSectionProps {
   isOwner: boolean;
   onSuccess?: () => void;
   isPaused?: boolean;
+  connectedAddress?: string;
+  totalSupply?: string;
+  maxSupply?: string;
 }
 
-const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess, isPaused = false }: MintSectionProps) => {
+const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess, isPaused = false, connectedAddress, totalSupply = '0', maxSupply = '0' }: MintSectionProps) => {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   
-  const isValid = toAddress.startsWith('0x') && toAddress.length === 42 && parseFloat(amount) > 0;
+  // Calculate available to mint
+  const totalNum = parseFloat(totalSupply) || 0;
+  const maxNum = parseFloat(maxSupply) || 0;
+  const hasMaxSupply = maxNum > 0;
+  const availableToMint = hasMaxSupply ? maxNum - totalNum : Infinity;
+  
+  // Check if amount exceeds available
+  const amountNum = parseFloat(amount.replace(/,/g, '')) || 0;
+  const exceedsMaxSupply = hasMaxSupply && amountNum > availableToMint;
+  
+  const isValid = toAddress.startsWith('0x') && toAddress.length === 42 && amountNum > 0 && !exceedsMaxSupply;
 
   const handleMint = async () => {
     setError(null);
@@ -339,13 +352,28 @@ const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess, isPaused =
         </p>
       )}
       <div className="flex flex-col sm:flex-row gap-3">
-        <InputField
-          label="To"
-          value={toAddress}
-          onChange={setToAddress}
-          placeholder="0x..."
-          disabled={!isOwner}
-        />
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <label className="text-xs sm:text-sm text-gray-500">To</label>
+            {connectedAddress && isOwner && (
+              <button
+                type="button"
+                onClick={() => setToAddress(connectedAddress)}
+                className="px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors cursor-pointer"
+              >
+                Admin
+              </button>
+            )}
+          </div>
+          <input
+            type="text"
+            value={toAddress}
+            onChange={(e) => setToAddress(e.target.value)}
+            placeholder="0x..."
+            disabled={!isOwner}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
+          />
+        </div>
         <InputField
           label="Amount"
           value={amount}
@@ -356,6 +384,11 @@ const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess, isPaused =
           formatNumber
         />
       </div>
+      {exceedsMaxSupply && (
+        <p className="text-red-500 text-xs sm:text-sm bg-red-50 p-2 rounded-lg">
+          ⚠️ No additional tokens can be minted beyond the Max Total Supply of your token.
+        </p>
+      )}
       {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
       {success && <p className="text-green-500 text-xs sm:text-sm">Mint successful!</p>}
       <ActionButton label="Mint" onClick={handleMint} disabled={!isValid || !isOwner || isPaused} loading={isLoading} />
@@ -1337,6 +1370,7 @@ interface TokenInfoHeaderProps {
   symbol: string;
   isL2Token: boolean;
   totalSupply: string;
+  maxSupply: string;
   userBalance: string;
   decimals: number;
   // For Ethereum Enabled tokens - show both L1 and L2
@@ -1353,6 +1387,7 @@ const TokenInfoHeader = ({
   symbol, 
   isL2Token, 
   totalSupply, 
+  maxSupply,
   userBalance, 
   decimals,
   isEthereumEnabled,
@@ -1361,6 +1396,14 @@ const TokenInfoHeader = ({
   l1TokenManager,
   l2TokenManager
 }: TokenInfoHeaderProps) => {
+  // Calculate available to mint
+  const calculateAvailableToMint = (total: string, max: string) => {
+    const totalNum = parseFloat(total) || 0;
+    const maxNum = parseFloat(max) || 0;
+    if (maxNum === 0) return 'Unlimited';
+    const available = maxNum - totalNum;
+    return available > 0 ? available.toString() : '0';
+  };
   // If Ethereum Enabled, show both tokens
   if (isEthereumEnabled && l1TokenAddress && l2TokenAddress && l1TokenManager && l2TokenManager) {
     return (
@@ -1397,7 +1440,11 @@ const TokenInfoHeader = ({
             />
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
               <ReadOnlyField label="Total Supply" value={formatDisplayNumber(l1TokenManager.totalSupply)} />
+              <ReadOnlyField label="Max Supply" value={l1TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(l1TokenManager.maxSupply)} />
               <ReadOnlyField label="My Balance" value={formatDisplayNumber(l1TokenManager.userBalance)} />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
+              <ReadOnlyField label="Available to Mint" value={l1TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(calculateAvailableToMint(l1TokenManager.totalSupply, l1TokenManager.maxSupply))} />
             </div>
           </div>
         </div>
@@ -1418,7 +1465,11 @@ const TokenInfoHeader = ({
             />
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
               <ReadOnlyField label="Total Supply" value={formatDisplayNumber(l2TokenManager.totalSupply)} />
+              <ReadOnlyField label="Max Supply" value={l2TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(l2TokenManager.maxSupply)} />
               <ReadOnlyField label="My Balance" value={formatDisplayNumber(l2TokenManager.userBalance)} />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
+              <ReadOnlyField label="Available to Mint" value={l2TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(calculateAvailableToMint(l2TokenManager.totalSupply, l2TokenManager.maxSupply))} />
             </div>
           </div>
         </div>
@@ -1466,6 +1517,12 @@ const TokenInfoHeader = ({
         <ReadOnlyField label="Total Supply" value={formatDisplayNumber(totalSupply)} />
         <ReadOnlyField label="My Balance" value={formatDisplayNumber(userBalance)} />
       </div>
+
+      {/* Supply Info */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
+        <ReadOnlyField label="Max Supply" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(maxSupply)} />
+        <ReadOnlyField label="Available to Mint" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(calculateAvailableToMint(totalSupply, maxSupply))} />
+      </div>
     </div>
   );
 };
@@ -1475,6 +1532,7 @@ interface ContentAreaProps {
   activeSection: MenuSection;
   tokenManager: ReturnType<typeof useTokenManager>;
   onOperationSuccess?: () => void;
+  connectedAddress?: string;
   // Bridge props (for Ethereum Enabled tokens)
   bridgeProps?: {
     l1TokenAddress: string;
@@ -1488,7 +1546,7 @@ interface ContentAreaProps {
   l2TokenManager?: ReturnType<typeof useTokenManager>;
 }
 
-const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, bridgeProps, isEthereumEnabled, l2TokenManager }: ContentAreaProps) => {
+const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connectedAddress, bridgeProps, isEthereumEnabled, l2TokenManager }: ContentAreaProps) => {
   const {
     symbol,
     isPaused,
@@ -1499,6 +1557,8 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, bridgePr
     userBalance,
     owner,
     pendingOwner,
+    totalSupply,
+    maxSupply,
     transfer,
     mint,
     burn,
@@ -1656,6 +1716,9 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, bridgePr
               isOwner={isOwner}
               onSuccess={onOperationSuccess}
               isPaused={isPaused}
+              connectedAddress={connectedAddress}
+              totalSupply={totalSupply}
+              maxSupply={maxSupply}
             />
           </div>
         );
@@ -1748,6 +1811,7 @@ export default function TokenManager() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<MenuSection>('transfer');
   const [isL2Token, setIsL2Token] = useState<boolean | null>(null);
+  const { address } = useAccount();
 
   // Check if this is an Ethereum Enabled token with both L1 and L2
   const l2TokenFromParams = searchParams.get('l2Token');
@@ -1862,6 +1926,7 @@ export default function TokenManager() {
           symbol={tokenManager.symbol || ''}
           isL2Token={isL2Token ?? false}
           totalSupply={tokenManager.totalSupply}
+          maxSupply={tokenManager.maxSupply}
           userBalance={tokenManager.userBalance}
           decimals={tokenManager.decimals}
           isEthereumEnabled={isEthereumEnabled}
@@ -1882,6 +1947,7 @@ export default function TokenManager() {
             activeSection={activeSection} 
             tokenManager={tokenManager} 
             onOperationSuccess={refreshAllTokenData}
+            connectedAddress={address}
             bridgeProps={isEthereumEnabled ? {
               l1TokenAddress: tokenAddress || '',
               l2TokenAddress: l2TokenFromParams || '',
