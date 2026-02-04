@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import promoRoutes from './routes/promo';
+import adminRoutes from './routes/admin';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -12,6 +13,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/promo', promoRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/health', (_req, res) => {

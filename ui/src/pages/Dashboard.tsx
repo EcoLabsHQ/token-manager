@@ -159,8 +159,10 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
       <div className="bg-gray-50/80 border-b border-gray-200 hidden lg:flex items-center px-4 py-3">
         <div className="w-[140px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
         <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
-        <div className="w-[140px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
+        <div className="w-[120px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
+        <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Total Supply</div>
         <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Max Supply</div>
+        <div className="w-[70px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Holders</div>
         <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide pl-4">Address (L1)</div>
         <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide">Address (L2)</div>
         <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
@@ -260,7 +262,7 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
             </div>
 
             {/* Type */}
-            <div className="w-[140px] shrink-0 flex items-center gap-1.5">
+            <div className="w-[120px] shrink-0 flex items-center gap-1.5">
               <div className="flex items-center">
                 {token.type === 'ethereum-enabled' ? (
                   <div className="flex items-center">
@@ -274,13 +276,23 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
                 )}
               </div>
               <span className="text-xs text-gray-600">
-                {token.type === 'ethereum-enabled' ? 'Ethereum Enabled' : 'Celo-Native'}
+                {token.type === 'ethereum-enabled' ? 'ETH + Celo' : 'Celo-Native'}
               </span>
+            </div>
+
+            {/* Total Supply */}
+            <div className="w-[100px] shrink-0 text-right">
+              <span className="text-sm text-black tabular-nums">{token.totalSupplyFormatted}</span>
             </div>
 
             {/* Max Supply */}
             <div className="w-[100px] shrink-0 text-right">
               <span className="text-sm text-black tabular-nums">{token.maxSupplyFormatted}</span>
+            </div>
+
+            {/* Holders */}
+            <div className="w-[70px] shrink-0 text-right">
+              <span className="text-sm text-black tabular-nums">{token.totalUniqueHolders.toLocaleString()}</span>
             </div>
 
             {/* Address L1 */}

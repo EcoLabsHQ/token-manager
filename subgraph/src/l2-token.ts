@@ -1,11 +1,76 @@
-import { Bytes, store } from "@graphprotocol/graph-ts"
+import { BigInt, Bytes, store } from "@graphprotocol/graph-ts"
 import { 
   RemoteTokenUpdated as RemoteTokenUpdatedEvent,
   BridgeUpdated as BridgeUpdatedEvent,
   OwnershipTransferStarted as OwnershipTransferStartedEvent,
-  OwnershipTransferred as OwnershipTransferredEvent
+  OwnershipTransferred as OwnershipTransferredEvent,
+  Transfer as TransferEvent
 } from "../generated/templates/L2SuperChainToken/L2SuperChainToken"
-import { Token, PendingOwnershipTransfer } from "../generated/schema"
+import { Token, TokenHolder, PendingOwnershipTransfer } from "../generated/schema"
+
+const ZERO_ADDRESS = Bytes.fromHexString("0x0000000000000000000000000000000000000000")
+
+function getOrCreateTokenHolder(tokenAddress: Bytes, holderAddress: Bytes): TokenHolder {
+  const id = tokenAddress.concat(holderAddress)
+  let holder = TokenHolder.load(id)
+  if (!holder) {
+    holder = new TokenHolder(id)
+    holder.token = tokenAddress
+    holder.holder = holderAddress
+    holder.balance = BigInt.fromI32(0)
+  }
+  return holder
+}
+
+export function handleTransfer(event: TransferEvent): void {
+  const tokenAddress = event.address
+  const from = event.params.from
+  const to = event.params.to
+  const value = event.params.value
+
+  let token = Token.load(tokenAddress)
+  if (!token) {
+    return
+  }
+
+  // Handle minting (from zero address)
+  if (from.equals(ZERO_ADDRESS)) {
+    token.totalSupply = token.totalSupply.plus(value)
+  }
+  // Handle burning (to zero address)
+  else if (to.equals(ZERO_ADDRESS)) {
+    token.totalSupply = token.totalSupply.minus(value)
+  }
+
+  // Update sender balance (if not minting)
+  if (!from.equals(ZERO_ADDRESS)) {
+    let fromHolder = getOrCreateTokenHolder(tokenAddress, from)
+    fromHolder.balance = fromHolder.balance.minus(value)
+    
+    // Check if sender's balance dropped to zero
+    if (fromHolder.balance.equals(BigInt.fromI32(0))) {
+      token.totalUniqueHolders = token.totalUniqueHolders.minus(BigInt.fromI32(1))
+      store.remove("TokenHolder", fromHolder.id.toHexString())
+    } else {
+      fromHolder.save()
+    }
+  }
+
+  // Update receiver balance (if not burning)
+  if (!to.equals(ZERO_ADDRESS)) {
+    let toHolder = getOrCreateTokenHolder(tokenAddress, to)
+    const wasZero = toHolder.balance.equals(BigInt.fromI32(0))
+    toHolder.balance = toHolder.balance.plus(value)
+    
+    // Check if this is a new holder
+    if (wasZero && toHolder.balance.gt(BigInt.fromI32(0))) {
+      token.totalUniqueHolders = token.totalUniqueHolders.plus(BigInt.fromI32(1))
+    }
+    toHolder.save()
+  }
+
+  token.save()
+}
 
 export function handleRemoteTokenUpdated(event: RemoteTokenUpdatedEvent): void {
   // The token address is the contract that emitted the event

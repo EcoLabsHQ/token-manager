@@ -44,6 +44,7 @@ templates:
       language: wasm/assemblyscript
       entities:
         - Token
+        - TokenHolder
         - PendingOwnershipTransfer
       abis:
         - name: L2SuperChainToken
@@ -57,4 +58,6 @@ templates:
           handler: handleOwnershipTransferStarted
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleOwnershipTransferred
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
       file: ./src/l2-token.ts

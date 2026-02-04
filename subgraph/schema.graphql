@@ -18,15 +18,26 @@ type Token @entity {
   decimals: Int!
   initialSupply: BigInt!
   maxSupply: BigInt!
+  totalSupply: BigInt! # Current circulating supply
+  totalUniqueHolders: BigInt! # Number of unique addresses holding this token
   owner: Bytes!
   chain: String! # "ethereum" or "celo"
   # For L2 tokens that have a remote L1 token
   remoteToken: Bytes
   # Bridge configuration
   bridge: Bytes
+  holders: [TokenHolder!]! @derivedFrom(field: "token")
   createdAt: BigInt!
   createdAtBlock: BigInt!
   createdTxHash: Bytes!
+}
+
+# TokenHolder entity - tracks each holder's balance for a token
+type TokenHolder @entity {
+  id: Bytes! # tokenAddress + holderAddress
+  token: Token!
+  holder: Bytes!
+  balance: BigInt!
 }
 
 # TokenCreated event entity for historical tracking

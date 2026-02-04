@@ -12,6 +12,8 @@ export interface SubgraphToken {
   decimals: number;
   initialSupply: string;
   maxSupply: string;
+  totalSupply?: string; // Optional - will be added when subgraph is redeployed
+  totalUniqueHolders?: string; // Optional - will be added when subgraph is redeployed
   chain: string;
   remoteToken?: string;
   bridge?: string;
@@ -27,6 +29,9 @@ export interface TokenPair {
   decimals: number;
   maxSupply: string;
   maxSupplyFormatted: string;
+  totalSupply: string;
+  totalSupplyFormatted: string;
+  totalUniqueHolders: number;
   type: 'ethereum-enabled' | 'celo-native';
   address: string; // Primary address for routing
   addressL1?: string;
@@ -159,6 +164,13 @@ export function useSubgraphTokens() {
           l1Token.decimals
         );
 
+        // Use totalSupply if available from subgraph, otherwise fallback to initialSupply
+        const currentTotalSupply = l1Token.totalSupply || l1Token.initialSupply;
+        const formattedTotalSupply = formatUnits(
+          BigInt(currentTotalSupply),
+          l1Token.decimals
+        );
+
         // Determine setup status
         let setupStatus: TokenSetupStatus = 'complete';
         if (!linkedL2) {
@@ -174,6 +186,9 @@ export function useSubgraphTokens() {
           decimals: l1Token.decimals,
           maxSupply: l1Token.maxSupply,
           maxSupplyFormatted: parseFloat(formattedMaxSupply).toLocaleString(),
+          totalSupply: currentTotalSupply,
+          totalSupplyFormatted: parseFloat(formattedTotalSupply).toLocaleString(),
+          totalUniqueHolders: parseInt(l1Token.totalUniqueHolders || '0'),
           type: 'ethereum-enabled',
           address: l1Token.tokenAddress,
           addressL1: l1Token.tokenAddress,
@@ -198,6 +213,13 @@ export function useSubgraphTokens() {
           l2Token.decimals
         );
 
+        // Use totalSupply if available from subgraph, otherwise fallback to initialSupply
+        const currentTotalSupply = l2Token.totalSupply || l2Token.initialSupply;
+        const formattedTotalSupply = formatUnits(
+          BigInt(currentTotalSupply),
+          l2Token.decimals
+        );
+
         // Check if it has a remote token (linked to L1 we don't own)
         const hasRemoteToken = !!l2Token.remoteToken;
 
@@ -214,6 +236,9 @@ export function useSubgraphTokens() {
           decimals: l2Token.decimals,
           maxSupply: l2Token.maxSupply,
           maxSupplyFormatted: parseFloat(formattedMaxSupply).toLocaleString(),
+          totalSupply: currentTotalSupply,
+          totalSupplyFormatted: parseFloat(formattedTotalSupply).toLocaleString(),
+          totalUniqueHolders: parseInt(l2Token.totalUniqueHolders || '0'),
           type: hasRemoteToken ? 'ethereum-enabled' : 'celo-native',
           address: l2Token.tokenAddress,
           addressL1: l2Token.remoteToken,
