@@ -179,6 +179,11 @@ export function useSubgraphTokens() {
           setupStatus = 'pending-bridge'; // L2 exists but bridge not configured
         }
 
+        // For ethereum-enabled tokens, sum L1 + L2 holders
+        const l1Holders = parseInt(l1Token.totalUniqueHolders || '0');
+        const l2Holders = linkedL2 ? parseInt(linkedL2.totalUniqueHolders || '0') : 0;
+        const combinedHolders = l1Holders + l2Holders;
+
         tokenPairs.push({
           id: l1Token.id,
           name: l1Token.name,
@@ -188,7 +193,7 @@ export function useSubgraphTokens() {
           maxSupplyFormatted: parseFloat(formattedMaxSupply).toLocaleString(),
           totalSupply: currentTotalSupply,
           totalSupplyFormatted: parseFloat(formattedTotalSupply).toLocaleString(),
-          totalUniqueHolders: parseInt(l1Token.totalUniqueHolders || '0'),
+          totalUniqueHolders: combinedHolders,
           type: 'ethereum-enabled',
           address: l1Token.tokenAddress,
           addressL1: l1Token.tokenAddress,
