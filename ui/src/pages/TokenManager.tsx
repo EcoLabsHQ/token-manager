@@ -244,17 +244,23 @@ interface TransferSectionProps {
   symbol: string;
   onTransfer: (to: string, amount: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
+  userBalance: string;
   onSuccess?: () => void;
   isPaused?: boolean;
 }
 
-const TransferSection = ({ symbol, onTransfer, isLoading, onSuccess, isPaused = false }: TransferSectionProps) => {
+const TransferSection = ({ symbol, onTransfer, isLoading, userBalance, onSuccess, isPaused = false }: TransferSectionProps) => {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   
-  const isValid = toAddress.startsWith('0x') && toAddress.length === 42 && parseFloat(amount) > 0;
+  const amountNum = parseFloat(amount.replace(/,/g, '') || '0');
+  const balanceNum = parseFloat(userBalance.replace(/,/g, '') || '0');
+  const isValidAddress = toAddress.startsWith('0x') && toAddress.length === 42;
+  const isValidAmount = amountNum > 0 && amountNum <= balanceNum;
+  const isValid = isValidAddress && isValidAmount;
+  const exceedsBalance = amountNum > balanceNum && amountNum > 0;
 
   const handleTransfer = async () => {
     setError(null);
@@ -291,6 +297,7 @@ const TransferSection = ({ symbol, onTransfer, isLoading, onSuccess, isPaused = 
         />
       </div>
       {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+      {exceedsBalance && !error && <p className="text-red-500 text-xs sm:text-sm">Amount exceeds your balance ({formatDisplayNumber(userBalance)} {symbol})</p>}
       {success && <p className="text-green-500 text-xs sm:text-sm">Transfer successful!</p>}
       <ActionButton label="Transfer" onClick={handleTransfer} disabled={!isValid || isPaused} loading={isLoading} />
     </SectionCard>
@@ -1766,6 +1773,7 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connecte
               symbol={symbol || ''} 
               onTransfer={transfer}
               isLoading={isOperationLoading}
+              userBalance={userBalance}
               onSuccess={onOperationSuccess}
               isPaused={isPaused}
             />
