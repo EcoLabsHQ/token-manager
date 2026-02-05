@@ -27,6 +27,9 @@ export { useDeploymentPersistence, type DeploymentState } from './useDeploymentP
 export { useBridge } from './useBridge';
 export { useBridgeConfiguration } from './useBridgeConfiguration';
 
+// Migrate to Ethereum Hook
+export { useMigrateToEthereum, type MigrationStep, type MigrationParams, type MigrationResult } from './useMigrateToEthereum';
+
 // Withdraw Hook (L2 -> L1 bridging)
 export { useWithdraw, type WithdrawalStatus, type PendingWithdrawal } from './useWithdraw';
 

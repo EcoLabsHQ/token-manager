@@ -4,6 +4,7 @@ import Dashboard from '@/pages/Dashboard';
 import { CreateTokenPage } from '@/pages/CreateTokenPage';
 import TokenManager from '@/pages/TokenManager';
 import SetupBridge from '@/pages/SetupBridge';
+import MigrateCeloNative from '@/pages/MigrateCeloNative';
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,10 @@ export const router = createBrowserRouter([
       {
         path: 'setup-bridge',
         element: <SetupBridge />,
+      },
+      {
+        path: 'migrate',
+        element: <MigrateCeloNative />,
       },
       {
         path: '*',

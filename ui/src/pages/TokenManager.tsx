@@ -1408,6 +1408,9 @@ interface TokenInfoHeaderProps {
   l2TokenAddress?: string;
   l1TokenManager?: ReturnType<typeof useTokenManager>;
   l2TokenManager?: ReturnType<typeof useTokenManager>;
+  // For Celo-Native tokens - show migration option
+  isCeloNative?: boolean;
+  isOwner?: boolean;
 }
 
 const TokenInfoHeader = ({ 
@@ -1423,8 +1426,11 @@ const TokenInfoHeader = ({
   l1TokenAddress,
   l2TokenAddress,
   l1TokenManager,
-  l2TokenManager
+  l2TokenManager,
+  isCeloNative,
+  isOwner
 }: TokenInfoHeaderProps) => {
+  const navigate = useNavigate();
   // Calculate available to mint
   const calculateAvailableToMint = (total: string, max: string) => {
     const totalNum = parseFloat(total) || 0;
@@ -1532,6 +1538,37 @@ const TokenInfoHeader = ({
           </div>
         </div>
       </div>
+
+      {/* Migration Banner for Celo-Native tokens */}
+      {isCeloNative && isL2Token && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <ArrowRightLeft className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 text-sm">Migrate to Ethereum</h4>
+                <p className="text-xs text-gray-600">Enable cross-chain bridging by deploying on Ethereum L1</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate(`/migrate?l2Token=${tokenAddress}`)}
+              disabled={!isOwner}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                ${isOwner 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer' 
+                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+            >
+              <EthereumIcon />
+              Migrate
+            </button>
+          </div>
+          {!isOwner && (
+            <p className="text-xs text-amber-600 mt-2">Only the token owner can perform migration.</p>
+          )}
+        </div>
+      )}
 
       {/* Token Address */}
       <ReadOnlyField
@@ -1963,6 +2000,8 @@ export default function TokenManager() {
           l2TokenAddress={isEthereumEnabled ? l2TokenFromParams || undefined : undefined}
           l1TokenManager={isEthereumEnabled ? tokenManagerL1 : undefined}
           l2TokenManager={isEthereumEnabled ? tokenManagerL2 : undefined}
+          isCeloNative={!isEthereumEnabled && isL2Token === true}
+          isOwner={tokenManager.isOwner}
         />
 
         {/* Main Content */}
