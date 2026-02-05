@@ -4,9 +4,11 @@ import {
   BridgeUpdated as BridgeUpdatedEvent,
   OwnershipTransferStarted as OwnershipTransferStartedEvent,
   OwnershipTransferred as OwnershipTransferredEvent,
-  Transfer as TransferEvent
+  Transfer as TransferEventContract,
+  CrosschainMint as CrosschainMintEvent,
+  CrosschainBurn as CrosschainBurnEvent
 } from "../generated/templates/L2SuperChainToken/L2SuperChainToken"
-import { Token, TokenHolder, PendingOwnershipTransfer } from "../generated/schema"
+import { Token, TokenHolder, PendingOwnershipTransfer, TransferEvent, BridgeEvent } from "../generated/schema"
 
 const ZERO_ADDRESS = Bytes.fromHexString("0x0000000000000000000000000000000000000000")
 
@@ -22,7 +24,7 @@ function getOrCreateTokenHolder(tokenAddress: Bytes, holderAddress: Bytes): Toke
   return holder
 }
 
-export function handleTransfer(event: TransferEvent): void {
+export function handleTransfer(event: TransferEventContract): void {
   const tokenAddress = event.address
   const from = event.params.from
   const to = event.params.to
@@ -32,6 +34,21 @@ export function handleTransfer(event: TransferEvent): void {
   if (!token) {
     return
   }
+
+  // Increment total transfers counter
+  token.totalTransfers = token.totalTransfers.plus(BigInt.fromI32(1))
+
+  // Create immutable transfer event entity
+  const eventId = event.transaction.hash.concatI32(event.logIndex.toI32())
+  let transferEvent = new TransferEvent(eventId)
+  transferEvent.token = tokenAddress
+  transferEvent.from = from
+  transferEvent.to = to
+  transferEvent.value = value
+  transferEvent.blockNumber = event.block.number
+  transferEvent.blockTimestamp = event.block.timestamp
+  transferEvent.transactionHash = event.transaction.hash
+  transferEvent.save()
 
   // Handle minting (from zero address)
   if (from.equals(ZERO_ADDRESS)) {
@@ -128,4 +145,56 @@ export function handleOwnershipTransferred(event: OwnershipTransferredEvent): vo
   if (pendingTransfer) {
     store.remove("PendingOwnershipTransfer", tokenAddress.toHexString())
   }
+}
+
+export function handleCrosschainMint(event: CrosschainMintEvent): void {
+  const tokenAddress = event.address
+
+  let token = Token.load(tokenAddress)
+  if (!token) {
+    return
+  }
+
+  // Increment total bridges counter
+  token.totalBridges = token.totalBridges.plus(BigInt.fromI32(1))
+  token.save()
+
+  // Create immutable bridge event entity
+  const eventId = event.transaction.hash.concatI32(event.logIndex.toI32())
+  let bridgeEvent = new BridgeEvent(eventId)
+  bridgeEvent.token = tokenAddress
+  bridgeEvent.eventType = "mint"
+  bridgeEvent.account = event.params.to
+  bridgeEvent.amount = event.params.amount
+  bridgeEvent.sender = event.params.sender
+  bridgeEvent.blockNumber = event.block.number
+  bridgeEvent.blockTimestamp = event.block.timestamp
+  bridgeEvent.transactionHash = event.transaction.hash
+  bridgeEvent.save()
+}
+
+export function handleCrosschainBurn(event: CrosschainBurnEvent): void {
+  const tokenAddress = event.address
+
+  let token = Token.load(tokenAddress)
+  if (!token) {
+    return
+  }
+
+  // Increment total bridges counter
+  token.totalBridges = token.totalBridges.plus(BigInt.fromI32(1))
+  token.save()
+
+  // Create immutable bridge event entity
+  const eventId = event.transaction.hash.concatI32(event.logIndex.toI32())
+  let bridgeEvent = new BridgeEvent(eventId)
+  bridgeEvent.token = tokenAddress
+  bridgeEvent.eventType = "burn"
+  bridgeEvent.account = event.params.from
+  bridgeEvent.amount = event.params.amount
+  bridgeEvent.sender = event.params.sender
+  bridgeEvent.blockNumber = event.block.number
+  bridgeEvent.blockTimestamp = event.block.timestamp
+  bridgeEvent.transactionHash = event.transaction.hash
+  bridgeEvent.save()
 }

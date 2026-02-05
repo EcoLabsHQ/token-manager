@@ -1,5 +1,6 @@
 export const SUBGRAPH_URLS = {
-  ethereum: 'https://api.studio.thegraph.com/query/72352/minter-ethereum/version/latest',
+  ethereum:
+    'https://api.studio.thegraph.com/query/72352/minter-ethereum/version/latest',
   celo: 'https://api.studio.thegraph.com/query/72352/minter-celo/version/latest',
 } as const;
 
@@ -18,6 +19,7 @@ export const QUERIES = {
         maxSupply
         chain
         createdAt
+        
       }
     }
   `,
@@ -38,6 +40,7 @@ export const QUERIES = {
         remoteToken
         bridge
         createdAt
+        totalUniqueHolders
       }
     }
   `,
@@ -58,6 +61,7 @@ export const QUERIES = {
         remoteToken
         bridge
         createdAt
+        totalUniqueHolders
       }
     }
   `,

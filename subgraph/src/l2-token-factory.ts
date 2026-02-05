@@ -38,6 +38,8 @@ export function handleL2TokenCreated(event: TokenCreatedEvent): void {
   token.maxSupply = event.params.maxSupply
   token.totalSupply = BigInt.fromI32(0) // Will be updated via Transfer events
   token.totalUniqueHolders = BigInt.fromI32(0) // Will be updated via Transfer events
+  token.totalTransfers = BigInt.fromI32(0) // Will be updated via Transfer events
+  token.totalBridges = BigInt.fromI32(0) // Will be updated via CrosschainMint/CrosschainBurn events
   token.owner = event.params.owner
   token.chain = CHAIN
   token.createdAt = event.block.timestamp

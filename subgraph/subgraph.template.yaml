@@ -46,6 +46,8 @@ templates:
         - Token
         - TokenHolder
         - PendingOwnershipTransfer
+        - TransferEvent
+        - BridgeEvent
       abis:
         - name: L1Token
           file: ./abis/L1Token.json
@@ -74,6 +76,8 @@ templates:
         - Token
         - TokenHolder
         - PendingOwnershipTransfer
+        - TransferEvent
+        - BridgeEvent
       abis:
         - name: L2SuperChainToken
           file: ./abis/L2SuperChainToken.json
@@ -88,5 +92,9 @@ templates:
           handler: handleOwnershipTransferred
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
+        - event: CrosschainMint(indexed address,uint256,indexed address)
+          handler: handleCrosschainMint
+        - event: CrosschainBurn(indexed address,uint256,indexed address)
+          handler: handleCrosschainBurn
       file: ./src/l2-token.ts
 {{/hasL2TokenTemplate}}

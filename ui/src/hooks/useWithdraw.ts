@@ -119,10 +119,12 @@ export function useWithdraw() {
   );
 
   // Step 2: Prove withdrawal on L1
+  // If existingProveTxHash is provided, will verify it's already proven and skip re-proving
   const proveWithdrawal = useCallback(
     async (
       l2TxHash: Hash,
-    ): Promise<{ success: boolean; txHash?: Hash; error?: string }> => {
+      existingProveTxHash?: Hash,
+    ): Promise<{ success: boolean; txHash?: Hash; error?: string; alreadyProven?: boolean }> => {
       if (!address) return { success: false, error: 'Wallet not connected' };
 
       setIsLoading(true);
@@ -150,6 +152,25 @@ export function useWithdraw() {
         const withdrawalReceipt = await publicClientL2.getTransactionReceipt({
           hash: l2TxHash,
         });
+
+        // Check current withdrawal status on-chain
+        const currentStatus = await publicClientL1.getWithdrawalStatus({
+          receipt: withdrawalReceipt,
+          targetChain: celoSepolia as any,
+        });
+
+        console.log('Current withdrawal status:', currentStatus);
+
+        // If already proven or ready to finalize, skip proving
+        if (currentStatus === 'waiting-to-finalize' || currentStatus === 'ready-to-finalize' || currentStatus === 'finalized') {
+          console.log('Withdrawal already proven, skipping prove step');
+          return { 
+            success: true, 
+            txHash: existingProveTxHash, 
+            alreadyProven: true 
+          };
+        }
+
         console.log('Got withdrawal receipt');
 
         // Wait until ready to prove
@@ -194,10 +215,12 @@ export function useWithdraw() {
   );
 
   // Step 3: Finalize withdrawal on L1
+  // If existingFinalizeTxHash is provided, will verify it's already finalized and skip
   const finalizeWithdrawal = useCallback(
     async (
       l2TxHash: Hash,
-    ): Promise<{ success: boolean; txHash?: Hash; error?: string }> => {
+      existingFinalizeTxHash?: Hash,
+    ): Promise<{ success: boolean; txHash?: Hash; error?: string; alreadyFinalized?: boolean }> => {
       if (!address) return { success: false, error: 'Wallet not connected' };
 
       setIsLoading(true);
@@ -221,10 +244,28 @@ export function useWithdraw() {
           throw new Error('Failed to get clients');
         }
 
-        // Get receipt and build withdrawal
+        // Get receipt and check status
         const withdrawalReceipt = await publicClientL2.getTransactionReceipt({
           hash: l2TxHash,
         });
+
+        // Check current withdrawal status on-chain
+        const currentStatus = await publicClientL1.getWithdrawalStatus({
+          receipt: withdrawalReceipt,
+          targetChain: celoSepolia as any,
+        });
+
+        console.log('Current withdrawal status:', currentStatus);
+
+        // If already finalized, skip finalizing
+        if (currentStatus === 'finalized') {
+          console.log('Withdrawal already finalized, skipping finalize step');
+          return { 
+            success: true, 
+            txHash: existingFinalizeTxHash, 
+            alreadyFinalized: true 
+          };
+        }
 
         // Wait to prove first to get the withdrawal object
         const { withdrawal } = await publicClientL1.waitToProve({

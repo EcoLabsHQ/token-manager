@@ -2,11 +2,13 @@ import { BigInt, Bytes, store } from "@graphprotocol/graph-ts"
 import { 
   OwnershipTransferStarted as OwnershipTransferStartedEvent,
   OwnershipTransferred as OwnershipTransferredEvent,
-  Transfer as TransferEvent
+  Transfer as TransferEventContract
 } from "../generated/templates/L1Token/L1Token"
-import { Token, TokenHolder, PendingOwnershipTransfer } from "../generated/schema"
+import { Token, TokenHolder, PendingOwnershipTransfer, TransferEvent, BridgeEvent } from "../generated/schema"
 
 const ZERO_ADDRESS = Bytes.fromHexString("0x0000000000000000000000000000000000000000")
+// L1StandardBridge address on Sepolia for Celo L2
+const L1_STANDARD_BRIDGE = Bytes.fromHexString("0xEc18a3c30131A0Db4246e785355fBc16E2eAF408")
 
 function getOrCreateTokenHolder(tokenAddress: Bytes, holderAddress: Bytes): TokenHolder {
   const id = tokenAddress.concat(holderAddress)
@@ -20,7 +22,7 @@ function getOrCreateTokenHolder(tokenAddress: Bytes, holderAddress: Bytes): Toke
   return holder
 }
 
-export function handleTransfer(event: TransferEvent): void {
+export function handleTransfer(event: TransferEventContract): void {
   const tokenAddress = event.address
   const from = event.params.from
   const to = event.params.to
@@ -29,6 +31,42 @@ export function handleTransfer(event: TransferEvent): void {
   let token = Token.load(tokenAddress)
   if (!token) {
     return
+  }
+
+  // Increment total transfers counter
+  token.totalTransfers = token.totalTransfers.plus(BigInt.fromI32(1))
+
+  // Create immutable transfer event entity
+  const eventId = event.transaction.hash.concatI32(event.logIndex.toI32())
+  let transferEvent = new TransferEvent(eventId)
+  transferEvent.token = tokenAddress
+  transferEvent.from = from
+  transferEvent.to = to
+  transferEvent.value = value
+  transferEvent.blockNumber = event.block.number
+  transferEvent.blockTimestamp = event.block.timestamp
+  transferEvent.transactionHash = event.transaction.hash
+  transferEvent.save()
+
+  // Check if this is a bridge event (transfer to/from L1StandardBridge)
+  const isDepositToL2 = to.equals(L1_STANDARD_BRIDGE) // Tokens going TO bridge = deposit to L2
+  const isWithdrawFromL2 = from.equals(L1_STANDARD_BRIDGE) // Tokens coming FROM bridge = withdrawal from L2
+
+  if (isDepositToL2 || isWithdrawFromL2) {
+    // Increment total bridges counter
+    token.totalBridges = token.totalBridges.plus(BigInt.fromI32(1))
+
+    // Create bridge event entity
+    let bridgeEvent = new BridgeEvent(eventId)
+    bridgeEvent.token = tokenAddress
+    bridgeEvent.eventType = isDepositToL2 ? "deposit" : "withdrawal"
+    bridgeEvent.account = isDepositToL2 ? from : to // The user address
+    bridgeEvent.amount = value
+    bridgeEvent.sender = L1_STANDARD_BRIDGE // The bridge contract
+    bridgeEvent.blockNumber = event.block.number
+    bridgeEvent.blockTimestamp = event.block.timestamp
+    bridgeEvent.transactionHash = event.transaction.hash
+    bridgeEvent.save()
   }
 
   // Handle minting (from zero address)

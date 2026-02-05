@@ -22,16 +22,19 @@ import {
 } from '@/components/ui/select'
 import { fetchTokensFromSubgraph } from '@/lib/api'
 import { formatNumber, formatDate, truncateAddress } from '@/lib/utils'
-import { Search, ExternalLink, Users, ArrowRightLeft, GitBranch } from 'lucide-react'
+import { Search, ExternalLink, Users, ArrowRightLeft, GitBranch, ChevronLeft, ChevronRight } from 'lucide-react'
 
 type SortField = 'createdAt' | 'uniqueHolders' | 'totalTransfers' | 'totalBridges'
 type SortOrder = 'asc' | 'desc'
+type PageSize = 10 | 25
 
 export function Tokens() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState<PageSize>(10)
 
   const { data: tokens, isLoading } = useQuery({
     queryKey: ['tokens'],
@@ -73,6 +76,29 @@ export function Tokens() {
       return sortOrder === 'desc' ? bVal - aVal : aVal - bVal
     })
 
+  // Pagination
+  const totalItems = filteredTokens?.length ?? 0
+  const totalPages = Math.ceil(totalItems / pageSize)
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  const paginatedTokens = filteredTokens?.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  const handleFilterChange = (newFilter: string) => {
+    setTypeFilter(newFilter)
+    setCurrentPage(1)
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setCurrentPage(1)
+  }
+
+  const handlePageSizeChange = (size: string) => {
+    setPageSize(Number(size) as PageSize)
+    setCurrentPage(1)
+  }
+
   const formatSupply = (supply: string) => {
     const num = BigInt(supply) / BigInt(10 ** 18)
     return formatNumber(Number(num))
@@ -109,12 +135,12 @@ export function Tokens() {
                 <Input
                   placeholder="Search by name, symbol, or address..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-10"
                 />
               </div>
             </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <Select value={typeFilter} onValueChange={handleFilterChange}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
@@ -151,14 +177,28 @@ export function Tokens() {
       {/* Tokens Table */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            All Tokens
-            {filteredTokens && (
-              <span className="ml-2 text-sm font-normal text-gray-500">
-                ({filteredTokens.length} tokens)
-              </span>
-            )}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>
+              All Tokens
+              {filteredTokens && (
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  ({filteredTokens.length} tokens)
+                </span>
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Show:</span>
+              <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -202,7 +242,7 @@ export function Tokens() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTokens?.map((token) => (
+                {paginatedTokens?.map((token) => (
                   <TableRow key={token.id}>
                     <TableCell>
                       <div>
@@ -228,22 +268,13 @@ export function Tokens() {
                       {formatDate(parseInt(token.createdAt))}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="font-medium">{formatNumber(token.uniqueHolders)}</span>
-                        <Badge variant="secondary" className="text-xs">Mocked</Badge>
-                      </div>
+                      <span className="font-medium">{formatNumber(token.uniqueHolders)}</span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <span>{formatNumber(token.totalTransfers)}</span>
-                        <Badge variant="secondary" className="text-xs">Mocked</Badge>
-                      </div>
+                      <span>{formatNumber(token.totalTransfers)}</span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <span>{formatNumber(token.totalBridges)}</span>
-                        <Badge variant="secondary" className="text-xs">Mocked</Badge>
-                      </div>
+                      <span>{formatNumber(token.totalBridges)}</span>
                     </TableCell>
                     <TableCell>
                       <Button
@@ -266,25 +297,61 @@ export function Tokens() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Info Banner */}
-      <Card className="bg-gray-50 border-gray-200">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3">
-            <div className="rounded-full bg-gray-100 p-2">
-              <Users className="h-4 w-4 text-gray-600" />
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="text-sm text-gray-500">
+                Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} tokens
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => {
+                      // Show first, last, current, and neighbors
+                      return (
+                        page === 1 ||
+                        page === totalPages ||
+                        Math.abs(page - currentPage) <= 1
+                      )
+                    })
+                    .map((page, idx, arr) => (
+                      <span key={page} className="flex items-center">
+                        {idx > 0 && arr[idx - 1] !== page - 1 && (
+                          <span className="px-1 text-gray-400">...</span>
+                        )}
+                        <Button
+                          variant={currentPage === page ? 'default' : 'outline'}
+                          size="sm"
+                          className="w-8 h-8 p-0"
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      </span>
+                    ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <div>
-              <h4 className="font-medium text-gray-900">About Token Metrics</h4>
-              <p className="text-sm text-gray-600 mt-1">
-                The <strong>Holders</strong>, <strong>Transfers</strong>, and <strong>Bridges</strong> metrics
-                are currently mocked as they are not available from the subgraph. To enable real data,
-                you would need to extend the subgraph to track Transfer events and maintain holder counts.
-              </p>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

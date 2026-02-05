@@ -127,7 +127,7 @@ export interface Token {
   addressL1?: string;
   addressL2?: string;
   createdAt: string;
-  // Mocked metrics (not available from subgraph)
+  // Metrics from subgraph
   uniqueHolders: number;
   totalTransfers: number;
   totalBridges: number;
@@ -219,6 +219,10 @@ interface SubgraphToken {
   decimals: number;
   initialSupply: string;
   maxSupply: string;
+  totalSupply: string;
+  totalUniqueHolders: string;
+  totalTransfers: string;
+  totalBridges: string;
   chain: string;
   remoteToken?: string;
   bridge?: string;
@@ -264,6 +268,10 @@ const GET_ALL_TOKENS_QUERY = `
       decimals
       initialSupply
       maxSupply
+      totalSupply
+      totalUniqueHolders
+      totalTransfers
+      totalBridges
       chain
       remoteToken
       bridge
@@ -281,6 +289,19 @@ export async function fetchTokensFromSubgraph(): Promise<Token[]> {
 
   const l1Tokens = ethereumResult?.tokens ?? [];
   const l2Tokens = celoResult?.tokens ?? [];
+
+  console.log('L1 Tokens from subgraph:', l1Tokens.map(t => ({
+    name: t.name,
+    totalBridges: t.totalBridges,
+    totalTransfers: t.totalTransfers,
+    totalUniqueHolders: t.totalUniqueHolders
+  })));
+  console.log('L2 Tokens from subgraph:', l2Tokens.map(t => ({
+    name: t.name,
+    totalBridges: t.totalBridges,
+    totalTransfers: t.totalTransfers,
+    totalUniqueHolders: t.totalUniqueHolders
+  })));
 
   // Build lookup for L2 tokens by their remoteToken (L1 address)
   const l2ByRemoteToken = new Map<string, SubgraphToken>();
@@ -317,10 +338,10 @@ export async function fetchTokensFromSubgraph(): Promise<Token[]> {
       addressL1: token.tokenAddress,
       addressL2: linkedL2?.tokenAddress,
       createdAt: token.createdAt,
-      // Mock metrics
-      uniqueHolders: generateMockMetric(token.tokenAddress, 100, 5000),
-      totalTransfers: generateMockMetric(token.tokenAddress, 500, 20000),
-      totalBridges: linkedL2 ? generateMockMetric(token.tokenAddress, 10, 1000) : 0,
+      // Real metrics from subgraph - combine L1 + L2 metrics
+      uniqueHolders: parseInt(token.totalUniqueHolders || '0') + (linkedL2 ? parseInt(linkedL2.totalUniqueHolders || '0') : 0),
+      totalTransfers: parseInt(token.totalTransfers || '0') + (linkedL2 ? parseInt(linkedL2.totalTransfers || '0') : 0),
+      totalBridges: parseInt(token.totalBridges || '0') + (linkedL2 ? parseInt(linkedL2.totalBridges || '0') : 0),
     });
   });
 
@@ -345,10 +366,10 @@ export async function fetchTokensFromSubgraph(): Promise<Token[]> {
       type: 'celo-native',
       addressL2: token.tokenAddress,
       createdAt: token.createdAt,
-      // Mock metrics
-      uniqueHolders: generateMockMetric(token.tokenAddress, 50, 3000),
-      totalTransfers: generateMockMetric(token.tokenAddress, 200, 10000),
-      totalBridges: 0, // Celo-native tokens don't have bridges
+      // Real metrics from subgraph
+      uniqueHolders: parseInt(token.totalUniqueHolders || '0'),
+      totalTransfers: parseInt(token.totalTransfers || '0'),
+      totalBridges: parseInt(token.totalBridges || '0'),
     });
   });
 
@@ -356,17 +377,6 @@ export async function fetchTokensFromSubgraph(): Promise<Token[]> {
   allTokens.sort((a, b) => parseInt(b.createdAt) - parseInt(a.createdAt));
 
   return allTokens;
-}
-
-// Generate deterministic mock metric based on address hash
-function generateMockMetric(address: string, min: number, max: number): number {
-  let hash = 0;
-  for (let i = 0; i < address.length; i++) {
-    const char = address.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return min + Math.abs(hash) % (max - min);
 }
 
 export async function fetchTokenStats(): Promise<TokenStats> {

@@ -820,15 +820,30 @@ const BridgeSection = ({
     if (!selectedWithdrawal) return;
     
     try {
-      const result = await proveWithdrawal(selectedWithdrawal.l2TxHash);
+      // Pass existing proveTxHash to avoid re-proving if already proven
+      const result = await proveWithdrawal(
+        selectedWithdrawal.l2TxHash,
+        selectedWithdrawal.proveTxHash
+      );
       if (result.success) {
+        // Update with proveTxHash (use existing if alreadyProven, otherwise use new)
+        const proveTxHash = result.txHash || selectedWithdrawal.proveTxHash;
         updateWithdrawal(selectedWithdrawal.l2TxHash, { 
           status: 'waiting-to-finalize',
-          provenAt: Date.now(),
-          proveTxHash: result.txHash
+          provenAt: selectedWithdrawal.provenAt || Date.now(),
+          proveTxHash
         });
         setWithdrawalStatus('waiting-to-finalize');
-        setSelectedWithdrawal(prev => prev ? { ...prev, status: 'waiting-to-finalize', provenAt: Date.now() } : null);
+        setSelectedWithdrawal(prev => prev ? { 
+          ...prev, 
+          status: 'waiting-to-finalize', 
+          provenAt: prev.provenAt || Date.now(),
+          proveTxHash 
+        } : null);
+        
+        if (result.alreadyProven) {
+          console.log('Withdrawal was already proven, updated status');
+        }
       } else {
         setError(result.error || 'Failed to prove withdrawal');
       }
@@ -842,15 +857,29 @@ const BridgeSection = ({
     if (!selectedWithdrawal) return;
     
     try {
-      const result = await finalizeWithdrawal(selectedWithdrawal.l2TxHash);
+      // Pass existing finalizeTxHash to avoid re-finalizing if already done
+      const result = await finalizeWithdrawal(
+        selectedWithdrawal.l2TxHash,
+        selectedWithdrawal.finalizeTxHash
+      );
       if (result.success) {
+        const finalizeTxHash = result.txHash || selectedWithdrawal.finalizeTxHash;
         updateWithdrawal(selectedWithdrawal.l2TxHash, { 
           status: 'finalized',
-          finalizedAt: Date.now(),
-          finalizeTxHash: result.txHash
+          finalizedAt: selectedWithdrawal.finalizedAt || Date.now(),
+          finalizeTxHash
         });
         setWithdrawalStatus('finalized');
-        setSelectedWithdrawal(prev => prev ? { ...prev, status: 'finalized', finalizedAt: Date.now() } : null);
+        setSelectedWithdrawal(prev => prev ? { 
+          ...prev, 
+          status: 'finalized', 
+          finalizedAt: prev.finalizedAt || Date.now(),
+          finalizeTxHash 
+        } : null);
+        
+        if (result.alreadyFinalized) {
+          console.log('Withdrawal was already finalized, updated status');
+        }
         onSuccess?.();
       } else {
         setError(result.error || 'Failed to finalize withdrawal');

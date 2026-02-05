@@ -20,6 +20,8 @@ type Token @entity {
   maxSupply: BigInt!
   totalSupply: BigInt! # Current circulating supply
   totalUniqueHolders: BigInt! # Number of unique addresses holding this token
+  totalTransfers: BigInt! # Total number of transfer events
+  totalBridges: BigInt! # Total number of bridge events (crosschain mint/burn)
   owner: Bytes!
   chain: String! # "ethereum" or "celo"
   # For L2 tokens that have a remote L1 token
@@ -27,6 +29,8 @@ type Token @entity {
   # Bridge configuration
   bridge: Bytes
   holders: [TokenHolder!]! @derivedFrom(field: "token")
+  transfers: [TransferEvent!]! @derivedFrom(field: "token")
+  bridgeEvents: [BridgeEvent!]! @derivedFrom(field: "token")
   createdAt: BigInt!
   createdAtBlock: BigInt!
   createdTxHash: Bytes!
@@ -66,4 +70,29 @@ type PendingOwnershipTransfer @entity {
   createdAt: BigInt!
   createdAtBlock: BigInt!
   createdTxHash: Bytes!
+}
+
+# TransferEvent entity - tracks individual transfer events
+type TransferEvent @entity(immutable: true) {
+  id: Bytes! # txHash + logIndex
+  token: Token!
+  from: Bytes!
+  to: Bytes!
+  value: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# BridgeEvent entity - tracks crosschain mint/burn events
+type BridgeEvent @entity(immutable: true) {
+  id: Bytes! # txHash + logIndex
+  token: Token!
+  eventType: String! # "mint" or "burn"
+  account: Bytes! # "to" for mint, "from" for burn
+  amount: BigInt!
+  sender: Bytes! # The bridge/messenger that initiated the crosschain operation
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
 }

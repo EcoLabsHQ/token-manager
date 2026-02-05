@@ -125,9 +125,6 @@ export function Dashboard() {
                   {formatNumber(tokenStats?.combinedHolders || 0)}
                 </div>
               )}
-              <p className="text-xs text-gray-500 mt-1">
-                <Badge variant="secondary" className="text-xs">Mocked</Badge>
-              </p>
             </CardContent>
           </Card>
 
@@ -144,9 +141,6 @@ export function Dashboard() {
                   {formatNumber(tokenStats?.combinedTransfers || 0)}
                 </div>
               )}
-              <p className="text-xs text-gray-500 mt-1">
-                <Badge variant="secondary" className="text-xs">Mocked</Badge>
-              </p>
             </CardContent>
           </Card>
 
@@ -163,9 +157,6 @@ export function Dashboard() {
                   {formatNumber(tokenStats?.combinedBridges || 0)}
                 </div>
               )}
-              <p className="text-xs text-gray-500 mt-1">
-                <Badge variant="secondary" className="text-xs">Mocked</Badge>
-              </p>
             </CardContent>
           </Card>
         </div>
