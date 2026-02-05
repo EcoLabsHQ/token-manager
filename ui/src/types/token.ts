@@ -11,6 +11,7 @@ export interface Token {
   l1Address?: string;
   l2Address: string;
   createdAt: Date;
+  tokenLogo?: string;
 }
 
 export interface TokenFormData {
@@ -19,6 +20,7 @@ export interface TokenFormData {
   initialSupply: string;
   maxSupply: string;
   decimals: number;
+  tokenLogo?: string;
 }
 
 export type CreateTokenStep = 'choose-type' | 'token-info' | 'review' | 'deploying' | 'success';

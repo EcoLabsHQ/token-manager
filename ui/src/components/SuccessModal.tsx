@@ -12,6 +12,7 @@ interface TokenFormData {
   initialSupply: string;
   maxSupply: string;
   decimals: number;
+  tokenLogo?: string;
 }
 
 interface DeploymentResult {
@@ -61,9 +62,26 @@ export function SuccessModal({ formData, tokenType, deploymentResult, onOpenDash
 
         {/* Content */}
         <div className="px-3 sm:px-5 pb-3 sm:pb-5 flex flex-col gap-4 sm:gap-5">
+          {/* Token Info with Logo */}
+          <div className="flex items-center gap-3">
+            {formData.tokenLogo ? (
+              <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-200 shrink-0">
+                <img src={formData.tokenLogo} alt={`${formData.name} logo`} className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shrink-0">
+                <span className="text-lg font-bold text-gray-600">{formData.name.charAt(0).toUpperCase()}</span>
+              </div>
+            )}
+            <div>
+              <p className="font-semibold text-black">{formData.name}</p>
+              <p className="text-sm text-gray-500">{formData.symbol}</p>
+            </div>
+          </div>
+
           {/* Description */}
           <p className="text-gray-500 text-xs sm:text-sm leading-5">
-            The <span className="font-semibold text-black">{formData.name} ({formData.symbol})</span> token has been successfully deployed on {isEthereumEnabled ? 'Ethereum (L1) and Celo (L2)' : 'Celo (L2)'}.
+            Your token has been successfully deployed on {isEthereumEnabled ? 'Ethereum (L1) and Celo (L2)' : 'Celo (L2)'}.
           </p>
 
           {/* Contract addresses */}
@@ -72,20 +90,20 @@ export function SuccessModal({ formData, tokenType, deploymentResult, onOpenDash
               <div className="flex flex-col gap-1 sm:gap-1.5">
                 <span className="font-semibold text-xs sm:text-sm text-black">L1 Token</span>
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded overflow-hidden flex-shrink-0">
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded overflow-hidden shrink-0">
                     <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
                   </div>
                   <span className="text-xs sm:text-sm text-black font-mono truncate">{truncateAddress(l1Address)}</span>
                   <button 
                     onClick={() => handleCopy(l1Address)}
-                    className="p-0.5 sm:p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer flex-shrink-0"
+                    className="p-0.5 sm:p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer shrink-0"
                     title="Copy address"
                   >
                     <CopyIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
                   </button>
                   <button 
                     onClick={() => openExplorer(l1Address, 'l1')}
-                    className="p-0.5 sm:p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer flex-shrink-0"
+                    className="p-0.5 sm:p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer shrink-0"
                     title="View on Etherscan"
                   >
                     <ExternalLinkIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
@@ -98,20 +116,20 @@ export function SuccessModal({ formData, tokenType, deploymentResult, onOpenDash
               <div className="flex flex-col gap-1 sm:gap-1.5">
                 <span className="font-semibold text-xs sm:text-sm text-black">L2 Token</span>
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded overflow-hidden flex-shrink-0">
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded overflow-hidden shrink-0">
                     <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
                   </div>
                   <span className="text-xs sm:text-sm text-black font-mono truncate">{truncateAddress(l2Address)}</span>
                   <button 
                     onClick={() => handleCopy(l2Address)}
-                    className="p-0.5 sm:p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer flex-shrink-0"
+                    className="p-0.5 sm:p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer shrink-0"
                     title="Copy address"
                   >
                     <CopyIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
                   </button>
                   <button 
                     onClick={() => openExplorer(l2Address, 'l2')}
-                    className="p-0.5 sm:p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer flex-shrink-0"
+                    className="p-0.5 sm:p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer shrink-0"
                     title="View on Celo Explorer"
                   >
                     <ExternalLinkIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
@@ -133,3 +151,4 @@ export function SuccessModal({ formData, tokenType, deploymentResult, onOpenDash
     </div>
   );
 }
+

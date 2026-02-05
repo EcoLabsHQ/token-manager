@@ -4,6 +4,8 @@ import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle, UserCheck }
 import { useSubgraphTokens, type TokenPair, type TokenSetupStatus } from '../hooks/useSubgraphTokens';
 import { usePendingOwnershipTransfers, type PendingOwnershipTransfer } from '../hooks/usePendingOwnershipTransfers';
 import { useAcceptOwnership } from '../hooks/useAcceptOwnership';
+import { useTokenLogo } from '../hooks/useTokenLogo';
+import { CONTRACTS } from '@/config/contracts';
 import { MultistepProgressModal, type MultistepProgressStep } from '../components';
 
 // Steps for the accept ownership modal
@@ -45,6 +47,56 @@ const SetupStatusBadge = ({ status }: { status: TokenSetupStatus }) => {
     <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${bgColor} ${textColor} border ${borderColor}`}>
       <AlertCircle className="w-3 h-3" />
       <span className="text-xs font-medium">{label}</span>
+    </div>
+  );
+};
+
+// Generate a consistent color based on string hash
+const stringToColor = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  // Generate pastel-ish colors
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 65%, 75%)`;
+};
+
+const stringToColorDark = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 55%, 35%)`;
+};
+
+// Token Logo component with fallback to first letter
+const TokenLogo = ({ logoUrl, name, symbol }: { logoUrl?: string; name: string; symbol: string }) => {
+  const [hasError, setHasError] = useState(false);
+  const firstLetter = (name || symbol || '?').charAt(0).toUpperCase();
+  const bgColor = stringToColor(name || symbol || '');
+  const textColor = stringToColorDark(name || symbol || '');
+  
+  if (!logoUrl || hasError) {
+    return (
+      <div 
+        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-white/20"
+        style={{ backgroundColor: bgColor }}
+      >
+        <span className="text-sm font-bold" style={{ color: textColor }}>{firstLetter}</span>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-gray-100">
+      <img 
+        src={logoUrl} 
+        alt={`${name} logo`}
+        className="w-full h-full object-cover"
+        onError={() => setHasError(true)}
+      />
     </div>
   );
 };
@@ -125,12 +177,28 @@ interface TokenTableProps {
   onCompleteSetup: (token: TokenPair) => void;
   isLoading?: boolean;
   onRefresh?: () => void;
+  tokenLogos?: Record<string, string>; // chainId:address -> logoUrl
 }
 
-const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _onRefresh }: TokenTableProps) => {
+const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _onRefresh, tokenLogos = {} }: TokenTableProps) => {
   const handleCopy = (text: string) => {
     if (text) navigator.clipboard.writeText(text);
   }
+  
+  // Helper to get logo URL for a token
+  const getLogoUrl = (token: TokenPair): string | undefined => {
+    // Try L2 address first (always exists)
+    const l2Key = `${CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId}:${token.addressL2?.toLowerCase() || token.address.toLowerCase()}`;
+    if (tokenLogos[l2Key]) return tokenLogos[l2Key];
+    
+    // Try L1 address if ethereum-enabled
+    if (token.addressL1) {
+      const l1Key = `${CONTRACTS.L1_TOKEN_FACTORY.chainId}:${token.addressL1.toLowerCase()}`;
+      if (tokenLogos[l1Key]) return tokenLogos[l1Key];
+    }
+    
+    return undefined;
+  };
 
   if (isLoading) {
     return (
@@ -157,7 +225,7 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
       
       {/* Desktop Table Header */}
       <div className="bg-gray-50/80 border-b border-gray-200 hidden lg:flex items-center px-4 py-3">
-        <div className="w-[140px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
+        <div className="w-[180px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
         <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
         <div className="w-[120px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
         <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Total Supply</div>
@@ -171,6 +239,7 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
       {/* Table Body */}
       {tokens.map((token) => {
         const isIncomplete = token.setupStatus !== 'complete';
+        const logoUrl = getLogoUrl(token);
         
         return (
         <div key={token.id}>
@@ -180,9 +249,10 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
                        hover:bg-gray-50 lg:hidden
                        ${isIncomplete ? 'bg-amber-50/50' : ''}`}
           >
-            {/* Name with Status Badge */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col gap-0.5">
+            {/* Name with Logo and Status Badge */}
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <TokenLogo logoUrl={logoUrl} name={token.name} symbol={token.symbol} />
+              <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-sm text-black font-medium truncate">
                   {token.name}
                 </span>
@@ -244,9 +314,10 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
                        hover:bg-gray-50
                        ${isIncomplete ? 'bg-amber-50/50' : ''}`}
           >
-            {/* Name with Status Badge */}
-            <div className="w-[140px] shrink-0">
-              <div className="flex flex-col gap-0.5">
+            {/* Name with Logo and Status Badge */}
+            <div className="w-[180px] shrink-0 flex items-center gap-2">
+              <TokenLogo logoUrl={logoUrl} name={token.name} symbol={token.symbol} />
+              <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-sm text-black font-medium truncate" title={token.name}>
                   {token.name}
                 </span>
@@ -559,7 +630,45 @@ export default function Dashboard() {
     currentStep,
     isSwitchingChain,
   } = useAcceptOwnership();
+  const { getLogoBatch } = useTokenLogo();
   const [hideIncomplete, setHideIncomplete] = useState(false);
+  const [tokenLogos, setTokenLogos] = useState<Record<string, string>>({});
+
+  // Fetch logos for all tokens
+  useEffect(() => {
+    if (tokens.length === 0) return;
+    
+    const fetchLogos = async () => {
+      // Build list of token addresses to fetch
+      const tokenRequests: Array<{ chainId: number; address: string }> = [];
+      
+      for (const token of tokens) {
+        // Add L2 address
+        const l2Address = token.addressL2 || token.address;
+        if (l2Address) {
+          tokenRequests.push({
+            chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
+            address: l2Address,
+          });
+        }
+        
+        // Add L1 address if exists
+        if (token.addressL1) {
+          tokenRequests.push({
+            chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
+            address: token.addressL1,
+          });
+        }
+      }
+      
+      if (tokenRequests.length > 0) {
+        const logos = await getLogoBatch(tokenRequests);
+        setTokenLogos(logos);
+      }
+    };
+    
+    fetchLogos();
+  }, [tokens, getLogoBatch]);
 
   // Auto-refetch when coming from token creation (subgraph may need time to index)
   useEffect(() => {
@@ -777,7 +886,14 @@ export default function Dashboard() {
         </div>
 
         {/* Token Table */}
-        <TokenTable tokens={filteredTokens} onManage={handleManage} onCompleteSetup={handleCompleteSetup} isLoading={isLoading} onRefresh={refetch} />
+        <TokenTable 
+          tokens={filteredTokens} 
+          onManage={handleManage} 
+          onCompleteSetup={handleCompleteSetup} 
+          isLoading={isLoading} 
+          onRefresh={refetch}
+          tokenLogos={tokenLogos}
+        />
       </div>
 
       {/* Accept Ownership Progress Modal */}

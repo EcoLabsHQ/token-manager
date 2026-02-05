@@ -12,8 +12,3 @@ CREATE TABLE IF NOT EXISTS promo_codes (
 
 CREATE INDEX IF NOT EXISTS idx_promo_codes_code ON promo_codes(code);
 
--- Datos de ejemplo
-INSERT INTO promo_codes (code, discount_fee, expires_at, max_uses) VALUES
-    ('FREEMINT2026', '0', EXTRACT(EPOCH FROM NOW() + INTERVAL '30 days')::BIGINT, 100),
-    ('HALFPRICE', '5000000000000000', EXTRACT(EPOCH FROM NOW() + INTERVAL '7 days')::BIGINT, 50),
-    ('EARLYADOPTER', '1000000000000000', EXTRACT(EPOCH FROM NOW() + INTERVAL '30 days')::BIGINT, 200);

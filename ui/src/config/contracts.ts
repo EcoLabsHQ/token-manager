@@ -12,10 +12,17 @@ export const CONTRACTS = {
   },
 } as const;
 
-// Backend API URL for promo codes
+// Backend API URL for promo codes and token logos
 const isDevelopment = import.meta.env.DEV;
-export const PROMO_API_URL = import.meta.env.VITE_PROMO_API_URL || 
+export const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 
   (isDevelopment ? 'http://localhost:3001' : 'https://minter-production-6bba.up.railway.app');
+
+// Alias for backwards compatibility
+export const PROMO_API_URL = BACKEND_API_URL;
+
+// R2 Public URL for token logos
+export const R2_PUBLIC_URL = import.meta.env.VITE_R2_PUBLIC_URL || 
+  'https://pub-3e106f2284d449d682bad32c5eeb3490.r2.dev';
 
 // ABI for L1TokenFactory
 export const L1_TOKEN_FACTORY_ABI = [

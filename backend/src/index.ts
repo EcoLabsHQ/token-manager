@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import promoRoutes from './routes/promo';
 import adminRoutes from './routes/admin';
+import tokensRoutes from './routes/tokens';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -14,6 +15,7 @@ app.use(express.json());
 // Routes
 app.use('/api/promo', promoRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/tokens', tokensRoutes);
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -26,4 +28,5 @@ app.listen(PORT, () => {
   console.log(`📋 Promo validation endpoint: POST /api/promo/validate`);
   console.log(`🔍 Check promo code: GET /api/promo/check/:code`);
   console.log(`🔑 Get signer address: GET /api/promo/signer`);
+  console.log(`🖼️  Token logos endpoint: /api/tokens/:chainId/:address/logo`);
 });

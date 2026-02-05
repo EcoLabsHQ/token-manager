@@ -44,6 +44,10 @@ export const tokenFormSchema = z.object({
     .int('Decimals must be a whole number')
     .min(0, 'Decimals must be at least 0')
     .max(18, 'Decimals must be 18 or less'),
+
+  tokenLogo: z
+    .string()
+    .optional(),
 }).refine((data) => Number(data.maxSupply) >= Number(data.initialSupply), {
   message: 'Max supply must be greater than or equal to initial supply',
   path: ['maxSupply'],
@@ -66,4 +70,5 @@ export const defaultTokenFormValues: TokenFormData = {
   initialSupply: '',
   maxSupply: '',
   decimals: 18,
+  tokenLogo: undefined,
 };

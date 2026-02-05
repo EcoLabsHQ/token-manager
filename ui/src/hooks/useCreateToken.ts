@@ -24,6 +24,7 @@ import {
 } from '../lib/schemas';
 import { useTokenStorage } from './useTokenStorage';
 import { usePromoCode, type PromoValidationResult } from './usePromoCode';
+import { useTokenLogo } from './useTokenLogo';
 import {
   CONTRACTS,
   L1_TOKEN_FACTORY_ABI,
@@ -37,6 +38,19 @@ export type CreateTokenStep =
   | 'deploying'
   | 'success';
 type DeploymentResult = { l1Address?: string; l2Address: string };
+
+// Helper to convert base64 data URL to File
+const dataURLtoFile = (dataUrl: string, filename: string): File => {
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
 
 const BRIDGE = '0xFBb0621E0B23b5478B630BD55a5f21f67730B0F1';
 const APPROVE_ABI = [
@@ -95,6 +109,7 @@ export function useCreateToken() {
   const l2Client = usePublicClient({ chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId });
   const { switchChainAsync } = useSwitchChain();
   const { addToken } = useTokenStorage();
+  const { uploadLogo } = useTokenLogo();
   
   // Determine which chain we'll deploy to based on token type
   const deployChainId = tokenType === 'ethereum-enabled' 
@@ -296,6 +311,24 @@ export function useCreateToken() {
         result = { l1Address: l1Addr, l2Address: l2Addr };
       }
 
+      // Upload token logo if provided (fire and forget - don't block success)
+      if (formData.tokenLogo) {
+        try {
+          const file = dataURLtoFile(formData.tokenLogo, `${formData.symbol.toLowerCase()}-logo.png`);
+          
+          // Upload for L2 address (always exists)
+          await uploadLogo(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId, result.l2Address, file);
+          
+          // If ethereum-enabled, also upload for L1 address
+          if (result.l1Address) {
+            await uploadLogo(CONTRACTS.L1_TOKEN_FACTORY.chainId, result.l1Address, file);
+          }
+        } catch (logoError) {
+          // Don't fail the deployment if logo upload fails
+          console.warn('Failed to upload token logo:', logoError);
+        }
+      }
+
       addToken({
         name: formData.name,
         symbol: formData.symbol,
@@ -324,6 +357,7 @@ export function useCreateToken() {
     l2Client,
     switchChainAsync,
     addToken,
+    uploadLogo,
     chainId,
   ]);
 

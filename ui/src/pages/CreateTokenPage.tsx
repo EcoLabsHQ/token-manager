@@ -293,6 +293,91 @@ function TokenInformation({
             <span className="text-red-500 text-[10px] sm:text-xs">{errors.decimals.message}</span>
           )}
         </div>
+
+        {/* Token Logo */}
+        <div className="flex flex-col gap-1">
+          <label className="text-gray-500 text-xs sm:text-sm">Token Logo</label>
+          <Controller
+            name="tokenLogo"
+            control={form.control}
+            render={({ field }) => (
+              <div className="border border-gray-200 rounded-lg bg-gray-50 p-3 sm:p-4">
+                {field.value ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-gray-200 bg-white flex items-center justify-center">
+                      <img 
+                        src={field.value} 
+                        alt="Token Logo" 
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/png,image/jpeg,image/svg+xml,image/webp';
+                        input.onchange = (e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0];
+                          if (file) {
+                            if (file.size > 500 * 1024) {
+                              alert('Image must be less than 500KB');
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              field.onChange(reader.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        };
+                        input.click();
+                      }}
+                      className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600 hover:text-black transition-colors cursor-pointer"
+                    >
+                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Replace
+                    </button>
+                  </div>
+                ) : (
+                  <div 
+                    className="flex flex-col items-center gap-2 py-4 cursor-pointer hover:bg-gray-100 rounded-lg transition-colors"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/png,image/jpeg,image/svg+xml,image/webp';
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          if (file.size > 500 * 1024) {
+                            alert('Image must be less than 500KB');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            field.onChange(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                  >
+                    <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                      </svg>
+                    </div>
+                    <span className="text-xs sm:text-sm text-gray-500">Click to upload logo</span>
+                    <span className="text-[10px] sm:text-xs text-gray-400">PNG, JPG, SVG or WebP (max 500KB)</span>
+                  </div>
+                )}
+              </div>
+            )}
+          />
+        </div>
       </div>
 
       {/* Form-level error (e.g., maxSupply < initialSupply) */}
@@ -440,6 +525,22 @@ function Review({
               <p className="text-xs sm:text-sm text-black">{formData.decimals}</p>
             </div>
           </div>
+
+          {/* Token Logo */}
+          {formData.tokenLogo && (
+            <div className="flex flex-col gap-1">
+              <label className="text-gray-500 text-xs sm:text-sm">Token Logo</label>
+              <div className="border border-gray-200 rounded-lg bg-gray-50 p-3 flex justify-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-gray-200 bg-white flex items-center justify-center">
+                  <img 
+                    src={formData.tokenLogo} 
+                    alt="Token Logo" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Promo Code & Cost Card */}
