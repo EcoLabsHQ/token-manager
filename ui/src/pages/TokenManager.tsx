@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft, Clock, AlertTriangle } from 'lucide-react';
-import { useTokenManager, useWithdraw, usePendingWithdrawals, type PendingWithdrawalStorage, type WithdrawalStatus } from '../hooks';
+import { useTokenManager, useWithdraw, usePendingWithdrawals, useTokenLogo, type PendingWithdrawalStorage, type WithdrawalStatus } from '../hooks';
 import { useAccount, useWalletClient, usePublicClient, useSwitchChain, useConfig } from 'wagmi';
 import { parseUnits, getAddress } from 'viem';
 import { celoSepolia } from 'viem/chains';
@@ -22,6 +22,56 @@ const CeloIcon = () => (
     <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
   </div>
 );
+
+// Generate a consistent color based on string hash
+const stringToColor = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  // Generate pastel-ish colors
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 65%, 75%)`;
+};
+
+const stringToColorDark = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 55%, 35%)`;
+};
+
+// Token Logo component with fallback to first letter
+const TokenLogo = ({ logoUrl, name, symbol }: { logoUrl?: string; name: string; symbol: string }) => {
+  const [hasError, setHasError] = useState(false);
+  const firstLetter = (name || symbol || '?').charAt(0).toUpperCase();
+  const bgColor = stringToColor(name || symbol || '');
+  const textColor = stringToColorDark(name || symbol || '');
+  
+  if (!logoUrl || hasError) {
+    return (
+      <div 
+        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-white/20"
+        style={{ backgroundColor: bgColor }}
+      >
+        <span className="text-base font-bold" style={{ color: textColor }}>{firstLetter}</span>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-gray-100">
+      <img 
+        src={logoUrl} 
+        alt={`${name} logo`}
+        className="w-full h-full object-cover"
+        onError={() => setHasError(true)}
+      />
+    </div>
+  );
+};
 
 // Menu Items
 type MenuSection = 'transfer' | 'mint' | 'burn' | 'bridge' | 'pause' | 'admin';
@@ -1418,6 +1468,7 @@ interface TokenInfoHeaderProps {
   // For Celo-Native tokens - show migration option
   isCeloNative?: boolean;
   isOwner?: boolean;
+  logoUrl?: string;
 }
 
 const TokenInfoHeader = ({ 
@@ -1435,7 +1486,8 @@ const TokenInfoHeader = ({
   l1TokenManager,
   l2TokenManager,
   isCeloNative,
-  isOwner
+  isOwner,
+  logoUrl
 }: TokenInfoHeaderProps) => {
   const navigate = useNavigate();
   // Calculate available to mint
@@ -1452,9 +1504,12 @@ const TokenInfoHeader = ({
       <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-5">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
-            {name} ({symbol})
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <TokenLogo logoUrl={logoUrl} name={name} symbol={symbol} />
+            <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
+              {name} ({symbol})
+            </h2>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-xs sm:text-sm text-gray-600">Ethereum Enabled</span>
             <div className="flex items-center">
@@ -1529,9 +1584,12 @@ const TokenInfoHeader = ({
     <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
-          {name} ({symbol})
-        </h2>
+        <div className="flex items-center gap-2.5">
+          <TokenLogo logoUrl={logoUrl} name={name} symbol={symbol} />
+          <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
+            {name} ({symbol})
+          </h2>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-xs sm:text-sm text-gray-600">
             {isL2Token ? 'Celo L2' : 'Ethereum L1'}
@@ -1885,7 +1943,9 @@ export default function TokenManager() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<MenuSection>('transfer');
   const [isL2Token, setIsL2Token] = useState<boolean | null>(null);
+  const [tokenLogoUrl, setTokenLogoUrl] = useState<string | undefined>(undefined);
   const { address } = useAccount();
+  const { getLogoBatch } = useTokenLogo();
 
   // Check if this is an Ethereum Enabled token with both L1 and L2
   const l2TokenFromParams = searchParams.get('l2Token');
@@ -1921,6 +1981,41 @@ export default function TokenManager() {
 
   // Use the appropriate token manager for actions
   const tokenManager = isL2Token === false ? tokenManagerL1 : tokenManagerL2;
+
+  // Fetch token logo
+  useEffect(() => {
+    if (!tokenAddress) return;
+    
+    const fetchLogo = async () => {
+      const tokenRequests: Array<{ chainId: number; address: string }> = [];
+      
+      // Try L1 address first for ethereum-enabled tokens
+      if (isEthereumEnabled && tokenAddress) {
+        tokenRequests.push({
+          chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
+          address: tokenAddress,
+        });
+      }
+      
+      // Try L2 address
+      const l2Address = l2TokenFromParams || tokenAddress;
+      if (l2Address) {
+        tokenRequests.push({
+          chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
+          address: l2Address,
+        });
+      }
+      
+      if (tokenRequests.length > 0) {
+        const logos = await getLogoBatch(tokenRequests);
+        // Use the first available logo
+        const firstLogoUrl = Object.values(logos).find(url => url);
+        setTokenLogoUrl(firstLogoUrl);
+      }
+    };
+    
+    fetchLogo();
+  }, [tokenAddress, l2TokenFromParams, isEthereumEnabled, getLogoBatch]);
 
   // Refresh all token data (both L1 and L2 for Ethereum Enabled tokens)
   const refreshAllTokenData = useCallback(async () => {
@@ -2010,6 +2105,7 @@ export default function TokenManager() {
           l2TokenManager={isEthereumEnabled ? tokenManagerL2 : undefined}
           isCeloNative={!isEthereumEnabled && isL2Token === true}
           isOwner={tokenManager.isOwner}
+          logoUrl={tokenLogoUrl}
         />
 
         {/* Main Content */}

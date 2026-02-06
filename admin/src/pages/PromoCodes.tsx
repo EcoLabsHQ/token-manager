@@ -36,6 +36,7 @@ import {
   updatePromoCode,
   deletePromoCode,
   fetchCreationFee,
+  SUPPORTED_CHAINS,
   type CreatePromoCodeData,
   type PromoCode,
 } from '@/lib/api'
@@ -49,21 +50,39 @@ export function PromoCodes() {
     code: '',
     discountType: 'free' as 'free' | 'percentage',
     discountValue: 50,
+    chainId: 11155111, // Default to Ethereum Sepolia
     expiresInDays: 30,
     maxUses: 100,
   })
+
+  const selectedChain = SUPPORTED_CHAINS[newCode.chainId]
 
   const { data: promoCodes, isLoading } = useQuery({
     queryKey: ['promoCodes'],
     queryFn: fetchPromoCodes,
   })
 
-  // Fetch the actual creation fee from the contract
+  // Fetch the actual creation fee from the contract for the selected chain
   const { data: creationFeeWei } = useQuery({
-    queryKey: ['creationFee'],
-    queryFn: () => fetchCreationFee('ethereum'),
+    queryKey: ['creationFee', newCode.chainId],
+    queryFn: () => fetchCreationFee(newCode.chainId),
     staleTime: 60 * 1000, // Cache for 1 minute
   })
+
+  // Calculate discounted fee based on percentage
+  const calculateDiscountedFee = () => {
+    if (!creationFeeWei) return null
+    const baseFee = BigInt(creationFeeWei)
+    if (newCode.discountType === 'free') {
+      return BigInt(0)
+    }
+    const discount = (baseFee * BigInt(newCode.discountValue)) / BigInt(100)
+    return baseFee - discount
+  }
+
+  const discountedFee = calculateDiscountedFee()
+  const baseFeeEth = creationFeeWei ? Number(BigInt(creationFeeWei)) / 1e18 : 0
+  const discountedFeeEth = discountedFee !== null ? Number(discountedFee) / 1e18 : 0
 
   const createMutation = useMutation({
     mutationFn: createPromoCode,
@@ -75,6 +94,7 @@ export function PromoCodes() {
         code: '',
         discountType: 'free',
         discountValue: 50,
+        chainId: 11155111,
         expiresInDays: 30,
         maxUses: 100,
       })
@@ -104,6 +124,7 @@ export function PromoCodes() {
       code: newCode.code,
       discountType: newCode.discountType,
       discountValue: newCode.discountType === 'percentage' ? newCode.discountValue : undefined,
+      chainId: newCode.chainId,
       expiresAt,
       maxUses: newCode.maxUses,
     }
@@ -116,20 +137,12 @@ export function PromoCodes() {
       return <Badge variant="success">FREE</Badge>
     }
     
-    // Use the actual creation fee from the contract, fallback to default
-    const baseFeeWei = BigInt(creationFeeWei || '10000000000000000') // Default 0.01 ETH
+    // Show the actual fee user will pay
     const discountFeeWei = BigInt(code.discount_fee)
-    
-    // If the promo fee is less than the base fee, calculate discount percentage
-    if (discountFeeWei < baseFeeWei) {
-      const discountAmount = baseFeeWei - discountFeeWei
-      const percentOff = Number((discountAmount * BigInt(100)) / baseFeeWei)
-      return <Badge variant="default">{percentOff}% OFF</Badge>
-    }
-    
-    // If no discount or promo fee equals base fee
     const ethValue = Number(discountFeeWei) / 1e18
-    return <Badge variant="secondary">{ethValue.toFixed(4)} ETH</Badge>
+    const chain = SUPPORTED_CHAINS[code.chain_id]
+    const symbol = chain?.symbol || 'ETH'
+    return <Badge variant="secondary">{ethValue.toFixed(4)} {symbol}</Badge>
   }
 
   const getStatusBadge = (code: PromoCode) => {
@@ -168,13 +181,44 @@ export function PromoCodes() {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
+                <Label htmlFor="chain">Chain</Label>
+                <Select
+                  value={newCode.chainId.toString()}
+                  onValueChange={(value) =>
+                    setNewCode({ ...newCode, chainId: parseInt(value) })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SUPPORTED_CHAINS).map(([chainId, chain]) => (
+                      <SelectItem key={chainId} value={chainId}>
+                        {chain.name} ({chain.symbol})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {creationFeeWei && selectedChain && (
+                  <p className="text-xs text-gray-500">
+                    Current fee on {selectedChain.name}: {baseFeeEth.toFixed(6)} {selectedChain.symbol}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="code">Code</Label>
-                <Input
-                  id="code"
-                  placeholder="e.g., FREEMINT2026"
-                  value={newCode.code}
-                  onChange={(e) => setNewCode({ ...newCode, code: e.target.value.toUpperCase() })}
-                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="code"
+                    placeholder="e.g., FREEMINT2026"
+                    value={newCode.code}
+                    onChange={(e) => setNewCode({ ...newCode, code: e.target.value.toUpperCase() })}
+                  />
+                  <span className="text-gray-500 text-sm font-mono">_{selectedChain?.suffix || 'ETH'}</span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Final code: <span className="font-mono">{newCode.code || 'CODE'}_{selectedChain?.suffix || 'ETH'}</span>
+                </p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="discountType">Discount Type</Label>
@@ -209,6 +253,12 @@ export function PromoCodes() {
                     />
                     <span className="text-gray-500">%</span>
                   </div>
+                  {creationFeeWei && selectedChain && (
+                    <p className="text-xs text-gray-500">
+                      User will pay: {discountedFeeEth.toFixed(6)} {selectedChain.symbol} 
+                      <span className="ml-1">(saves {(baseFeeEth - discountedFeeEth).toFixed(6)})</span>
+                    </p>
+                  )}
                 </div>
               )}
               <div className="grid gap-2">
@@ -271,6 +321,7 @@ export function PromoCodes() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Code</TableHead>
+                  <TableHead>Chain</TableHead>
                   <TableHead>Discount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Usage</TableHead>
@@ -280,9 +331,16 @@ export function PromoCodes() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {promoCodes?.map((code) => (
+                {promoCodes?.map((code) => {
+                  const codeChain = SUPPORTED_CHAINS[code.chain_id]
+                  return (
                   <TableRow key={code.id}>
                     <TableCell className="font-mono font-medium">{code.code}</TableCell>
+                    <TableCell>
+                      <Badge variant={code.chain_id === 11155111 ? 'default' : 'secondary'}>
+                        {codeChain?.suffix || code.chain_id}
+                      </Badge>
+                    </TableCell>
                     <TableCell>{getDiscountDisplay(code)}</TableCell>
                     <TableCell>{getStatusBadge(code)}</TableCell>
                     <TableCell>
@@ -328,7 +386,8 @@ export function PromoCodes() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
           )}

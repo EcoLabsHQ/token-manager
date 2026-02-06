@@ -10,6 +10,7 @@ export interface PromoCode {
   id: number;
   code: string;
   discount_fee: string;
+  chain_id: number;
   expires_at: number;
   max_uses: number;
   current_uses: number;

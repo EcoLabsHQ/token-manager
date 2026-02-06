@@ -7,7 +7,25 @@ if (import.meta.env.DEV && !ADMIN_API_KEY) {
   console.warn('⚠️ VITE_ADMIN_API_KEY is not set. Make sure .env file exists with the correct key.');
 }
 
-// Contract configuration
+// Contract configuration by chainId
+export const SUPPORTED_CHAINS: Record<number, { name: string; symbol: string; suffix: string; address: `0x${string}`; rpcUrl: string }> = {
+  11155111: { // Ethereum Sepolia
+    name: 'Ethereum Sepolia',
+    symbol: 'ETH',
+    suffix: 'ETH',
+    address: '0xf87eA3325c6F5Be2119D40747752BB255CdF1eE8',
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
+  },
+  11142220: { // Celo Alfajores
+    name: 'Celo Alfajores',
+    symbol: 'CELO',
+    suffix: 'CELO',
+    address: '0xda572dDA586970a0b844d2E7a2e55fe3af35b225',
+    rpcUrl: 'https://alfajores-forno.celo-testnet.org',
+  },
+};
+
+// Legacy contract references (for backward compatibility)
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
     address: '0xf87eA3325c6F5Be2119D40747752BB255CdF1eE8' as `0x${string}`,
@@ -19,24 +37,21 @@ export const CONTRACTS = {
   },
 } as const;
 
-// RPC URLs for fetching contract data
-const RPC_URLS = {
-  ethereum: 'https://ethereum-sepolia-rpc.publicnode.com',
-  celo: 'https://alfajores-forno.celo-testnet.org',
-} as const;
-
 // Subgraph URLs (same as main UI)
 const SUBGRAPH_URLS = {
   ethereum: 'https://api.studio.thegraph.com/query/72352/minter-ethereum/version/latest',
   celo: 'https://api.studio.thegraph.com/query/72352/minter-celo/version/latest',
 } as const;
 
-// Fetch creationFee from contract using eth_call
-export async function fetchCreationFee(chain: 'ethereum' | 'celo' = 'ethereum'): Promise<string> {
-  const rpcUrl = RPC_URLS[chain];
-  const contractAddress = chain === 'ethereum' 
-    ? CONTRACTS.L1_TOKEN_FACTORY.address 
-    : CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address;
+// Fetch creationFee from contract using eth_call by chainId
+export async function fetchCreationFee(chainId: number): Promise<string> {
+  const chain = SUPPORTED_CHAINS[chainId];
+  if (!chain) {
+    console.error('Unsupported chainId:', chainId);
+    return '10000000000000000'; // Default fallback
+  }
+  
+  const { rpcUrl, address: contractAddress } = chain;
   
   // Function selector for creationFee() = keccak256("creationFee()")[:4] = 0x8b47ec43
   const creationFeeSelector = '0x8b47ec43';
@@ -89,6 +104,7 @@ export interface PromoCode {
   id: number;
   code: string;
   discount_fee: string;
+  chain_id: number;
   expires_at: number;
   max_uses: number;
   current_uses: number;
@@ -100,6 +116,7 @@ export interface CreatePromoCodeData {
   code: string;
   discountType: 'free' | 'percentage';
   discountValue?: number;
+  chainId: number;
   expiresAt: number;
   maxUses: number;
 }

@@ -23,6 +23,33 @@ export interface PromoCheckResult {
 
 export type PromoStatus = 'idle' | 'checking' | 'valid' | 'invalid' | 'error';
 
+// Chain suffixes for promo codes
+const CHAIN_SUFFIXES: Record<number, string> = {
+  11155111: 'ETH',   // Ethereum Sepolia
+  11142220: 'CELO',  // Celo Alfajores
+};
+
+// Get the full promo code with chain suffix
+function getFullPromoCode(code: string, chainId?: number): string {
+  const upperCode = code.toUpperCase().trim();
+  if (!upperCode || !chainId) return upperCode;
+  
+  // If the code already has a chain suffix, don't add another
+  const suffix = CHAIN_SUFFIXES[chainId];
+  if (!suffix) return upperCode;
+  
+  if (upperCode.endsWith(`_${suffix}`)) return upperCode;
+  
+  // Remove any existing chain suffix before adding the correct one
+  for (const s of Object.values(CHAIN_SUFFIXES)) {
+    if (upperCode.endsWith(`_${s}`)) {
+      return upperCode.slice(0, -(s.length + 1)) + `_${suffix}`;
+    }
+  }
+  
+  return `${upperCode}_${suffix}`;
+}
+
 export function usePromoCode(chainId?: number) {
   const [isValidating, setIsValidating] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
@@ -67,16 +94,18 @@ export function usePromoCode(chainId?: number) {
       try {
         abortControllerRef.current = new AbortController();
         
+        // Auto-append chain suffix for the API check
+        const fullCode = getFullPromoCode(upperCode, chainId);
         const queryParams = chainId ? `?chainId=${chainId}` : '';
         const res = await fetch(
-          `${PROMO_API_URL}/api/promo/check/${encodeURIComponent(upperCode)}${queryParams}`,
+          `${PROMO_API_URL}/api/promo/check/${encodeURIComponent(fullCode)}${queryParams}`,
           { signal: abortControllerRef.current.signal }
         );
         const data = await res.json();
         
         if (!data.success) {
           setPromoStatus('invalid');
-          setPromoError(data.error || 'Invalid promo code');
+          setPromoError(data.error || 'Promo code not found');
           setCheckResult(null);
         } else if (!data.data.isValid) {
           setPromoStatus('invalid');
@@ -133,11 +162,14 @@ export function usePromoCode(chainId?: number) {
         ? CONTRACTS.L1_TOKEN_FACTORY.address 
         : CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address;
 
+      // Auto-append chain suffix for validation
+      const fullCode = getFullPromoCode(code, targetChainId);
+
       const res = await fetch(`${PROMO_API_URL}/api/promo/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code: code.toUpperCase(),
+          code: fullCode,
           userAddress,
           chainId: targetChainId,
           factoryAddress,
