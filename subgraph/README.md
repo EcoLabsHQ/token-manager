@@ -6,8 +6,8 @@ Este proyecto contiene 2 subgraphs separados para indexar los Token Factories en
 
 | Nombre | Red | Contrato | Config |
 |--------|-----|----------|--------|
-| `minter-ethereum` | Sepolia (L1) | L1TokenFactory | `config/ethereum.json` |
-| `minter-celo` | Celo Sepolia (L2) | L2SuperChainTokenFactory | `config/celo.json` |
+| `minter-ethereum` | Ethereum Mainnet (L1) | L1TokenFactory | `config/ethereum.json` |
+| `minter-celo` | Celo Mainnet (L2) | L2SuperChainTokenFactory | `config/celo.json` |
 
 ## Requisitos previos
 
@@ -59,10 +59,10 @@ npm run prepare:celo
 ### Desplegar a The Graph Studio
 
 ```bash
-# Desplegar L1 (Ethereum Sepolia)
+# Desplegar L1 (Ethereum Mainnet)
 npm run deploy:ethereum
 
-# Desplegar L2 (Celo Sepolia)
+# Desplegar L2 (Celo Mainnet)
 npm run deploy:celo
 ```
 

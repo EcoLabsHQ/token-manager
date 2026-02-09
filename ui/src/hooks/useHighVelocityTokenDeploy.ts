@@ -32,11 +32,11 @@ export const useHighVelocityTokenDeploy = () => {
     confirmations: 1,
   });
 
-  // Read all tokens from factory
-  const { data: allTokens, refetch: refetchTokens } = useReadContract({
+  // Read token count from factory (more efficient than getAllTokens)
+  const { data: tokenCount, refetch: refetchTokenCount } = useReadContract({
     address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
     abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
-    functionName: 'getAllTokens',
+    functionName: 'getAllTokensCount',
     chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
   });
 
@@ -55,24 +55,38 @@ export const useHighVelocityTokenDeploy = () => {
     }
   }, [writeError]);
 
-  // Monitor receipt and get token address from getAllTokens
+  // Monitor receipt and get token address using getToken(index)
   useEffect(() => {
     if (!receipt || !currentParams || tokenCountBeforeCreate === null) return;
 
     const extractTokenAddress = async () => {
       try {
-        console.log('HighVelocity: Transaction confirmed, fetching all tokens...');
+        console.log('HighVelocity: Transaction confirmed, fetching token count...');
 
-        // Refetch tokens after transaction is confirmed
-        const result = await refetchTokens();
-        const tokens = result.data as `0x${string}`[] | undefined;
+        // Refetch token count after transaction is confirmed
+        const result = await refetchTokenCount();
+        const newCount = result.data as bigint | undefined;
 
-        console.log('HighVelocity: All tokens from factory:', tokens);
+        console.log('HighVelocity: New token count:', newCount?.toString());
         console.log('HighVelocity: Token count before create:', tokenCountBeforeCreate);
 
-        if (tokens && tokens.length > tokenCountBeforeCreate) {
-          // Get the last token (the one we just created)
-          const newTokenAddress = tokens[tokens.length - 1];
+        if (newCount && Number(newCount) > tokenCountBeforeCreate) {
+          // Get the last token using getToken(count - 1)
+          const { createPublicClient, http } = await import('viem');
+          const { celo } = await import('viem/chains');
+          
+          const client = createPublicClient({
+            chain: celo,
+            transport: http(),
+          });
+          
+          const newTokenAddress = await client.readContract({
+            address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+            abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
+            functionName: 'getToken',
+            args: [newCount - BigInt(1)],
+          }) as `0x${string}`;
+          
           console.log('HighVelocity: New token address:', newTokenAddress);
           setTokenAddress(getAddress(newTokenAddress));
         } else {
@@ -88,7 +102,7 @@ export const useHighVelocityTokenDeploy = () => {
     };
 
     extractTokenAddress();
-  }, [receipt, currentParams, tokenCountBeforeCreate, refetchTokens]);
+  }, [receipt, currentParams, tokenCountBeforeCreate, refetchTokenCount]);
 
   const deployToken = useCallback(
     async (params: DeployHighVelocityTokenParams): Promise<TokenDeploymentResult> => {
@@ -108,7 +122,7 @@ export const useHighVelocityTokenDeploy = () => {
       setCurrentParams(params);
 
       // Store current token count before creating
-      const currentCount = (allTokens as `0x${string}`[] | undefined)?.length || 0;
+      const currentCount = Number(tokenCount || BigInt(0));
       setTokenCountBeforeCreate(currentCount);
       console.log('HighVelocity: Current token count before deploy:', currentCount);
 
@@ -148,7 +162,7 @@ export const useHighVelocityTokenDeploy = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [address, chainId, writeContract, allTokens]
+    [address, chainId, writeContract, tokenCount]
   );
 
   const getResult = useCallback((): TokenDeploymentResult | null => {

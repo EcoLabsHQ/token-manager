@@ -1,11 +1,11 @@
-// Bridge configuration for Sepolia to Celo Sepolia
+// Bridge configuration for Ethereum to Celo Mainnet
 // Based on Optimism Standard Bridge documentation
 // Token addresses are entered manually by users
 
 export const BRIDGE_CONFIG = {
-  sepoliaToCeloSepolia: {
-    l1ChainId: 11155111, // Sepolia
-    l2ChainId: 11142220, // Celo L2 Sepolia
+  ethereumToCelo: {
+    l1ChainId: 1, // Ethereum Mainnet
+    l2ChainId: 42220, // Celo Mainnet
   },
 };
 

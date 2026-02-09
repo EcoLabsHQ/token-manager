@@ -5,12 +5,12 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum
-    name: L1TokenFactory
-    network: sepolia
+    name: L2SuperChainTokenFactory
+    network: celo
     source:
-      address: "0xf87eA3325c6F5Be2119D40747752BB255CdF1eE8"
-      abi: L1TokenFactory
-      startBlock: 10172265
+      address: "0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4"
+      abi: L2SuperChainTokenFactory
+      startBlock: 31000000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -20,23 +20,24 @@ dataSources:
         - Token
         - TokenCreatedEvent
       abis:
-        - name: L1TokenFactory
-          file: ./abis/L1TokenFactory.json
+        - name: L2SuperChainTokenFactory
+          file: ./abis/L2SuperChainTokenFactory.json
         - name: L2SuperChainToken
           file: ./abis/L2SuperChainToken.json
         - name: L1Token
           file: ./abis/L1Token.json
       eventHandlers:
-        - event: TokenCreated(indexed address,string,string,uint256,uint256,uint8,indexed address)
-          handler: handleL1TokenCreated
-      file: ./src/l1-token-factory.ts
+        - event: TokenCreated(indexed address,string,string,uint8,uint256,uint256,indexed address)
+          handler: handleL2TokenCreated
+      file: ./src/l2-token-factory.ts
+
 
 templates:
   - kind: ethereum
-    name: L1Token
-    network: sepolia
+    name: L2SuperChainToken
+    network: celo
     source:
-      abi: L1Token
+      abi: L2SuperChainToken
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -48,14 +49,21 @@ templates:
         - TransferEvent
         - BridgeEvent
       abis:
-        - name: L1Token
-          file: ./abis/L1Token.json
+        - name: L2SuperChainToken
+          file: ./abis/L2SuperChainToken.json
       eventHandlers:
+        - event: RemoteTokenUpdated(indexed address)
+          handler: handleRemoteTokenUpdated
+        - event: BridgeUpdated(indexed address)
+          handler: handleBridgeUpdated
         - event: OwnershipTransferStarted(indexed address,indexed address)
           handler: handleOwnershipTransferStarted
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleOwnershipTransferred
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
-      file: ./src/l1-token.ts
-
+        - event: CrosschainMint(indexed address,uint256,indexed address)
+          handler: handleCrosschainMint
+        - event: CrosschainBurn(indexed address,uint256,indexed address)
+          handler: handleCrosschainBurn
+      file: ./src/l2-token.ts

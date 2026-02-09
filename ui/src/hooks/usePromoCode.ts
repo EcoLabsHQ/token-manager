@@ -25,8 +25,8 @@ export type PromoStatus = 'idle' | 'checking' | 'valid' | 'invalid' | 'error';
 
 // Chain suffixes for promo codes
 const CHAIN_SUFFIXES: Record<number, string> = {
-  11155111: 'ETH',   // Ethereum Sepolia
-  11142220: 'CELO',  // Celo Alfajores
+  1: 'ETH',      // Ethereum Mainnet
+  42220: 'CELO', // Celo Mainnet
 };
 
 // Get the full promo code with chain suffix

@@ -50,7 +50,7 @@ export function PromoCodes() {
     code: '',
     discountType: 'free' as 'free' | 'percentage',
     discountValue: 50,
-    chainId: 11155111, // Default to Ethereum Sepolia
+    chainId: 1, // Default to Ethereum Mainnet
     expiresInDays: 30,
     maxUses: 100,
   })
@@ -94,7 +94,7 @@ export function PromoCodes() {
         code: '',
         discountType: 'free',
         discountValue: 50,
-        chainId: 11155111,
+        chainId: 1,
         expiresInDays: 30,
         maxUses: 100,
       })
@@ -337,7 +337,7 @@ export function PromoCodes() {
                   <TableRow key={code.id}>
                     <TableCell className="font-mono font-medium">{code.code}</TableCell>
                     <TableCell>
-                      <Badge variant={code.chain_id === 11155111 ? 'default' : 'secondary'}>
+                      <Badge variant={code.chain_id === 1 ? 'default' : 'secondary'}>
                         {codeChain?.suffix || code.chain_id}
                       </Badge>
                     </TableCell>

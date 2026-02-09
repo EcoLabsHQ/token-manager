@@ -1,8 +1,8 @@
 {
-  "network": "sepolia",
+  "network": "mainnet",
   "dataSourceName": "L1TokenFactory",
-  "address": "0xf87eA3325c6F5Be2119D40747752BB255CdF1eE8",
-  "startBlock": 10172265,
+  "address": "0xa7763537F4C1F321C31AaAc2a2e3b5c674f568D2",
+  "startBlock": 22000000,
   "abiName": "L1TokenFactory",
   "abiFile": "L1TokenFactory.json",
   "eventSignature": "TokenCreated(indexed address,string,string,uint256,uint256,uint8,indexed address)",

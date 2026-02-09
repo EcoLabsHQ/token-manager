@@ -25,7 +25,7 @@ export function useAutoChainSwitch() {
   const switchToChain = useCallback(
     async (target: TargetChain): Promise<ChainSwitchResult> => {
       const targetChainId = target === 'l1' ? l1ChainId : l2ChainId;
-      const targetName = target === 'l1' ? 'Sepolia' : 'Celo Sepolia';
+      const targetName = target === 'l1' ? 'Ethereum' : 'Celo';
 
       // Already on the correct chain
       if (chainId === targetChainId) {
@@ -52,12 +52,12 @@ export function useAutoChainSwitch() {
     [chainId, l1ChainId, l2ChainId, switchChainAsync]
   );
 
-  // Switch to L1 (Sepolia)
+  // Switch to L1 (Ethereum)
   const switchToL1 = useCallback(async (): Promise<ChainSwitchResult> => {
     return switchToChain('l1');
   }, [switchToChain]);
 
-  // Switch to L2 (Celo Sepolia)
+  // Switch to L2 (Celo)
   const switchToL2 = useCallback(async (): Promise<ChainSwitchResult> => {
     return switchToChain('l2');
   }, [switchToChain]);

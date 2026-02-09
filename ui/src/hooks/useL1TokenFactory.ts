@@ -12,7 +12,6 @@ import {
   L1_TOKEN_FACTORY_ABI,
   L1_TOKEN_ABI,
 } from '@/config/contracts';
-import { celoSepolia } from 'viem/chains';
 
 export interface CreateL1TokenParams {
   name: string;

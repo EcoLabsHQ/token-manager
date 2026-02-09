@@ -1,8 +1,8 @@
 {
-  "network": "celo-sepolia",
+  "network": "celo",
   "dataSourceName": "L2SuperChainTokenFactory",
-  "address": "0xda572dDA586970a0b844d2E7a2e55fe3af35b225",
-  "startBlock": 16713308,
+  "address": "0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4",
+  "startBlock": 31000000,
   "abiName": "L2SuperChainTokenFactory",
   "abiFile": "L2SuperChainTokenFactory.json",
   "eventSignature": "TokenCreated(indexed address,string,string,uint8,uint256,uint256,indexed address)",

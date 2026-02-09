@@ -46,11 +46,11 @@ export const useL2TokenFactory = () => {
   const { writeContract, data: writeData, isPending: isWritePending, error: writeError } = useWriteContract();
   const { writeContract: writeMintContract, data: mintWriteData, isPending: isMintWritePending, error: mintWriteError } = useWriteContract();
 
-  // Read all tokens from factory
-  const { data: allTokens, refetch: refetchTokens } = useReadContract({
+  // Read token count from factory (more efficient than getAllTokens)
+  const { data: tokenCount, refetch: refetchTokenCount } = useReadContract({
     address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
     abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
-    functionName: 'getAllTokens',
+    functionName: 'getAllTokensCount',
     chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
   });
 
@@ -152,27 +152,38 @@ export const useL2TokenFactory = () => {
           return;
         }
 
-        // Refetch tokens after transaction is confirmed
-        console.log('L2: Transaction confirmed, fetching all tokens...');
-        const result = await refetchTokens();
-        const tokens = result.data as `0x${string}`[] | undefined;
+        // Refetch token count after transaction is confirmed
+        console.log('L2: Transaction confirmed, fetching token count...');
+        const result = await refetchTokenCount();
+        const newCount = result.data as bigint | undefined;
         
-        console.log('L2: All tokens from factory:', tokens);
+        console.log('L2: New token count:', newCount?.toString());
         console.log('L2: Token count before create:', tokenCountBeforeCreate);
         
-        if (tokens && tokens.length > tokenCountBeforeCreate) {
-          // Get the last token (the one we just created)
-          const newTokenAddress = tokens[tokens.length - 1];
+        if (newCount && Number(newCount) > tokenCountBeforeCreate) {
+          // Get the last token using getToken(count - 1)
+          const newTokenAddress = await publicClient.readContract({
+            address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+            abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
+            functionName: 'getToken',
+            args: [newCount - BigInt(1)],
+          }) as `0x${string}`;
+          
           console.log('L2: New token address:', newTokenAddress);
           setTokenAddress(getAddress(newTokenAddress));
         } else {
           console.log('L2: No new token found, retrying...');
           // Retry once more after a delay
           await new Promise(resolve => setTimeout(resolve, 2000));
-          const retryResult = await refetchTokens();
-          const retryTokens = retryResult.data as `0x${string}`[] | undefined;
-          if (retryTokens && retryTokens.length > tokenCountBeforeCreate) {
-            const newTokenAddress = retryTokens[retryTokens.length - 1];
+          const retryResult = await refetchTokenCount();
+          const retryCount = retryResult.data as bigint | undefined;
+          if (retryCount && Number(retryCount) > tokenCountBeforeCreate) {
+            const newTokenAddress = await publicClient.readContract({
+              address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+              abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
+              functionName: 'getToken',
+              args: [retryCount - BigInt(1)],
+            }) as `0x${string}`;
             console.log('L2: New token address (retry):', newTokenAddress);
             setTokenAddress(getAddress(newTokenAddress));
           }
@@ -189,7 +200,7 @@ export const useL2TokenFactory = () => {
     };
 
     waitForReceipt();
-  }, [writeData, publicClient, currentParams, tokenCountBeforeCreate, refetchTokens]);
+  }, [writeData, publicClient, currentParams, tokenCountBeforeCreate, refetchTokenCount]);
 
   const createToken = useCallback(
     async (params: CreateL2TokenParams): Promise<TokenCreationResult> => {
@@ -208,7 +219,7 @@ export const useL2TokenFactory = () => {
       setCurrentParams(params);
       
       // Store current token count before creating
-      const currentCount = (allTokens as `0x${string}`[] | undefined)?.length || 0;
+      const currentCount = Number(tokenCount || BigInt(0));
       setTokenCountBeforeCreate(currentCount);
       console.log('L2: Current token count before create:', currentCount);
 
@@ -245,7 +256,7 @@ export const useL2TokenFactory = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [address, chainId, writeContract, allTokens]
+    [address, chainId, writeContract, tokenCount]
   );
 
   const mintInitialSupply = useCallback(

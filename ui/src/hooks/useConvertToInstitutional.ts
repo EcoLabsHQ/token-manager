@@ -5,6 +5,7 @@ import {
   useWaitForTransactionReceipt,
   useAccount,
   useSwitchChain,
+  usePublicClient,
 } from 'wagmi';
 import { getAddress, parseUnits } from 'viem';
 import { CONTRACTS } from '@/config/contracts';
@@ -74,13 +75,16 @@ export const useConvertToInstitutional = () => {
     confirmations: 1,
   });
 
-  // Query L1 tokens to get the new token address
-  const { refetch: refetchL1Tokens } = useReadContract({
+  // Public client for reading contract
+  const l1PublicClient = usePublicClient({ chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId });
+
+  // Query L1 token count to get the new token address
+  const { refetch: refetchL1TokenCount } = useReadContract({
     address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
     abi: L1_TOKEN_FACTORY_ABI,
-    functionName: 'getAllTokens',
+    functionName: 'getAllTokensCount',
     chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
-  } as any);
+  });
 
   // Monitor L1 receipt - advance to bridge config step when confirmed
   useEffect(() => {
@@ -88,12 +92,19 @@ export const useConvertToInstitutional = () => {
 
     const extractL1Token = async () => {
       try {
-        console.log('Convert: L1 confirmed, fetching token addresses...');
-        const result = await refetchL1Tokens();
-        const tokens = result.data as `0x${string}`[] | undefined;
+        console.log('Convert: L1 confirmed, fetching token count...');
+        const result = await refetchL1TokenCount();
+        const count = result.data as bigint | undefined;
 
-        if (tokens && tokens.length > 0) {
-          const newToken = tokens[tokens.length - 1];
+        if (count && count > BigInt(0) && l1PublicClient) {
+          // Get the last token using getToken(count - 1)
+          const newToken = await l1PublicClient.readContract({
+            address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
+            abi: L1_TOKEN_FACTORY_ABI,
+            functionName: 'getToken',
+            args: [count - BigInt(1)],
+          }) as `0x${string}`;
+          
           console.log('Convert: L1 token created:', newToken);
           setL1TokenAddress(getAddress(newToken));
           
@@ -111,7 +122,7 @@ export const useConvertToInstitutional = () => {
     };
 
     extractL1Token();
-  }, [l1Receipt, currentStep, refetchL1Tokens]);
+  }, [l1Receipt, currentStep, refetchL1TokenCount, l1PublicClient]);
 
   // Monitor config receipt - mark as success when confirmed
   useEffect(() => {
@@ -148,10 +159,10 @@ export const useConvertToInstitutional = () => {
       setCurrentStep('creating_l1');
 
       try {
-        // Ensure we're on L1 (Sepolia) for creating the L1 token
+        // Ensure we're on L1 (Ethereum Mainnet) for creating the L1 token
         const l1ChainId = CONTRACTS.L1_TOKEN_FACTORY.chainId;
         if (chainId !== l1ChainId) {
-          console.log('Convert: Switching to Sepolia (L1)...');
+          console.log('Convert: Switching to Ethereum Mainnet (L1)...');
           await switchChainAsync({ chainId: l1ChainId });
           await new Promise(resolve => setTimeout(resolve, 1000));
         }

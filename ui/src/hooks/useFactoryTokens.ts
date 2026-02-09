@@ -26,20 +26,25 @@ const formatSupply = (supply: bigint, decimals: number): string => {
   return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
 };
 
+// Maximum tokens to fetch per page - adjust based on RPC limits
+const MAX_TOKENS_PER_PAGE = 1000;
+
 export const useFactoryTokens = () => {
-  // Get all L1 tokens from factory
+  // Get L1 tokens from factory with pagination
   const { data: l1TokenAddresses, isLoading: l1Loading, refetch: refetchL1 } = useReadContract({
     address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
     abi: L1_TOKEN_FACTORY_ABI,
-    functionName: 'getAllTokens',
+    functionName: 'getTokensPaginated',
+    args: [BigInt(0), BigInt(MAX_TOKENS_PER_PAGE)],
     chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
   });
 
-  // Get all L2 tokens from factory
+  // Get L2 tokens from factory with pagination
   const { data: l2TokenAddresses, isLoading: l2Loading, refetch: refetchL2 } = useReadContract({
     address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
     abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
-    functionName: 'getAllTokens',
+    functionName: 'getTokensPaginated',
+    args: [BigInt(0), BigInt(MAX_TOKENS_PER_PAGE)],
     chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
   });
 

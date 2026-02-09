@@ -8,6 +8,7 @@ libs = ["lib"]
 extra_output = ["storageLayout"]
 optimizer = true
 optimizer_runs = 200
+via_ir = true
 
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
@@ -15,11 +16,13 @@ optimizer_runs = 200
 
 [etherscan]
 celo = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
+mainnet = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
 sepolia = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE" }
 celo-sepolia = { key = "I36FHHV8SEQP38FSSMQUCI92BJK4H5PJSE", url = "https://api-sepolia.celoscan.io/api" }
 
 
 [rpc_endpoints]
 celo = "https://lb.drpc.org/ogrpc?network=celo&dkey=AnN38OUr3EcfnfM04Tc8vZSVaPnrRU8R8IlbKlzbRHZc"
+mainnet = "https://lb.drpc.live/ethereum/AuajrTfUKUDcljFTxiXAxPOrBZbcQJQR8Jr2uuQ63qxe"
 celo-sepolia = "https://lb.drpc.live/celo-sepolia/AuajrTfUKUDcljFTxiXAxPOrBZbcQJQR8Jr2uuQ63qxe"
 sepolia = "https://sepolia.drpc.org"

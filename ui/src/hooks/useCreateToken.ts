@@ -15,7 +15,6 @@ import {
   decodeEventLog,
   type TransactionReceipt,
 } from 'viem';
-import { celoSepolia } from 'viem/chains';
 import {
   tokenFormSchema,
   defaultTokenFormValues,
@@ -82,7 +81,8 @@ const BRIDGE_ABI = [
   },
 ] as const;
 
-const L2_BRIDGE = celoSepolia.contracts.l2StandardBridge.address;
+// L2 Standard Bridge address on Celo Mainnet (OP Stack standard address)
+const L2_BRIDGE = '0x4200000000000000000000000000000000000010';
 
 const extractToken = (r: TransactionReceipt, abi: any): string | null => {
   for (const log of r.logs)

@@ -1,6 +1,6 @@
 import { createAppKit } from '@reown/appkit';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { celoSepolia, sepolia } from 'wagmi/chains';
+import { celo, mainnet } from 'wagmi/chains';
 import type { AppKitNetwork } from '@reown/appkit/networks';
 
 // Get projectId from environment variable
@@ -13,17 +13,17 @@ if (!projectId || projectId === 'YOUR_PROJECT_ID') {
 }
 
 // Chain configurations
-const sepoliaNetwork: AppKitNetwork = {
-  ...sepolia,
+const ethereumMainnet: AppKitNetwork = {
+  ...mainnet,
 };
 
-const celoSepoliaNetwork: AppKitNetwork = {
-  ...celoSepolia,
+const celoMainnet: AppKitNetwork = {
+  ...celo,
 };
 
 // Create Wagmi adapter
 export const wagmiAdapter = new WagmiAdapter({
-  chains: [sepolia, celoSepolia],
+  chains: [mainnet, celo],
   projectId,
 } as any);
 
@@ -31,11 +31,11 @@ export const wagmiAdapter = new WagmiAdapter({
 export const appKit = createAppKit({
   adapters: [wagmiAdapter],
   projectId,
-  networks: [sepoliaNetwork, celoSepoliaNetwork],
-  defaultNetwork: sepoliaNetwork,
+  networks: [ethereumMainnet, celoMainnet],
+  defaultNetwork: celoMainnet,
   metadata: {
-    name: 'High Velocity Token Manager',
-    description: 'Manage your High Velocity Tokens with ease',
+    name: 'Kolektivo Token Minter',
+    description: 'Create and manage your tokens on Ethereum and Celo',
     url: 'https://github.com/kolektivo/minter',
     icons: ['https://avatars.githubusercontent.com/u/37784886'],
   },

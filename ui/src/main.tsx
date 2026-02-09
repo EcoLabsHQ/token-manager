@@ -7,8 +7,8 @@ import { createAppKit } from '@reown/appkit/react';
 
 import { WagmiProvider } from 'wagmi';
 import {
-  sepolia,
-  celoSepolia,
+  mainnet,
+  celo,
 } from 'viem/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
@@ -21,8 +21,8 @@ const projectId = '62c810723ad1406ccdb5a36768a29b3b';
 
 // 2. Create a metadata object
 const metadata = {
-  name: 'High Velocity Token Manager',
-  description: 'Manage High Velocity Tokens with Reown',
+  name: 'Kolektivo Token Manager',
+  description: 'Manage Tokens with Reown',
   url:
     typeof window !== 'undefined'
       ? window.location.origin
@@ -31,7 +31,7 @@ const metadata = {
 };
 
 // 3. Set the networks
-const networks = [sepolia, celoSepolia];
+const networks = [mainnet, celo];
 
 // 4. Create Wagmi Adapter
 const wagmiAdapter = new WagmiAdapter({

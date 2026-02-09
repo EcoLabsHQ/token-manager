@@ -5,6 +5,7 @@ import {
   useWaitForTransactionReceipt,
   useAccount,
   useSwitchChain,
+  usePublicClient,
 } from 'wagmi';
 import { getAddress, parseUnits, toHex } from 'viem';
 import { CONTRACTS } from '@/config/contracts';
@@ -76,21 +77,25 @@ export const useInstitutionalTokenDeploy = () => {
     confirmations: 1,
   });
 
-  // Query L1 tokens
-  const { refetch: refetchL1Tokens } = useReadContract({
+  // Public clients for reading contracts
+  const l1PublicClient = usePublicClient({ chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId });
+  const l2PublicClient = usePublicClient({ chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId });
+
+  // Query L1 token count
+  const { refetch: refetchL1TokenCount } = useReadContract({
     address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
     abi: L1_TOKEN_FACTORY_ABI,
-    functionName: 'getAllTokens',
+    functionName: 'getAllTokensCount',
     chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
-  } as any);
+  });
 
-  // Query L2 tokens
-  const { refetch: refetchL2Tokens } = useReadContract({
+  // Query L2 token count
+  const { refetch: refetchL2TokenCount } = useReadContract({
     address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
     abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
-    functionName: 'getAllTokens',
+    functionName: 'getAllTokensCount',
     chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
-  } as any);
+  });
 
   // Monitor L1 receipt - advance to L2 step when confirmed
   useEffect(() => {
@@ -98,12 +103,19 @@ export const useInstitutionalTokenDeploy = () => {
 
     const extractL1Token = async () => {
       try {
-        console.log('L1 confirmed, fetching token addresses...');
-        const result = await refetchL1Tokens();
-        const tokens = result.data as `0x${string}`[] | undefined;
+        console.log('L1 confirmed, fetching token count...');
+        const result = await refetchL1TokenCount();
+        const count = result.data as bigint | undefined;
 
-        if (tokens && tokens.length > 0) {
-          const newToken = tokens[tokens.length - 1];
+        if (count && count > BigInt(0) && l1PublicClient) {
+          // Get the last token using getToken(count - 1)
+          const newToken = await l1PublicClient.readContract({
+            address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
+            abi: L1_TOKEN_FACTORY_ABI,
+            functionName: 'getToken',
+            args: [count - BigInt(1)],
+          }) as `0x${string}`;
+          
           console.log('L1 token created:', newToken);
           setL1TokenAddress(getAddress(newToken));
           
@@ -121,7 +133,7 @@ export const useInstitutionalTokenDeploy = () => {
     };
 
     extractL1Token();
-  }, [l1Receipt, currentStep, refetchL1Tokens]);
+  }, [l1Receipt, currentStep, refetchL1TokenCount, l1PublicClient]);
 
   // Monitor L2 receipt - advance to configuration step
   useEffect(() => {
@@ -129,12 +141,19 @@ export const useInstitutionalTokenDeploy = () => {
 
     const extractL2Token = async () => {
       try {
-        console.log('L2 confirmed, fetching token addresses...');
-        const result = await refetchL2Tokens();
-        const tokens = result.data as `0x${string}`[] | undefined;
+        console.log('L2 confirmed, fetching token count...');
+        const result = await refetchL2TokenCount();
+        const count = result.data as bigint | undefined;
 
-        if (tokens && tokens.length > 0) {
-          const newToken = tokens[tokens.length - 1];
+        if (count && count > BigInt(0) && l2PublicClient) {
+          // Get the last token using getToken(count - 1)
+          const newToken = await l2PublicClient.readContract({
+            address: getAddress(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.address),
+            abi: L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
+            functionName: 'getToken',
+            args: [count - BigInt(1)],
+          }) as `0x${string}`;
+          
           console.log('L2 token created:', newToken);
           setL2TokenAddress(getAddress(newToken));
           
@@ -152,7 +171,7 @@ export const useInstitutionalTokenDeploy = () => {
     };
 
     extractL2Token();
-  }, [l2Receipt, currentStep, refetchL2Tokens]);
+  }, [l2Receipt, currentStep, refetchL2TokenCount, l2PublicClient]);
 
   const deployInstitutionalToken = useCallback(
     async (params: InstitutionalTokenParams): Promise<InstitutionalTokenDeploymentResult> => {

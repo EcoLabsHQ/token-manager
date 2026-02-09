@@ -7,6 +7,20 @@ pragma solidity ^0.8.10;
  */
 interface IFactory {
     // ============================================
+    //         CUSTOM ERRORS
+    // ============================================
+    error ZeroAddress();
+    error MaxSupplyMustBeGreaterThanZero();
+    error InitialSupplyExceedsMaxSupply();
+    error InsufficientFee();
+    error FeeTransferFailed();
+    error RefundFailed();
+    error PromoNonceAlreadyUsed();
+    error PromoCodeExpired();
+    error InvalidPromoSignature();
+    error IndexOutOfBounds();
+
+    // ============================================
     //         EVENTS
     // ============================================
 
@@ -72,9 +86,11 @@ interface IFactory {
     /// @return The total count of tokens
     function getAllTokensCount() external view returns (uint256);
 
-    /// @notice Gets all created tokens
-    /// @return Array of all token addresses
-    function getAllTokens() external view returns (address[] memory);
+    /// @notice Gets tokens with pagination
+    /// @param offset The starting index
+    /// @param limit The maximum number of tokens to return
+    /// @return tokens Array of token addresses
+    function getTokensPaginated(uint256 offset, uint256 limit) external view returns (address[] memory tokens);
 
     /// @notice Gets a token at a specific index
     /// @param index The index of the token
@@ -102,12 +118,12 @@ interface IFactory {
     // ============================================
 
     function createToken(
+        address owner_,
         string memory name_,
         string memory symbol_,
+        uint8 decimals_,
         uint256 initialSupply_,
         uint256 maxSupply_,
-        uint8 decimals_,
-        address owner_,
         bytes memory salt_
     ) external payable returns (address tokenAddress);
 

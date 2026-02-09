@@ -1,7 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { createPublicClient, http } from 'viem';
-import { sepolia } from 'viem/chains';
-import { celoAlfajores } from 'viem/chains';
+import { mainnet, celo } from 'viem/chains';
 import { pool, PromoCode } from '../db';
 
 const router = Router();
@@ -21,15 +20,15 @@ const FACTORY_ABI = [
 ] as const;
 
 // Contract addresses for each chain by chainId
-const CONTRACTS: Record<number, { address: `0x${string}`; chain: typeof sepolia | typeof celoAlfajores; suffix: string }> = {
-  11155111: { // Ethereum Sepolia
-    address: '0xf87eA3325c6F5Be2119D40747752BB255CdF1eE8',
-    chain: sepolia,
+const CONTRACTS: Record<number, { address: `0x${string}`; chain: typeof mainnet | typeof celo; suffix: string }> = {
+  1: { // Ethereum Mainnet
+    address: '0xa7763537F4C1F321C31AaAc2a2e3b5c674f568D2',
+    chain: mainnet,
     suffix: 'ETH',
   },
-  11142220: { // Celo Alfajores
-    address: '0xda572dDA586970a0b844d2E7a2e55fe3af35b225',
-    chain: celoAlfajores,
+  42220: { // Celo Mainnet
+    address: '0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4',
+    chain: celo,
     suffix: 'CELO',
   },
 };

@@ -106,10 +106,10 @@ export function Tokens() {
 
   const getExplorerUrl = (token: { type: string; addressL1?: string; addressL2?: string }) => {
     if (token.type === 'ethereum-enabled' && token.addressL1) {
-      return `https://sepolia.etherscan.io/token/${token.addressL1}`
+      return `https://etherscan.io/token/${token.addressL1}`
     }
     if (token.addressL2) {
-      return `https://alfajores.celoscan.io/token/${token.addressL2}`
+      return `https://celoscan.io/token/${token.addressL2}`
     }
     return '#'
   }

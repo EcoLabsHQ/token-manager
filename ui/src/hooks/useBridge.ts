@@ -119,8 +119,8 @@ export const useBridge = () => {
 
       // Deposit tokens to bridge
       // Use l1StandardBridgeAddress directly without targetChain to avoid type issues
-      // The bridge address is from celoSepolia.contracts.l1StandardBridge[11155111]
-      const L1_STANDARD_BRIDGE_ADDRESS = '0xec18a3c30131a0db4246e785355fbc16e2eaf408' as const;
+      // The bridge address is for Celo L2 on Ethereum Mainnet
+      const L1_STANDARD_BRIDGE_ADDRESS = '0x4200000000000000000000000000000000000010' as const;
       
       const depositTx = await depositERC20(walletClient, {
         tokenAddress: getAddress(L1_TOKEN),

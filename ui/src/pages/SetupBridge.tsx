@@ -7,7 +7,8 @@ import {
   usePublicClient,
   useSwitchChain,
 } from 'wagmi';
-import { celoSepolia } from 'viem/chains';
+import { celo } from 'viem/chains';
+import { CONTRACTS } from '@/config/contracts';
 
 // ABIs for L2SuperChainToken
 const SET_BRIDGE_ABI = [
@@ -30,13 +31,13 @@ const GET_BRIDGE_ABI = [
   },
 ] as const;
 
-// L2 Standard Bridge address on Celo Sepolia
-const L2_BRIDGE = celoSepolia.contracts.l2StandardBridge.address;
+// L2 Standard Bridge address on Celo Mainnet
+const L2_BRIDGE = '0x4200000000000000000000000000000000000010';
 
 // Explorer URLs
 const EXPLORER_URLS = {
-  ethereum: 'https://sepolia.etherscan.io/tx/',
-  celo: 'https://sepolia.celoscan.io/tx/',
+  ethereum: 'https://etherscan.io/tx/',
+  celo: 'https://celoscan.io/tx/',
 };
 
 type SetupStep = 'checking' | 'switch-chain' | 'set-bridge' | 'complete' | 'error';
@@ -54,7 +55,7 @@ export default function SetupBridge() {
 
   const { address, chainId } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const celoClient = usePublicClient({ chainId: celoSepolia.id });
+  const celoClient = usePublicClient({ chainId: celo.id });
   const { switchChainAsync } = useSwitchChain();
 
   // Check current bridge status on load
@@ -73,7 +74,7 @@ export default function SetupBridge() {
           setStep('complete');
         } else {
           // Check if on correct chain
-          if (chainId !== celoSepolia.id) {
+          if (chainId !== celo.id) {
             setStep('switch-chain');
           } else {
             setStep('set-bridge');
@@ -92,11 +93,11 @@ export default function SetupBridge() {
   const handleSwitchChain = async () => {
     setIsProcessing(true);
     try {
-      await switchChainAsync({ chainId: celoSepolia.id });
+      await switchChainAsync({ chainId: celo.id });
       setStep('set-bridge');
     } catch (err) {
       console.error('Error switching chain:', err);
-      setError('Failed to switch to Celo Sepolia network');
+      setError('Failed to switch to Celo network');
     } finally {
       setIsProcessing(false);
     }

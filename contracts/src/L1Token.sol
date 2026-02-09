@@ -136,9 +136,9 @@ contract L1Token is
     //         BURN FUNCTIONS
     // ============================================
 
-    function burn(address from_, uint256 amount_) external whenNotPaused {
+    function burn(address from_, uint256 amount_) external onlyOwner whenNotPaused {
         if (from_ == address(0)) revert ZeroAddress();
-        _burn(msg.sender, amount_);
+        _burn(from_, amount_);
     }
 
     // ============================================
@@ -163,7 +163,7 @@ contract L1Token is
     function approve(
         address spender_,
         uint256 amount_
-    ) public virtual override whenNotPaused returns (bool) {
+    ) public virtual override returns (bool) {
         return super.approve(spender_, amount_);
     }
 

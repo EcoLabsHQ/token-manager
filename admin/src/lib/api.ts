@@ -9,31 +9,31 @@ if (import.meta.env.DEV && !ADMIN_API_KEY) {
 
 // Contract configuration by chainId
 export const SUPPORTED_CHAINS: Record<number, { name: string; symbol: string; suffix: string; address: `0x${string}`; rpcUrl: string }> = {
-  11155111: { // Ethereum Sepolia
-    name: 'Ethereum Sepolia',
+  1: { // Ethereum Mainnet
+    name: 'Ethereum Mainnet',
     symbol: 'ETH',
     suffix: 'ETH',
-    address: '0xf87eA3325c6F5Be2119D40747752BB255CdF1eE8',
-    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
+    address: '0xa7763537F4C1F321C31AaAc2a2e3b5c674f568D2',
+    rpcUrl: 'https://ethereum-rpc.publicnode.com',
   },
-  11142220: { // Celo Alfajores
-    name: 'Celo Alfajores',
+  42220: { // Celo Mainnet
+    name: 'Celo Mainnet',
     symbol: 'CELO',
     suffix: 'CELO',
-    address: '0xda572dDA586970a0b844d2E7a2e55fe3af35b225',
-    rpcUrl: 'https://alfajores-forno.celo-testnet.org',
+    address: '0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4',
+    rpcUrl: 'https://forno.celo.org',
   },
 };
 
 // Legacy contract references (for backward compatibility)
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
-    address: '0xf87eA3325c6F5Be2119D40747752BB255CdF1eE8' as `0x${string}`,
-    chainId: 11155111, // Sepolia
+    address: '0xa7763537F4C1F321C31AaAc2a2e3b5c674f568D2' as `0x${string}`,
+    chainId: 1, // Ethereum Mainnet
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
-    address: '0xda572dDA586970a0b844d2E7a2e55fe3af35b225' as `0x${string}`,
-    chainId: 11142220, // Celo Sepolia
+    address: '0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4' as `0x${string}`,
+    chainId: 42220, // Celo Mainnet
   },
 } as const;
 

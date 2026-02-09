@@ -22,8 +22,8 @@ import { formatNumberWithCommas } from '../lib/utils';
 
 // Explorer URLs
 const EXPLORER_URLS = {
-  ethereum: 'https://sepolia.etherscan.io/tx/',
-  celo: 'https://sepolia.celoscan.io/tx/',
+  ethereum: 'https://etherscan.io/tx/',
+  celo: 'https://celoscan.io/tx/',
 };
 
 // Chain icons

@@ -179,7 +179,7 @@ export function useAcceptOwnership() {
           let l1TxHash: string | undefined;
           let l2TxHash: string | undefined;
           
-          // Step 1: Accept on L1 (Ethereum/Sepolia) - only if not already owner
+          // Step 1: Accept on L1 (Ethereum Mainnet) - only if not already owner
           setCurrentStep(1);
           if (l1Status.isOwner) {
             console.log('Already owner on L1, skipping L1 acceptance...');

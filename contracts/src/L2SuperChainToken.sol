@@ -269,7 +269,7 @@ contract L2SuperChainToken is
     function approve(
         address spender_,
         uint256 amount_
-    ) public virtual override whenNotPaused returns (bool) {
+    ) public virtual override returns (bool) {
         return super.approve(spender_, amount_);
     }
 
