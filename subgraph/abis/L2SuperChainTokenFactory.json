@@ -191,12 +191,6 @@
           "internalType": "string"
         },
         {
-          "name": "decimals",
-          "type": "uint8",
-          "indexed": false,
-          "internalType": "uint8"
-        },
-        {
           "name": "initialSupply",
           "type": "uint256",
           "indexed": false,
@@ -207,6 +201,12 @@
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
+        },
+        {
+          "name": "decimals",
+          "type": "uint8",
+          "indexed": false,
+          "internalType": "uint8"
         },
         {
           "name": "owner",

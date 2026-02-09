@@ -5,7 +5,7 @@
   "startBlock": 58766365,
   "abiName": "L2SuperChainTokenFactory",
   "abiFile": "L2SuperChainTokenFactory.json",
-  "eventSignature": "TokenCreated(indexed address,string,string,uint8,uint256,uint256,indexed address)",
+  "eventSignature": "TokenCreated(indexed address,string,string,uint256,uint256,uint8,indexed address)",
   "handler": "handleL2TokenCreated",
   "mappingFile": "l2-token-factory.ts",
   "hasL2TokenTemplate": true
