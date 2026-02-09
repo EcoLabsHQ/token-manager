@@ -10,7 +10,7 @@ dataSources:
     source:
       address: "0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4"
       abi: L2SuperChainTokenFactory
-      startBlock: 31000000
+      startBlock: 58766365
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9

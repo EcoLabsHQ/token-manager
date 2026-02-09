@@ -92,6 +92,23 @@ export const L1_TOKEN_FACTORY_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
+  {
+    name: 'getToken',
+    type: 'function',
+    inputs: [{ name: 'index', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getTokensPaginated',
+    type: 'function',
+    inputs: [
+      { name: 'offset', type: 'uint256' },
+      { name: 'limit', type: 'uint256' },
+    ],
+    outputs: [{ name: 'tokens', type: 'address[]' }],
+    stateMutability: 'view',
+  },
 ] as const;
 
 // ABI for L1Token
@@ -309,6 +326,23 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
     type: 'function',
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getToken',
+    type: 'function',
+    inputs: [{ name: 'index', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getTokensPaginated',
+    type: 'function',
+    inputs: [
+      { name: 'offset', type: 'uint256' },
+      { name: 'limit', type: 'uint256' },
+    ],
+    outputs: [{ name: 'tokens', type: 'address[]' }],
     stateMutability: 'view',
   },
 ] as const;

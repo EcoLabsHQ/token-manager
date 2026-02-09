@@ -7,6 +7,7 @@ import {
 } from 'wagmi';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { parseUnits, getAddress } from 'viem';
+import { celoSepolia } from 'viem/chains';
 import {
   CONTRACTS,
   L1_TOKEN_FACTORY_ABI,

@@ -557,7 +557,8 @@ contract L1TokenFactoryTest is Test {
             user, "Token 2", "T2", DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
             abi.encodePacked("upgrade-salt-2")
         );
-        
+        24421550
+
         L1TokenFactoryV2Mock newImplementation = new L1TokenFactoryV2Mock();
         
         vm.prank(owner);

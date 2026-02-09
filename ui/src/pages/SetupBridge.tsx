@@ -8,7 +8,6 @@ import {
   useSwitchChain,
 } from 'wagmi';
 import { celo } from 'viem/chains';
-import { CONTRACTS } from '@/config/contracts';
 
 // ABIs for L2SuperChainToken
 const SET_BRIDGE_ABI = [
