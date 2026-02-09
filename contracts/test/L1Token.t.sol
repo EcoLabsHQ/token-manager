@@ -3,6 +3,7 @@ pragma solidity ^0.8.10;
 
 import {Test} from "forge-std/Test.sol";
 import {L1Token} from "../src/L1Token.sol";
+import {IToken} from "../src/interfaces/IToken.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract L1TokenTest is Test {
@@ -59,7 +60,7 @@ contract L1TokenTest is Test {
         uint256 mintAmount = MAX_SUPPLY; // Excedería el max supply
         
         vm.prank(owner);
-        vm.expectRevert(L1Token.ExceedsMaxSupply.selector);
+        vm.expectRevert(IToken.ExceedsMaxSupply.selector);
         token.mint(user, mintAmount);
     }
 

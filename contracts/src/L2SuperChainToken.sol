@@ -27,7 +27,13 @@ import {
 import {ISemver} from "./interfaces/ISemver.sol";
 import {IERC7802, IERC165} from "./interfaces/IERC7802.sol";
 
+import {
+    IERC20Permit
+} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {IToken} from "./interfaces/IToken.sol";
+
 contract L2SuperChainToken is
+    IToken,
     Initializable,
     UUPSUpgradeable,
     ERC20Upgradeable,
@@ -40,18 +46,10 @@ contract L2SuperChainToken is
 {
     /// @notice Error for an unauthorized CALLER.
     error Unauthorized();
-
-    error ZeroAddress();
-    error ExceedsMaxSupply();
-    error NewMaxSupplyTooLow();
-    error NoPendingOwnershipTransfer();
-    error NotPendingOwner();
     error OptimismMintableERC20__OnlyBridge();
-    error OnlyOwner();
 
     event RemoteTokenUpdated(address indexed newRemoteToken);
     event BridgeUpdated(address indexed newBridge);
-    event MaxSupplyUpdated(uint256 newMaxSupply);
 
     struct L2SuperChainTokenStorage {
         uint256 maxSupply;
@@ -153,7 +151,7 @@ contract L2SuperChainToken is
         return _getL2SuperChainTokenStorage().bridge;
     }
 
-    function decimals() public view virtual override returns (uint8) {
+    function decimals() public view virtual override(ERC20Upgradeable, IToken) returns (uint8) {
         return _getL2SuperChainTokenStorage().decimals;
     }
 
@@ -204,12 +202,13 @@ contract L2SuperChainToken is
         emit BridgeUpdated(_bridge);
     }
 
-    function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public pure override(IERC165, IToken) returns (bool) {
         return
             interfaceId == type(IOptimismMintableERC20).interfaceId ||
             interfaceId == type(IERC7802).interfaceId ||
             interfaceId == type(IERC20).interfaceId ||
-            interfaceId == type(IERC165).interfaceId;
+            interfaceId == type(IERC165).interfaceId ||
+            interfaceId == type(IERC20Permit).interfaceId;
     }
 
     // ============================================
@@ -219,7 +218,7 @@ contract L2SuperChainToken is
     function mint(
         address to_,
         uint256 amount_
-    ) external onlyOwnerOrBridge whenNotPaused {
+    ) external override(IOptimismMintableERC20, IToken) onlyOwnerOrBridge whenNotPaused {
         L2SuperChainTokenStorage storage $ = _getL2SuperChainTokenStorage();
         if (to_ == address(0)) revert ZeroAddress();
         uint256 newSupply = totalSupply() + amount_;
@@ -235,7 +234,7 @@ contract L2SuperChainToken is
     function burn(
         address from_,
         uint256 amount_
-    ) external whenNotPaused onlyOwnerOrBridge {
+    ) external override(IOptimismMintableERC20, IToken) whenNotPaused onlyOwnerOrBridge {
         if (from_ == address(0)) revert ZeroAddress();
         _burn(from_, amount_);
     }

@@ -51,7 +51,8 @@ contract L1TokenFactoryTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             DECIMALS,
-            user
+            user,
+            abi.encodePacked(user, block.timestamp)
         );
         
         assertTrue(tokenAddress != address(0));
@@ -78,7 +79,8 @@ contract L1TokenFactoryTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             DECIMALS,
-            user
+            user,
+            abi.encodePacked(user, block.timestamp)
         );
         
         assertTrue(tokenAddress != address(0));
@@ -100,7 +102,8 @@ contract L1TokenFactoryTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             DECIMALS,
-            user
+            user,
+            abi.encodePacked(user, block.timestamp)
         );
     }
 
@@ -124,10 +127,26 @@ contract L1TokenFactoryTest is Test {
 
     function test_GetAllTokens() public {
         vm.prank(user);
-        factory.createToken(NAME, SYMBOL, INITIAL_SUPPLY, MAX_SUPPLY, DECIMALS, user);
+        factory.createToken(
+            NAME,
+            SYMBOL,
+            INITIAL_SUPPLY,
+            MAX_SUPPLY,
+            DECIMALS,
+            user,
+            abi.encodePacked(user, uint256(1))
+        );
         
         vm.prank(user);
-        factory.createToken("Token 2", "T2", INITIAL_SUPPLY, MAX_SUPPLY, DECIMALS, user);
+        factory.createToken(
+            "Token 2",
+            "T2",
+            INITIAL_SUPPLY,
+            MAX_SUPPLY,
+            DECIMALS,
+            user,
+            abi.encodePacked(user, uint256(2))
+        );
         
         address[] memory tokens = factory.getAllTokens();
         assertEq(tokens.length, 2);

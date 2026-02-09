@@ -22,7 +22,13 @@ import {
     UUPSUpgradeable
 } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
+import {IToken} from "./interfaces/IToken.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+
 contract L1Token is
+    IToken,
     Initializable,
     UUPSUpgradeable,
     ERC20Upgradeable,
@@ -30,14 +36,6 @@ contract L1Token is
     Ownable2StepUpgradeable,
     PausableUpgradeable
 {
-    error ZeroAddress();
-    error ExceedsMaxSupply();
-    error NewMaxSupplyTooLow();
-    error NoPendingOwnershipTransfer();
-    error OnlyOwner();
-
-    event MaxSupplyUpdated(uint256 newMaxSupply);
-
     struct L1TokenStorage {
         uint256 maxSupply;
         uint8 decimals;
@@ -115,7 +113,7 @@ contract L1Token is
         return _getL1TokenStorage().maxSupply;
     }
 
-    function decimals() public view virtual override returns (uint8) {
+    function decimals() public view virtual override(ERC20Upgradeable, IToken) returns (uint8) {
         return _getL1TokenStorage().decimals;
     }
 
@@ -178,5 +176,12 @@ contract L1Token is
         if (newMaxSupply < totalSupply()) revert NewMaxSupplyTooLow();
         $.maxSupply = newMaxSupply;
         emit MaxSupplyUpdated(newMaxSupply);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+        return
+            interfaceId == type(IERC20).interfaceId ||
+            interfaceId == type(IERC165).interfaceId ||
+            interfaceId == type(IERC20Permit).interfaceId;
     }
 }

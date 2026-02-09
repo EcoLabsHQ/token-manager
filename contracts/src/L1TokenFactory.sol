@@ -6,9 +6,7 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {
     ERC1967Proxy
 } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {
-    ECDSA
-} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {
     MessageHashUtils
 } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -24,31 +22,19 @@ import {
 import {
     ReentrancyGuard
 } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IFactory} from "./interfaces/IFactory.sol";
 
 /**
  * @title L1TokenFactory
  * @dev Factory contract to create instances of L1Token on Ethereum L1
  */
-contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuard {
-    /// @dev Event emitted when a new L1Token is created
-    event TokenCreated(
-        address indexed tokenAddress,
-        string name,
-        string symbol,
-        uint256 initialSupply,
-        uint256 maxSupply,
-        uint8 decimals,
-        address indexed owner
-    );
-
-    /// @dev Event emitted when the creation fee is updated
-    event CreationFeeUpdated(uint256 newFee);
-    /// @dev Event emitted when the fee recipient is updated
-    event FeeRecipientUpdated(address indexed newRecipient);
-    /// @dev Event emitted when the promo signer is updated
-    event PromoSignerUpdated(address indexed newSigner);
-    /// @dev Event emitted when a promo code is used
-    event PromoCodeUsed(address indexed user, bytes32 indexed promoCodeHash, uint256 discountedFee);
+contract L1TokenFactory is
+    IFactory,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    ReentrancyGuard
+{
 
     struct L1TokenFactoryStorage {
         address[] allTokens;
@@ -79,9 +65,15 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         _disableInitializers();
     }
 
-    function initialize(address _owner, address _implementation) public initializer {
+    function initialize(
+        address _owner,
+        address _implementation
+    ) public initializer {
         L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
-        require(_implementation != address(0), "Implementation cannot be zero address");
+        require(
+            _implementation != address(0),
+            "Implementation cannot be zero address"
+        );
         $.implementation = _implementation;
         $.creationFee = 0;
         $.feeRecipient = _owner;
@@ -185,14 +177,18 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
         uint256 initialSupply_,
         uint256 maxSupply_,
         uint8 decimals_,
-        address owner_
+        address owner_,
+        bytes memory salt_
     ) external payable nonReentrant returns (address tokenAddress) {
         L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
-        
+
         // Checks
         require(owner_ != address(0), "Owner cannot be zero address");
         require(maxSupply_ > 0, "Max supply must be greater than zero");
-        require(initialSupply_ <= maxSupply_, "Initial supply cannot exceed max supply");
+        require(
+            initialSupply_ <= maxSupply_,
+            "Initial supply cannot exceed max supply"
+        );
         require(msg.value >= $.creationFee, "Insufficient fee");
 
         // Cache fee values before state changes
@@ -211,14 +207,22 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
             owner_
         );
 
-        address newToken = address(
-            new ERC1967Proxy($.implementation, initData)
+        bytes32 salt = keccak256(salt_);
+
+        tokenAddress = address(
+            new ERC1967Proxy{salt: salt}($.implementation, initData)
         );
-
-        $.allTokens.push(newToken);
-        $.isTokenFromFactory[newToken] = true;
-
-        emit TokenCreated(newToken, name_, symbol_, initialSupply_, maxSupply_, decimals_, owner_);
+        $.allTokens.push(tokenAddress);
+        $.isTokenFromFactory[tokenAddress] = true;
+        emit TokenCreated(
+            tokenAddress,
+            name_,
+            symbol_,
+            initialSupply_,
+            maxSupply_,
+            decimals_,
+            owner_
+        );
 
         // Interactions - External calls last (CEI pattern)
         if (feeAmount > 0 && recipient != address(0)) {
@@ -231,7 +235,7 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
             require(refundSuccess, "Refund failed");
         }
 
-        return newToken;
+        return tokenAddress;
     }
 
     /**
@@ -249,23 +253,24 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
      * @return tokenAddress The address of the newly created token
      */
     function createTokenWithPromo(
+        address owner_,
         string memory name_,
         string memory symbol_,
+        uint8 decimals_,
         uint256 initialSupply_,
         uint256 maxSupply_,
-        uint8 decimals_,
-        address owner_,
+        bytes memory salt_,
         uint256 promoFee_,
         bytes32 promoNonce_,
         uint256 expiresAt_,
         bytes memory signature_
     ) external payable nonReentrant returns (address tokenAddress) {
         L1TokenFactoryStorage storage $ = _getL1TokenFactoryStorage();
-        
+
         // Verify promo signature
         require(!$.usedPromoNonces[promoNonce_], "Promo nonce already used");
         require(block.timestamp <= expiresAt_, "Promo code expired");
-        
+
         bytes32 messageHash = keccak256(
             abi.encodePacked(
                 msg.sender,
@@ -276,17 +281,22 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
                 address(this)
             )
         );
-        bytes32 ethSignedHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        bytes32 ethSignedHash = MessageHashUtils.toEthSignedMessageHash(
+            messageHash
+        );
         address recoveredSigner = ECDSA.recover(ethSignedHash, signature_);
         require(recoveredSigner == $.promoSigner, "Invalid promo signature");
-        
+
         // Mark nonce as used
         $.usedPromoNonces[promoNonce_] = true;
-        
+
         // Checks
         require(owner_ != address(0), "Owner cannot be zero address");
         require(maxSupply_ > 0, "Max supply must be greater than zero");
-        require(initialSupply_ <= maxSupply_, "Initial supply cannot exceed max supply");
+        require(
+            initialSupply_ <= maxSupply_,
+            "Initial supply cannot exceed max supply"
+        );
         require(msg.value >= promoFee_, "Insufficient fee");
 
         // Cache fee values before state changes
@@ -305,14 +315,24 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
             owner_
         );
 
-        address newToken = address(
-            new ERC1967Proxy($.implementation, initData)
+        bytes32 salt = keccak256(salt_);
+
+        tokenAddress = address(
+            new ERC1967Proxy{salt: salt}($.implementation, initData)
         );
 
-        $.allTokens.push(newToken);
-        $.isTokenFromFactory[newToken] = true;
+        $.allTokens.push(tokenAddress);
+        $.isTokenFromFactory[tokenAddress] = true;
 
-        emit TokenCreated(newToken, name_, symbol_, initialSupply_, maxSupply_, decimals_, owner_);
+        emit TokenCreated(
+            tokenAddress,
+            name_,
+            symbol_,
+            initialSupply_,
+            maxSupply_,
+            decimals_,
+            owner_
+        );
         emit PromoCodeUsed(msg.sender, promoNonce_, promoFee_);
 
         // Interactions - External calls last (CEI pattern)
@@ -326,7 +346,7 @@ contract L1TokenFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable, R
             require(refundSuccess, "Refund failed");
         }
 
-        return newToken;
+        return tokenAddress;
     }
 
     /**

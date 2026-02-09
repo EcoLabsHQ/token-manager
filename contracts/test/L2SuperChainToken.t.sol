@@ -3,6 +3,7 @@ pragma solidity ^0.8.10;
 
 import {Test} from "forge-std/Test.sol";
 import {L2SuperChainToken} from "../src/L2SuperChainToken.sol";
+import {IToken} from "../src/interfaces/IToken.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract L2SuperChainTokenTest is Test {
@@ -82,7 +83,7 @@ contract L2SuperChainTokenTest is Test {
         uint256 mintAmount = MAX_SUPPLY;
         
         vm.prank(owner);
-        vm.expectRevert(L2SuperChainToken.ExceedsMaxSupply.selector);
+        vm.expectRevert(IToken.ExceedsMaxSupply.selector);
         token.mint(user, mintAmount);
     }
 
