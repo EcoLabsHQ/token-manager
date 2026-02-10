@@ -20,6 +20,7 @@ export interface CreateL1TokenParams {
   initialSupply: string;
   maxSupply: string;
   decimals: number;
+  salt?: string;
 }
 
 export interface MintL1TokenParams {
@@ -86,11 +87,11 @@ export const useL1TokenFactory = () => {
     error: mintWriteError,
   } = useWriteContract();
 
-  // Read all tokens from factory
-  const { data: allTokens, refetch: refetchTokens } = useReadContract({
+  // Read token count from factory
+  const { data: tokenCount, refetch: refetchTokens } = useReadContract({
     address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
     abi: L1_TOKEN_FACTORY_ABI,
-    functionName: 'getAllTokens',
+    functionName: 'getAllTokensCount',
     chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
   });
 
@@ -269,8 +270,7 @@ export const useL1TokenFactory = () => {
       setCurrentParams(params);
 
       // Store current token count before creating
-      const currentCount =
-        (allTokens as `0x${string}`[] | undefined)?.length || 0;
+      const currentCount = typeof tokenCount === 'bigint' ? Number(tokenCount) : 0;
       setTokenCountBeforeCreate(currentCount);
       console.log('L1: Current token count before create:', currentCount);
 
@@ -278,19 +278,23 @@ export const useL1TokenFactory = () => {
         const decimals = params.decimals;
         const initialSupplyBigInt = parseUnits(params.initialSupply, decimals);
         const maxSupplyBigInt = parseUnits(params.maxSupply, decimals);
+        
+        // Generate salt for deterministic address
+        const salt = params.salt || '0x';
 
-        // Send transaction
+        // Send transaction - ABI order: owner_, name_, symbol_, decimals_, initialSupply_, maxSupply_, salt_
         writeContract({
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
           abi: L1_TOKEN_FACTORY_ABI,
           functionName: 'createToken',
           args: [
-            params.name,
-            params.symbol,
-            initialSupplyBigInt,
-            maxSupplyBigInt,
-            decimals,
-            getAddress(address),
+            getAddress(address),  // owner_
+            params.name,          // name_
+            params.symbol,        // symbol_
+            decimals,             // decimals_
+            initialSupplyBigInt,  // initialSupply_
+            maxSupplyBigInt,      // maxSupply_
+            salt as `0x${string}`,// salt_
           ],
           chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
         });
@@ -305,7 +309,7 @@ export const useL1TokenFactory = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [address, chainId, writeContract, allTokens],
+    [address, chainId, writeContract, tokenCount],
   );
 
   const mintInitialSupply = useCallback(

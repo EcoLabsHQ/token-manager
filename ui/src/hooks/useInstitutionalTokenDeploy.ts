@@ -216,17 +216,22 @@ export const useInstitutionalTokenDeploy = () => {
         }
         const l1MaxSupplyBigInt = parseUnits(maxSupplyNum.toString(), params.decimals);
 
+        // Generate salt for deterministic address
+        const salt = '0x' as `0x${string}`;
+
+        // ABI order: owner_, name_, symbol_, decimals_, initialSupply_, maxSupply_, salt_
         writeL1Contract({
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
           abi: L1_TOKEN_FACTORY_ABI,
           functionName: 'createToken',
           args: [
-            params.name,
-            params.symbol,
-            l1InitialSupplyBigInt,
-            l1MaxSupplyBigInt,
-            params.decimals,
-            getAddress(address),
+            getAddress(address),       // owner_
+            params.name,               // name_
+            params.symbol,             // symbol_
+            params.decimals,           // decimals_
+            l1InitialSupplyBigInt,     // initialSupply_
+            l1MaxSupplyBigInt,         // maxSupply_
+            salt,                      // salt_
           ],
         });
 

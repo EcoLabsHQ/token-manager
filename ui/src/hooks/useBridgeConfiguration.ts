@@ -1,7 +1,5 @@
 import { useCallback } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { getAddress } from 'viem';
-import { L1_TOKEN_ABI, L2_SUPERCHAIN_TOKEN_ABI } from '@/config/contracts';
 
 export interface BridgeConfigParams {
   l1TokenAddress: string;
@@ -10,9 +8,17 @@ export interface BridgeConfigParams {
   l2BridgeAddress?: string;
 }
 
+/**
+ * NOTE: This hook is currently not functional as setRemoteToken and setBridge
+ * are no longer part of the token ABIs. Bridge configuration is now handled
+ * automatically by the factory contracts during token creation.
+ * 
+ * This hook is kept for potential future use but will need to be updated
+ * if manual bridge configuration is needed.
+ */
 export const useBridgeConfiguration = () => {
-  const { writeContract: writeL1, data: l1Data, isPending: isL1Pending, error: l1Error } = useWriteContract();
-  const { writeContract: writeL2, data: l2Data, isPending: isL2Pending, error: l2Error } = useWriteContract();
+  const { data: l1Data, isPending: isL1Pending, error: l1Error } = useWriteContract();
+  const { data: l2Data, isPending: isL2Pending, error: l2Error } = useWriteContract();
 
   const { isLoading: isL1Receipt } = useWaitForTransactionReceipt({
     hash: l1Data,
@@ -25,50 +31,13 @@ export const useBridgeConfiguration = () => {
   });
 
   const configureBridge = useCallback(
-    async (config: BridgeConfigParams) => {
-      try {
-        // Set L2 remote token to L1 token
-        writeL2({
-          address: getAddress(config.l2TokenAddress),
-          abi: L2_SUPERCHAIN_TOKEN_ABI,
-          functionName: 'setRemoteToken',
-          args: [getAddress(config.l1TokenAddress)],
-        });
-
-        // Set L1 remote token to L2 token
-        writeL1({
-          address: getAddress(config.l1TokenAddress),
-          abi: L1_TOKEN_ABI,
-          functionName: 'setRemoteToken',
-          args: [getAddress(config.l2TokenAddress)],
-        });
-
-        // Optional: Set bridge addresses if provided
-        if (config.l1BridgeAddress) {
-          writeL1({
-            address: getAddress(config.l1TokenAddress),
-            abi: L1_TOKEN_ABI,
-            functionName: 'setBridge',
-            args: [getAddress(config.l1BridgeAddress)],
-          });
-        }
-
-        if (config.l2BridgeAddress) {
-          writeL2({
-            address: getAddress(config.l2TokenAddress),
-            abi: L2_SUPERCHAIN_TOKEN_ABI,
-            functionName: 'setBridge',
-            args: [getAddress(config.l2BridgeAddress)],
-          });
-        }
-
-        return { success: true };
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to configure bridge';
-        return { success: false, error: errorMessage };
-      }
+    async (_config: BridgeConfigParams) => {
+      // Bridge configuration is now handled automatically by factory contracts
+      // setRemoteToken and setBridge functions are no longer available in token ABIs
+      console.warn('useBridgeConfiguration: Bridge configuration is now automatic in factory contracts');
+      return { success: true };
     },
-    [writeL1, writeL2]
+    []
   );
 
   return {
