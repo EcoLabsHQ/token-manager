@@ -2015,7 +2015,7 @@ export default function TokenManager() {
   const [tokenLogoUrl, setTokenLogoUrl] = useState<string | undefined>(undefined);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const { address } = useAccount();
-  const { getLogoBatch, uploadLogo } = useTokenLogo();
+  const { getLogoBatch, uploadLogo, logoUpdateTrigger } = useTokenLogo();
 
   // Check if this is an Ethereum Enabled token with both L1 and L2
   const l2TokenFromParams = searchParams.get('l2Token');
@@ -2085,7 +2085,7 @@ export default function TokenManager() {
     };
     
     fetchLogo();
-  }, [tokenAddress, l2TokenFromParams, isEthereumEnabled, getLogoBatch]);
+  }, [tokenAddress, l2TokenFromParams, isEthereumEnabled, getLogoBatch, logoUpdateTrigger]);
 
   // Handle logo upload
   const handleLogoChange = useCallback(async (file: File) => {

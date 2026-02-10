@@ -37,4 +37,4 @@ export { useWithdraw, type WithdrawalStatus, type PendingWithdrawal } from './us
 export { usePendingWithdrawals, type PendingWithdrawalStorage } from './usePendingWithdrawals';
 
 // Token Logo Hook (R2 Storage)
-export { useTokenLogo, getDirectLogoUrl, type TokenLogoData, type UseTokenLogoReturn } from './useTokenLogo';
+export { useTokenLogo, getDirectLogoUrl, subscribeToLogoUpdates, type TokenLogoData, type UseTokenLogoReturn } from './useTokenLogo';

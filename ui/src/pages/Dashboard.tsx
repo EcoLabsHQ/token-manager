@@ -630,11 +630,11 @@ export default function Dashboard() {
     currentStep,
     isSwitchingChain,
   } = useAcceptOwnership();
-  const { getLogoBatch } = useTokenLogo();
+  const { getLogoBatch, logoUpdateTrigger } = useTokenLogo();
   const [hideIncomplete, setHideIncomplete] = useState(false);
   const [tokenLogos, setTokenLogos] = useState<Record<string, string>>({});
 
-  // Fetch logos for all tokens
+  // Fetch logos for all tokens (re-fetches when logos are updated)
   useEffect(() => {
     if (tokens.length === 0) return;
     
@@ -668,7 +668,7 @@ export default function Dashboard() {
     };
     
     fetchLogos();
-  }, [tokens, getLogoBatch]);
+  }, [tokens, getLogoBatch, logoUpdateTrigger]);
 
   // Auto-refetch when coming from token creation (subgraph may need time to index)
   useEffect(() => {

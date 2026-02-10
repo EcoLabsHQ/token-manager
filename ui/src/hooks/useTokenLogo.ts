@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { BACKEND_API_URL, R2_PUBLIC_URL } from '@/config/contracts';
 
 export interface TokenLogoData {
@@ -16,10 +16,24 @@ export interface UseTokenLogoReturn {
   isUploading: boolean;
   uploadProgress: number;
   error: string | null;
+  logoUpdateTrigger: number; // Increment when logos are updated
 }
 
 const MAX_FILE_SIZE = 500 * 1024; // 500KB
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'];
+
+// Global event emitter for logo updates
+type LogoUpdateListener = () => void;
+const logoUpdateListeners = new Set<LogoUpdateListener>();
+
+export function subscribeToLogoUpdates(listener: LogoUpdateListener): () => void {
+  logoUpdateListeners.add(listener);
+  return () => logoUpdateListeners.delete(listener);
+}
+
+function notifyLogoUpdate() {
+  logoUpdateListeners.forEach(listener => listener());
+}
 
 /**
  * Genera la URL directa del logo desde R2 (sin llamar al backend)
@@ -35,6 +49,14 @@ export function useTokenLogo(): UseTokenLogoReturn {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [logoUpdateTrigger, setLogoUpdateTrigger] = useState(0);
+
+  // Subscribe to global logo updates
+  useEffect(() => {
+    return subscribeToLogoUpdates(() => {
+      setLogoUpdateTrigger(prev => prev + 1);
+    });
+  }, []);
 
   /**
    * Sube un logo para un token
@@ -81,6 +103,9 @@ export function useTokenLogo(): UseTokenLogoReturn {
 
       const result = await response.json();
       setUploadProgress(100);
+
+      // Notify all listeners that a logo was updated
+      notifyLogoUpdate();
 
       return result.data;
     } catch (err) {
@@ -180,6 +205,7 @@ export function useTokenLogo(): UseTokenLogoReturn {
     isUploading,
     uploadProgress,
     error,
+    logoUpdateTrigger,
   };
 }
 
