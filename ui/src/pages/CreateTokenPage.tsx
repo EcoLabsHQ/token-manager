@@ -453,8 +453,10 @@ function Review({
   };
   
   // Determine which fee to show based on token type
+  // For ethereum-enabled: only L1 fee is charged (L2 uses createTokenWithBridge which has no fee)
+  // For celo-native: only L2 fee is charged
   const displayFee = tokenType === 'ethereum-enabled' 
-    ? formatFee(l1CreationFee, 'ETH') + ' + ' + formatFee(l2CreationFee, 'CELO')
+    ? formatFee(l1CreationFee, 'ETH')
     : formatFee(l2CreationFee, 'CELO');
   
   // If promo is valid, show the discounted fee
