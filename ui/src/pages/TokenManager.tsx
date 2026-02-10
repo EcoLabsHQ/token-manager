@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft, Clock, AlertTriangle } from 'lucide-react';
+import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft, Clock, AlertTriangle, Camera } from 'lucide-react';
 import { useTokenManager, useWithdraw, usePendingWithdrawals, useTokenLogo, type PendingWithdrawalStorage, type WithdrawalStatus } from '../hooks';
 import { useAccount, useWalletClient, usePublicClient, useSwitchChain, useConfig } from 'wagmi';
 import { parseUnits, getAddress } from 'viem';
@@ -43,32 +43,82 @@ const stringToColorDark = (str: string): string => {
   return `hsl(${h}, 55%, 35%)`;
 };
 
-// Token Logo component with fallback to first letter
-const TokenLogo = ({ logoUrl, name, symbol }: { logoUrl?: string; name: string; symbol: string }) => {
+// Token Logo component with fallback to first letter and optional upload capability
+interface TokenLogoProps {
+  logoUrl?: string;
+  name: string;
+  symbol: string;
+  onLogoChange?: (file: File) => void;
+  isUploading?: boolean;
+  canEdit?: boolean;
+}
+
+const TokenLogo = ({ logoUrl, name, symbol, onLogoChange, isUploading, canEdit }: TokenLogoProps) => {
   const [hasError, setHasError] = useState(false);
   const firstLetter = (name || symbol || '?').charAt(0).toUpperCase();
   const bgColor = stringToColor(name || symbol || '');
   const textColor = stringToColorDark(name || symbol || '');
   
+  const handleClick = () => {
+    if (!onLogoChange || !canEdit) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/svg+xml,image/webp';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        if (file.size > 500 * 1024) {
+          alert('Image must be less than 500KB');
+          return;
+        }
+        onLogoChange(file);
+      }
+    };
+    input.click();
+  };
+
+  const wrapperClasses = `relative ${canEdit ? 'cursor-pointer group' : ''}`;
+  const overlayClasses = canEdit ? 'absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity' : 'hidden';
+  
   if (!logoUrl || hasError) {
     return (
-      <div 
-        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-white/20"
-        style={{ backgroundColor: bgColor }}
-      >
-        <span className="text-base font-bold" style={{ color: textColor }}>{firstLetter}</span>
+      <div className={wrapperClasses} onClick={handleClick}>
+        <div 
+          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-white/20"
+          style={{ backgroundColor: bgColor }}
+        >
+          {isUploading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-white" />
+          ) : (
+            <span className="text-base font-bold" style={{ color: textColor }}>{firstLetter}</span>
+          )}
+        </div>
+        <div className={overlayClasses}>
+          <Camera className="w-4 h-4 text-white" />
+        </div>
       </div>
     );
   }
   
   return (
-    <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-gray-100">
-      <img 
-        src={logoUrl} 
-        alt={`${name} logo`}
-        className="w-full h-full object-cover"
-        onError={() => setHasError(true)}
-      />
+    <div className={wrapperClasses} onClick={handleClick}>
+      <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-gray-100">
+        {isUploading ? (
+          <div className="w-full h-full flex items-center justify-center bg-gray-100">
+            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+          </div>
+        ) : (
+          <img 
+            src={logoUrl} 
+            alt={`${name} logo`}
+            className="w-full h-full object-cover"
+            onError={() => setHasError(true)}
+          />
+        )}
+      </div>
+      <div className={overlayClasses}>
+        <Camera className="w-4 h-4 text-white" />
+      </div>
     </div>
   );
 };
@@ -1469,6 +1519,9 @@ interface TokenInfoHeaderProps {
   isCeloNative?: boolean;
   isOwner?: boolean;
   logoUrl?: string;
+  // Logo upload functionality
+  onLogoChange?: (file: File) => void;
+  isUploadingLogo?: boolean;
 }
 
 const TokenInfoHeader = ({ 
@@ -1487,7 +1540,9 @@ const TokenInfoHeader = ({
   l2TokenManager,
   isCeloNative,
   isOwner,
-  logoUrl
+  logoUrl,
+  onLogoChange,
+  isUploadingLogo
 }: TokenInfoHeaderProps) => {
   const navigate = useNavigate();
   // Calculate available to mint
@@ -1505,7 +1560,14 @@ const TokenInfoHeader = ({
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <TokenLogo logoUrl={logoUrl} name={name} symbol={symbol} />
+            <TokenLogo 
+              logoUrl={logoUrl} 
+              name={name} 
+              symbol={symbol} 
+              onLogoChange={onLogoChange}
+              isUploading={isUploadingLogo}
+              canEdit={isOwner}
+            />
             <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
               {name} ({symbol})
             </h2>
@@ -1585,7 +1647,14 @@ const TokenInfoHeader = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <TokenLogo logoUrl={logoUrl} name={name} symbol={symbol} />
+          <TokenLogo 
+            logoUrl={logoUrl} 
+            name={name} 
+            symbol={symbol} 
+            onLogoChange={onLogoChange}
+            isUploading={isUploadingLogo}
+            canEdit={isOwner}
+          />
           <h2 className="text-lg sm:text-xl font-semibold text-black tracking-tight">
             {name} ({symbol})
           </h2>
@@ -1944,8 +2013,9 @@ export default function TokenManager() {
   const [activeSection, setActiveSection] = useState<MenuSection>('transfer');
   const [isL2Token, setIsL2Token] = useState<boolean | null>(null);
   const [tokenLogoUrl, setTokenLogoUrl] = useState<string | undefined>(undefined);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const { address } = useAccount();
-  const { getLogoBatch } = useTokenLogo();
+  const { getLogoBatch, uploadLogo } = useTokenLogo();
 
   // Check if this is an Ethereum Enabled token with both L1 and L2
   const l2TokenFromParams = searchParams.get('l2Token');
@@ -2016,6 +2086,37 @@ export default function TokenManager() {
     
     fetchLogo();
   }, [tokenAddress, l2TokenFromParams, isEthereumEnabled, getLogoBatch]);
+
+  // Handle logo upload
+  const handleLogoChange = useCallback(async (file: File) => {
+    if (!tokenAddress) return;
+    
+    setIsUploadingLogo(true);
+    try {
+      // Determine which chain to upload to
+      const chainId = isEthereumEnabled 
+        ? CONTRACTS.L1_TOKEN_FACTORY.chainId 
+        : CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId;
+      const addressToUse = isEthereumEnabled ? tokenAddress : (l2TokenFromParams || tokenAddress);
+      
+      const result = await uploadLogo(chainId, addressToUse, file);
+      setTokenLogoUrl(result.url);
+      
+      // If ethereum-enabled, also upload for the other chain
+      if (isEthereumEnabled && l2TokenFromParams) {
+        try {
+          await uploadLogo(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId, l2TokenFromParams, file);
+        } catch (e) {
+          console.warn('Failed to upload logo for L2 token:', e);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to upload logo:', error);
+      alert('Failed to upload logo. Please try again.');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  }, [tokenAddress, l2TokenFromParams, isEthereumEnabled, uploadLogo]);
 
   // Refresh all token data (both L1 and L2 for Ethereum Enabled tokens)
   const refreshAllTokenData = useCallback(async () => {
@@ -2106,6 +2207,8 @@ export default function TokenManager() {
           isCeloNative={!isEthereumEnabled && isL2Token === true}
           isOwner={tokenManager.isOwner}
           logoUrl={tokenLogoUrl}
+          onLogoChange={handleLogoChange}
+          isUploadingLogo={isUploadingLogo}
         />
 
         {/* Main Content */}

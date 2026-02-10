@@ -36,13 +36,17 @@ router.post('/validate', async (req: Request, res: Response) => {
 
     const { code, userAddress, chainId, factoryAddress } = parseResult.data;
 
-    // Try to find promo code with chainId suffix first, then without
-    const codeWithChain = `${code.toUpperCase()}:${chainId}`;
-    let promoCode = await getPromoCode(codeWithChain);
+    // The UI already appends the chain suffix (_ETH or _CELO), so we search directly
+    // Also try without suffix as fallback for backwards compatibility
+    let promoCode = await getPromoCode(code.toUpperCase());
     
-    // If not found with chainId, try the base code
+    // If not found, try the base code without suffix
     if (!promoCode) {
-      promoCode = await getPromoCode(code.toUpperCase());
+      // Remove suffix if present and try again
+      const codeWithoutSuffix = code.toUpperCase().replace(/_ETH$|_CELO$/, '');
+      if (codeWithoutSuffix !== code.toUpperCase()) {
+        promoCode = await getPromoCode(codeWithoutSuffix);
+      }
     }
 
     if (!promoCode) {
@@ -137,16 +141,15 @@ router.get('/check/:code', async (req: Request, res: Response) => {
   const { code } = req.params;
   const chainId = req.query.chainId ? parseInt(req.query.chainId as string) : null;
 
-  // Try to find promo code with chainId suffix first, then without
-  let promoCode = null;
-  if (chainId) {
-    const codeWithChain = `${code.toUpperCase()}:${chainId}`;
-    promoCode = await getPromoCode(codeWithChain);
-  }
+  // The UI already appends the chain suffix (_ETH or _CELO), so we search directly
+  let promoCode = await getPromoCode(code.toUpperCase());
   
-  // If not found with chainId, try the base code
+  // If not found, try the base code without suffix
   if (!promoCode) {
-    promoCode = await getPromoCode(code.toUpperCase());
+    const codeWithoutSuffix = code.toUpperCase().replace(/_ETH$|_CELO$/, '');
+    if (codeWithoutSuffix !== code.toUpperCase()) {
+      promoCode = await getPromoCode(codeWithoutSuffix);
+    }
   }
 
   if (!promoCode) {

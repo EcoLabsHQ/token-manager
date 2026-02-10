@@ -7,7 +7,7 @@ import {
   useSwitchChain,
   usePublicClient,
 } from 'wagmi';
-import { getAddress, parseUnits } from 'viem';
+import { getAddress, parseUnits, toHex, keccak256 } from 'viem';
 import { CONTRACTS } from '@/config/contracts';
 import {
   L1_TOKEN_FACTORY_ABI,
@@ -180,17 +180,20 @@ export const useConvertToInstitutional = () => {
         }
         const l1MaxSupplyBigInt = parseUnits(maxSupplyInt.toString(), params.decimals);
 
+        const salt = keccak256(toHex(`${address}-${params.name}-${params.symbol}-${Date.now()}`));
+
         writeL1Contract({
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
           abi: L1_TOKEN_FACTORY_ABI,
           functionName: 'createToken',
           args: [
+            getAddress(address),
             params.name,
             params.symbol,
+            params.decimals,
             l1InitialSupplyBigInt,
             l1MaxSupplyBigInt,
-            params.decimals,
-            getAddress(address),
+            salt,
           ],
         });
 

@@ -1,6 +1,6 @@
 import { useAccount, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { parseUnits, getAddress, toHex } from 'viem';
+import { parseUnits, getAddress, toHex, keccak256 } from 'viem';
 import { CONTRACTS, L2_SUPERCHAIN_TOKEN_FACTORY_ABI, L2_SUPERCHAIN_TOKEN_ABI } from '@/config/contracts';
 
 export interface CreateL2TokenParams {
@@ -228,7 +228,7 @@ export const useL2TokenFactory = () => {
         const maxSupplyBigInt = parseUnits(params.maxSupply, params.decimals);
         
         // Generate a unique salt for CREATE2 deployment
-        const salt = toHex(`${params.name}-${params.symbol}-${Date.now()}`);
+        const salt = keccak256(toHex(`${address}-${params.name}-${params.symbol}-${Date.now()}`));
 
         // Send transaction
         writeContract({

@@ -6,8 +6,8 @@ const imgVector = "/images/logo.svg";
 
 // Network image mapping
 const networkImages: Record<number, string> = {
-  11155111: "/images/ethereum.png", // Sepolia
-  11142220: "/images/celo.png",     // Celo Sepolia (Alfajores)
+  1: "/images/ethereum.png", // Sepolia
+  42220: "/images/celo.png",     // Celo Sepolia (Alfajores)
 };
 
 // Get network image based on chainId

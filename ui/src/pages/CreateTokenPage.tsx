@@ -202,7 +202,7 @@ function TokenInformation({
 
         {/* Initial Supply & Max Supply */}
         <div className="flex flex-col sm:flex-row gap-2">
-          <div className="flex-1 flex flex-col gap-1">
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
             <label className="text-gray-500 text-xs sm:text-sm">Initial Supply</label>
             <Controller
               name="initialSupply"
@@ -219,7 +219,7 @@ function TokenInformation({
                     }
                   }}
                   onBlur={field.onBlur}
-                  className={`bg-gray-50 border rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                  className={`w-full bg-gray-50 border rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                     errors.initialSupply ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />
@@ -229,7 +229,7 @@ function TokenInformation({
               <span className="text-red-500 text-[10px] sm:text-xs">{errors.initialSupply.message}</span>
             )}
           </div>
-          <div className="flex-1 flex flex-col gap-1">
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
             <label className="text-gray-500 text-xs sm:text-sm">Max Supply</label>
             <Controller
               name="maxSupply"
@@ -246,7 +246,7 @@ function TokenInformation({
                     }
                   }}
                   onBlur={field.onBlur}
-                  className={`bg-gray-50 border rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                  className={`w-full bg-gray-50 border rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                     errors.maxSupply ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />

@@ -1,5 +1,7 @@
-// Use empty string to leverage Vite's proxy in development
-const API_BASE = import.meta.env.VITE_API_URL || '';
+// In development, use empty string to leverage Vite's proxy
+// In production, use the configured URL or the production backend
+const API_BASE = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD ? 'https://minter-production-6bba.up.railway.app' : '');
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || '';
 
 // Debug: log if API key is missing (only in development)
