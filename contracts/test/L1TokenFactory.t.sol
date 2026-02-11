@@ -4,6 +4,7 @@ pragma solidity ^0.8.10;
 import {Test} from "forge-std/Test.sol";
 import {L1Token} from "../src/L1Token.sol";
 import {L1TokenFactory} from "../src/L1TokenFactory.sol";
+import {TokenInitializer} from "../src/TokenInitializer.sol";
 import {IFactory} from "../src/interfaces/IFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -25,14 +26,48 @@ contract L1TokenFactoryTest is Test {
         tokenImplementation = new L1Token();
         L1TokenFactory factoryImpl = new L1TokenFactory();
         
+        // Deploy a temporary TokenInitializer first (will be replaced)
+        // We need to know the factory proxy address, so we deploy proxy first
+        // with a dummy tokenInit, then redeploy properly
+        TokenInitializer dummyInit = new TokenInitializer(address(0xdead));
+        
         bytes memory initData = abi.encodeWithSelector(
             L1TokenFactory.initialize.selector,
             owner,
-            address(tokenImplementation)
+            address(tokenImplementation),
+            address(dummyInit)
         );
         
         ERC1967Proxy proxy = new ERC1967Proxy(address(factoryImpl), initData);
         factory = L1TokenFactory(address(proxy));
+        
+        // Now deploy the real TokenInitializer with the correct factory address
+        TokenInitializer realTokenInit = new TokenInitializer(address(proxy));
+        
+        // Update factory with the real tokenInitializer (need to expose setter or use upgrade)
+        // For now, we'll just re-initialize through a fresh deploy
+        // Redeploy everything with correct order:
+        tokenImplementation = new L1Token();
+        factoryImpl = new L1TokenFactory();
+        
+        // This time, deploy TokenInitializer first with predicted proxy address
+        // We use vm.computeCreateAddress to predict the proxy address
+        uint64 nonce = vm.getNonce(address(this));
+        address predictedProxy = vm.computeCreateAddress(address(this), nonce + 1); // +1 for factoryImpl deploy
+        
+        realTokenInit = new TokenInitializer(predictedProxy);
+        
+        initData = abi.encodeWithSelector(
+            L1TokenFactory.initialize.selector,
+            owner,
+            address(tokenImplementation),
+            address(realTokenInit)
+        );
+        
+        proxy = new ERC1967Proxy(address(factoryImpl), initData);
+        factory = L1TokenFactory(address(proxy));
+        
+        require(address(proxy) == predictedProxy, "Proxy address mismatch");
     }
 
     function test_Initialize() public view {
@@ -143,11 +178,14 @@ contract L1TokenFactoryTest is Test {
 
     function test_InitializeWithZeroImplementation() public {
         L1TokenFactory factoryImpl = new L1TokenFactory();
+        // Pass any address for TokenInitializer factory since we expect revert anyway
+        TokenInitializer tokenInit = new TokenInitializer(address(0xdead));
         
         bytes memory initData = abi.encodeWithSelector(
             L1TokenFactory.initialize.selector,
             owner,
-            address(0)
+            address(0),
+            address(tokenInit)
         );
         
         vm.expectRevert(IFactory.ZeroAddress.selector);
@@ -156,7 +194,7 @@ contract L1TokenFactoryTest is Test {
 
     function test_CannotReinitialize() public {
         vm.expectRevert();
-        factory.initialize(owner, address(tokenImplementation));
+        factory.initialize(owner, address(tokenImplementation), address(1));
     }
 
     function test_CreateTokenWithZeroOwner() public {

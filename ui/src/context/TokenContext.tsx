@@ -13,7 +13,7 @@ const TokenContext = createContext<TokenContextValue | null>(null);
 const initialTokens: Token[] = [
   {
     id: '1',
-    name: 'Kolektivo Guilder',
+    name: 'ecolabs Guilder',
     symbol: 'KTG',
     type: 'ethereum-enabled',
     initialSupply: '1000000',

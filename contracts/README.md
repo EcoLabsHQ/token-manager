@@ -1,4 +1,4 @@
-# Kolektivo Minter - Smart Contracts
+# ecolabs Minter - Smart Contracts
 
 A comprehensive token factory system for creating and managing ERC20 tokens across Ethereum L1 and Celo L2 (Optimism Superchain compatible).
 
@@ -20,7 +20,7 @@ A comprehensive token factory system for creating and managing ERC20 tokens acro
 
 ## Overview
 
-The Kolektivo Minter is a token factory protocol that allows users to:
+The ecolabs Minter is a token factory protocol that allows users to:
 
 - **Create ERC20 tokens** with customizable parameters (name, symbol, decimals, supply limits)
 - **Deploy on L1 (Ethereum)** or **L2 (Celo)** with full cross-chain bridge support
@@ -510,6 +510,6 @@ MIT
 
 ## Contact
 
-- **Team**: Kolektivo
-- **Repository**: [GitHub](https://github.com/kolektivo/minter)
-- **Documentation**: [Docs](https://docs.kolektivo.network)
+- **Team**: ecolabs
+- **Repository**: [GitHub](https://github.com/ecolabs/minter)
+- **Documentation**: [Docs](https://docs.ecolabs.network)

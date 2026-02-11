@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { TokenFormData, TokenType } from '../lib/schemas';
 
-const STORAGE_KEY = 'kolektivo_deployment_state';
+const STORAGE_KEY = 'ecolabs_deployment_state';
 
 export interface DeploymentState {
   // Deployment identification

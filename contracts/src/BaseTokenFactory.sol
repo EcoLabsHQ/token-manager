@@ -21,6 +21,7 @@ import {
     ReentrancyGuard
 } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IFactory} from "./interfaces/IFactory.sol";
+import {TokenInitializer} from "./TokenInitializer.sol";
 
 /**
  * @title BaseTokenFactory
@@ -41,6 +42,7 @@ abstract contract BaseTokenFactory is
         address[] allTokens;
         mapping(address => bool) isTokenFromFactory;
         address implementation;
+        address tokenInitializer; // Placeholder for deterministic token deployment
         uint256 creationFee;
         address feeRecipient;
         address promoSigner;
@@ -56,11 +58,14 @@ abstract contract BaseTokenFactory is
 
     function __BaseTokenFactory_init(
         address _owner,
-        address _implementation
+        address _implementation,
+        address _tokenInitializer
     ) internal onlyInitializing {
         BaseFactoryStorage storage $ = _getFactoryStorage();
         if (_implementation == address(0)) revert ZeroAddress();
+        if (_tokenInitializer == address(0)) revert ZeroAddress();
         $.implementation = _implementation;
+        $.tokenInitializer = _tokenInitializer;
         $.creationFee = 0;
         $.feeRecipient = _owner;
         $.promoSigner = _owner;
@@ -77,6 +82,10 @@ abstract contract BaseTokenFactory is
 
     function implementation() external view returns (address) {
         return _getFactoryStorage().implementation;
+    }
+
+    function tokenInitializer() external view returns (address) {
+        return _getFactoryStorage().tokenInitializer;
     }
 
     function creationFee() external view returns (uint256) {

@@ -21,7 +21,7 @@ const projectId = '62c810723ad1406ccdb5a36768a29b3b';
 
 // 2. Create a metadata object
 const metadata = {
-  name: 'Kolektivo Token Manager',
+  name: 'ecolabs Token Manager',
   description: 'Manage Tokens with Reown',
   url:
     typeof window !== 'undefined'

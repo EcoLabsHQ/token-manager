@@ -42,7 +42,7 @@ export type CreateTokenStep =
 type DeploymentResult = { l1Address?: string; l2Address: string };
 
 // Resumable deployment state stored in localStorage
-const DEPLOYMENT_STORAGE_KEY = 'kolektivo_pending_deployment';
+const DEPLOYMENT_STORAGE_KEY = 'ecolabs_pending_deployment';
 
 // Form data without tokenLogo (too large for localStorage)
 interface StorableFormData {

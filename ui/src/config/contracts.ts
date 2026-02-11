@@ -1,12 +1,12 @@
 // Factory addresses deployed on different chains
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
-    address: '0xa7763537F4C1F321C31AaAc2a2e3b5c674f568D2',
+    address: '0x8b0BBA85A6D074738689151dcEf4B15be0d62524',
     chainId: 1, // Ethereum Mainnet
     name: 'L1TokenFactory',
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
-    address: '0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4',
+    address: '0x8b0BBA85A6D074738689151dcEf4B15be0d62524',
     chainId: 42220, // Celo Mainnet
     name: 'L2SuperChainTokenFactory',
   },

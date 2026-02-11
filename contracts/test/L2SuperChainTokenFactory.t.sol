@@ -4,6 +4,7 @@ pragma solidity ^0.8.10;
 import {Test} from "forge-std/Test.sol";
 import {L2SuperChainToken} from "../src/L2SuperChainToken.sol";
 import {L2SuperChainTokenFactory} from "../src/L2SuperChainTokenFactory.sol";
+import {TokenInitializer} from "../src/TokenInitializer.sol";
 import {IFactory} from "../src/interfaces/IFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -28,14 +29,25 @@ contract L2SuperChainTokenFactoryTest is Test {
         // Deploy factory implementation
         L2SuperChainTokenFactory factoryImpl = new L2SuperChainTokenFactory();
         
+        // Use vm.computeCreateAddress to predict the proxy address accurately
+        uint64 nonce = vm.getNonce(address(this));
+        // nonce+1 will be for TokenInitializer, nonce+2 for proxy
+        address predictedProxy = vm.computeCreateAddress(address(this), nonce + 1);
+        
+        // Deploy token initializer with predicted factory proxy address
+        TokenInitializer tokenInit = new TokenInitializer(predictedProxy);
+        
         bytes memory initData = abi.encodeWithSelector(
             L2SuperChainTokenFactory.initialize.selector,
             owner,
-            address(tokenImplementation)
+            address(tokenImplementation),
+            address(tokenInit)
         );
         
         ERC1967Proxy proxy = new ERC1967Proxy(address(factoryImpl), initData);
         factory = L2SuperChainTokenFactory(address(proxy));
+        
+        require(address(proxy) == predictedProxy, "Proxy address mismatch");
     }
 
     function test_Initialize() public view {
@@ -208,11 +220,14 @@ contract L2SuperChainTokenFactoryTest is Test {
 
     function test_InitializeWithZeroImplementation() public {
         L2SuperChainTokenFactory factoryImpl = new L2SuperChainTokenFactory();
+        // Pass any address for TokenInitializer factory since we expect revert anyway
+        TokenInitializer tokenInit = new TokenInitializer(address(0xdead));
         
         bytes memory initData = abi.encodeWithSelector(
             L2SuperChainTokenFactory.initialize.selector,
             owner,
-            address(0)
+            address(0),
+            address(tokenInit)
         );
         
         vm.expectRevert(IFactory.ZeroAddress.selector);
@@ -221,7 +236,7 @@ contract L2SuperChainTokenFactoryTest is Test {
 
     function test_CannotReinitialize() public {
         vm.expectRevert();
-        factory.initialize(owner, address(tokenImplementation));
+        factory.initialize(owner, address(tokenImplementation), address(1));
     }
 
     // ============================================

@@ -34,9 +34,9 @@ export const appKit = createAppKit({
   networks: [ethereumMainnet, celoMainnet],
   defaultNetwork: celoMainnet,
   metadata: {
-    name: 'Kolektivo Token Minter',
+    name: 'ecolabs Token Minter',
     description: 'Create and manage your tokens on Ethereum and Celo',
-    url: 'https://github.com/kolektivo/minter',
+    url: 'https://github.com/ecolabs/minter',
     icons: ['https://avatars.githubusercontent.com/u/37784886'],
   },
 } as any);

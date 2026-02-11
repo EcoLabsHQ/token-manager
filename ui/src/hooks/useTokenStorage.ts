@@ -17,7 +17,7 @@ const STORAGE_KEY = 'celo-token-manager-tokens';
 const initialTokens: Token[] = [
   {
     id: '1',
-    name: 'Kolektivo',
+    name: 'ecolabs',
     symbol: 'KOL',
     type: 'ethereum-enabled',
     maxSupply: '10,000,000',

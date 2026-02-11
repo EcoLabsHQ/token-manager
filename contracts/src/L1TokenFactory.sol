@@ -6,6 +6,7 @@ import {
     ERC1967Proxy
 } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {BaseTokenFactory} from "./BaseTokenFactory.sol";
+import {TokenInitializer} from "./TokenInitializer.sol";
 
 /**
  * @title L1TokenFactory
@@ -34,9 +35,10 @@ contract L1TokenFactory is BaseTokenFactory {
 
     function initialize(
         address _owner,
-        address _implementation
+        address _implementation,
+        address _tokenInitializer
     ) public initializer {
-        __BaseTokenFactory_init(_owner, _implementation);
+        __BaseTokenFactory_init(_owner, _implementation, _tokenInitializer);
     }
 
     // ============================================
@@ -157,9 +159,13 @@ contract L1TokenFactory is BaseTokenFactory {
 
         bytes32 salt = keccak256(salt_);
 
+        // Deploy proxy pointing to TokenInitializer (deterministic address)
         tokenAddress = address(
-            new ERC1967Proxy{salt: salt}($.implementation, initData)
+            new ERC1967Proxy{salt: salt}($.tokenInitializer, "")
         );
+
+        // Upgrade to real implementation and initialize in the same tx
+        TokenInitializer(tokenAddress).upgradeToToken($.implementation, initData);
 
         _registerToken(tokenAddress);
 

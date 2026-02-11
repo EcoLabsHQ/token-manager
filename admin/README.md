@@ -1,6 +1,6 @@
 # Admin Dashboard
 
-Dashboard de administración para la plataforma Kolektivo Minter.
+Dashboard de administración para la plataforma ecolabs Minter.
 
 ## Características
 

@@ -9,6 +9,8 @@ import {
 import {
   getAddress,
   decodeEventLog,
+  keccak256,
+  toHex,
   type TransactionReceipt,
 } from 'viem';
 import { celoSepolia } from 'viem/chains';
@@ -160,19 +162,25 @@ export function useMigrateToEthereum() {
       setStep('deploying-l1');
       setStepNumber(1);
 
+      // Generate salt for the L1 token deployment
+      // Note: Since L2 token already exists, addresses won't match, but we need a valid salt
+      const salt = keccak256(toHex(`${address}-${params.name}-${params.symbol}-${Date.now()}`));
+
       // Create L1 token with 0 initial supply (we'll mint to bridge)
+      // ABI order: owner_, name_, symbol_, decimals_, initialSupply_, maxSupply_, salt_
       const { hash: deployHash, receipt: deployReceipt } = await sendTx(
         {
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
           abi: L1_TOKEN_FACTORY_ABI,
           functionName: 'createToken',
           args: [
-            params.name,
-            params.symbol,
-            0n, // Initial supply = 0
-            params.maxSupply,
-            params.decimals,
-            getAddress(address),
+            getAddress(address),  // owner_
+            params.name,          // name_
+            params.symbol,        // symbol_
+            params.decimals,      // decimals_
+            0n,                   // initialSupply_ = 0 (will mint to bridge later)
+            params.maxSupply,     // maxSupply_
+            salt,                 // salt_
           ],
           value: l1CreationFee ?? 0n,
           chain: { id: CONTRACTS.L1_TOKEN_FACTORY.chainId } as any,

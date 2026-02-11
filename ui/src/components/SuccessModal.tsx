@@ -1,8 +1,8 @@
 import { CheckCircleIcon, CopyIcon, ExternalLinkIcon } from './Icons';
 
 // Block explorer URLs
-const SEPOLIA_EXPLORER = 'https://eth-sepolia.blockscout.com';
-const CELO_SEPOLIA_EXPLORER = 'https://celo-sepolia.blockscout.com';
+const ETHEREUM_EXPLORER = 'https://etherscan.io';
+const CELO_EXPLORER = 'https://celoscan.io';
 
 type TokenType = 'celo-native' | 'ethereum-enabled' | null;
 
@@ -45,7 +45,7 @@ export function SuccessModal({ formData, tokenType, deploymentResult, onOpenDash
   };
   
   const openExplorer = (address: string, chain: 'l1' | 'l2') => {
-    const baseUrl = chain === 'l1' ? SEPOLIA_EXPLORER : CELO_SEPOLIA_EXPLORER;
+    const baseUrl = chain === 'l1' ? ETHEREUM_EXPLORER : CELO_EXPLORER;
     window.open(`${baseUrl}/address/${address}`, '_blank');
   };
 

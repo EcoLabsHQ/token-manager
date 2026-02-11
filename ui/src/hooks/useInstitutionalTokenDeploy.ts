@@ -7,7 +7,7 @@ import {
   useSwitchChain,
   usePublicClient,
 } from 'wagmi';
-import { getAddress, parseUnits, toHex } from 'viem';
+import { getAddress, parseUnits, toHex, keccak256 } from 'viem';
 import { CONTRACTS } from '@/config/contracts';
 import {
   L1_TOKEN_FACTORY_ABI,
@@ -41,6 +41,7 @@ export const useInstitutionalTokenDeploy = () => {
   const [l2TxHash, setL2TxHash] = useState<`0x${string}` | null>(null);
   const [l1TokenAddress, setL1TokenAddress] = useState<`0x${string}` | null>(null);
   const [l2TokenAddress, setL2TokenAddress] = useState<`0x${string}` | null>(null);
+  const [deploymentSalt, setDeploymentSalt] = useState<`0x${string}` | null>(null);
   const [currentStep, setCurrentStep] = useState<'idle' | 'creating_l1' | 'creating_l2' | 'configuring' | 'success' | 'error'>('idle');
   const [currentParams, setCurrentParams] = useState<InstitutionalTokenParams | null>(null);
 
@@ -191,6 +192,11 @@ export const useInstitutionalTokenDeploy = () => {
       setCurrentParams(params);
       setCurrentStep('creating_l1');
 
+      // Generate a deterministic salt for both L1 and L2 deploys
+      // This ensures both tokens have the same address on both chains
+      const salt = keccak256(toHex(`${address}-${params.name}-${params.symbol}-${Date.now()}`));
+      setDeploymentSalt(salt);
+
       try {
         console.log('Starting L1 token deployment...');
         
@@ -216,9 +222,6 @@ export const useInstitutionalTokenDeploy = () => {
         }
         const l1MaxSupplyBigInt = parseUnits(maxSupplyNum.toString(), params.decimals);
 
-        // Generate salt for deterministic address
-        const salt = '0x' as `0x${string}`;
-
         // ABI order: owner_, name_, symbol_, decimals_, initialSupply_, maxSupply_, salt_
         writeL1Contract({
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
@@ -231,7 +234,7 @@ export const useInstitutionalTokenDeploy = () => {
             params.decimals,           // decimals_
             l1InitialSupplyBigInt,     // initialSupply_
             l1MaxSupplyBigInt,         // maxSupply_
-            salt,                      // salt_
+            salt,                      // salt_ - same salt for L1 and L2
           ],
         });
 
@@ -249,11 +252,11 @@ export const useInstitutionalTokenDeploy = () => {
 
   // Auto-trigger L2 deployment when L1 is done
   useEffect(() => {
-    if (currentStep !== 'creating_l2' || !currentParams || !l1TokenAddress) return;
+    if (currentStep !== 'creating_l2' || !currentParams || !l1TokenAddress || !deploymentSalt) return;
 
     const deployL2 = async () => {
       try {
-        console.log('Starting L2 token deployment...');
+        console.log('Starting L2 token deployment with same salt as L1...');
         
         // Switch to Celo Sepolia (L2) if not already there
         const l2ChainId = CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId;
@@ -271,8 +274,6 @@ export const useInstitutionalTokenDeploy = () => {
         }
         
         const maxSupplyBigInt = parseUnits(maxSupplyNum.toString(), currentParams.decimals);
-        // Generate salt from integer timestamp only
-        const salt = toHex(BigInt(Math.floor(Date.now())));
         
         // For L2 in institutional flow, initialSupply = 0 since tokens are minted on L1
         const zeroSupply = BigInt(0);
@@ -288,7 +289,7 @@ export const useInstitutionalTokenDeploy = () => {
             currentParams.decimals,
             zeroSupply, // initialSupply = 0 for L2 (tokens come from bridge)
             maxSupplyBigInt,
-            salt,
+            deploymentSalt, // Use same salt as L1 for deterministic address
           ],
         });
       } catch (err) {
@@ -300,7 +301,7 @@ export const useInstitutionalTokenDeploy = () => {
     };
 
     deployL2();
-  }, [currentStep, currentParams, l1TokenAddress, address, chainId, switchChainAsync, writeL2Contract]);
+  }, [currentStep, currentParams, l1TokenAddress, deploymentSalt, address, chainId, switchChainAsync, writeL2Contract]);
 
   // Auto-trigger bridge configuration when L2 is done
   useEffect(() => {
