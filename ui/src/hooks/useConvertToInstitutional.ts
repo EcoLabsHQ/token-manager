@@ -7,7 +7,7 @@ import {
   useSwitchChain,
   usePublicClient,
 } from 'wagmi';
-import { getAddress, parseUnits, toHex, keccak256 } from 'viem';
+import { getAddress, parseUnits } from 'viem';
 import { CONTRACTS } from '@/config/contracts';
 import {
   L1_TOKEN_FACTORY_ABI,

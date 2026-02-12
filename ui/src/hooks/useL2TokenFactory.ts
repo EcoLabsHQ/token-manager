@@ -1,6 +1,6 @@
 import { useAccount, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { parseUnits, getAddress, toHex, keccak256 } from 'viem';
+import { parseUnits, getAddress } from 'viem';
 import { CONTRACTS, L2_SUPERCHAIN_TOKEN_FACTORY_ABI, L2_SUPERCHAIN_TOKEN_ABI } from '@/config/contracts';
 
 export interface CreateL2TokenParams {

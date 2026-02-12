@@ -1,6 +1,6 @@
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { useState, useCallback, useEffect } from 'react';
-import { parseUnits, getAddress, toHex } from 'viem';
+import { parseUnits, getAddress } from 'viem';
 import { CONTRACTS, L2_SUPERCHAIN_TOKEN_FACTORY_ABI } from '@/config/contracts';
 
 export interface DeployHighVelocityTokenParams {

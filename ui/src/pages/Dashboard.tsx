@@ -4,7 +4,7 @@ import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle, UserCheck }
 import { useSubgraphTokens, type TokenPair, type TokenSetupStatus } from '../hooks/useSubgraphTokens';
 import { usePendingOwnershipTransfers, type PendingOwnershipTransfer } from '../hooks/usePendingOwnershipTransfers';
 import { useAcceptOwnership } from '../hooks/useAcceptOwnership';
-import { useTokenLogo, findLogoBatch } from '../hooks/useTokenLogo';
+import { findLogoBatch } from '../hooks/useTokenLogo';
 import { CONTRACTS } from '@/config/contracts';
 import { MultistepProgressModal, type MultistepProgressStep } from '../components';
 

@@ -9,8 +9,6 @@ import {
 import {
   getAddress,
   decodeEventLog,
-  keccak256,
-  toHex,
   type TransactionReceipt,
 } from 'viem';
 import { celoSepolia } from 'viem/chains';
