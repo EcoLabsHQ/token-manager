@@ -1,5 +1,158 @@
-Token Manager dApp
-=============
+Token Minter
+============
+
+A comprehensive platform for deploying and managing ERC-20 tokens on Celo and Ethereum with cross-chain bridge support.
+
+## Quick Links
+
+| Resource | Description |
+|----------|-------------|
+| [Token Creation Flows](docs/TOKEN_CREATION_FLOWS.md) | Detailed documentation of all token creation flows |
+| [MCP Server](backend/src/mcp/README.md) | Model Context Protocol server for AI agents |
+| [Agent REST API](backend/docs/AGENT_API.md) | REST API for programmatic token creation |
+| [Smart Contracts](contracts/README.md) | Solidity contracts and deployment info |
+| [Subgraph](subgraph/README.md) | GraphQL API for querying tokens |
+
+## Features
+
+- 🚀 **Create tokens on Celo L2** - Fast, low-cost token deployment
+- 🌉 **Cross-chain tokens** - Deploy on Ethereum L1 with Celo L2 bridge support
+- 🤖 **AI Agent Ready** - MCP server + REST API for automated token management
+- 📊 **Subgraph indexing** - Query all tokens, holders, and transfers
+- 🖼️ **IPFS metadata** - ERC-7572 compliant token metadata
+- 🎟️ **Promo codes** - Discounted or free token creation
+
+## Token Types
+
+| Type | Description | Chains |
+|------|-------------|--------|
+| **Celo Native** | Tokens only on Celo L2 | Celo |
+| **Ethereum Enabled** | Tokens on L1 + L2 with bridge | Ethereum + Celo |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                           UI (React)                            │
+│                    ui/src/hooks/useCreateToken.ts               │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Backend (Express.js)                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │  REST API   │  │ MCP Server  │  │      Services           │  │
+│  │  /api/*     │  │   /mcp      │  │  IPFS, Signer, Storage  │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Smart Contracts (Solidity)                   │
+│  ┌─────────────────────┐        ┌─────────────────────────────┐ │
+│  │  L1TokenFactory     │        │  L2SuperChainTokenFactory   │ │
+│  │  (Ethereum)         │◄──────►│  (Celo)                     │ │
+│  └─────────────────────┘        └─────────────────────────────┘ │
+│              │                              │                    │
+│              ▼                              ▼                    │
+│  ┌─────────────────────┐        ┌─────────────────────────────┐ │
+│  │     L1Token         │        │    L2SuperChainToken        │ │
+│  │  (ERC-20 + Bridge)  │◄─────►│    (ERC-20 + IERC7802)      │ │
+│  └─────────────────────┘        └─────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Subgraph (The Graph)                       │
+│               Indexes all tokens, transfers, events             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL
+- Foundry (for contracts)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd minter
+
+# Install dependencies
+cd ui && npm install
+cd ../backend && npm install
+cd ../contracts && forge install
+cd ../subgraph && npm install
+```
+
+### Configuration
+
+Create `.env` files in each directory. See respective README files for required variables.
+
+### Running Locally
+
+```bash
+# Terminal 1: Backend
+cd backend && npm run dev
+
+# Terminal 2: UI
+cd ui && npm run dev
+
+# Terminal 3: Local blockchain (optional)
+cd contracts && anvil
+```
+
+## For AI Agents
+
+### MCP (Model Context Protocol)
+
+Connect your AI agent to the MCP server:
+
+```json
+{
+  "mcpServers": {
+    "token-minter": {
+      "url": "http://localhost:3001/mcp"
+    }
+  }
+}
+```
+
+Available tools:
+- `get_supported_chains` - List supported blockchains
+- `pin_token_metadata` - Upload metadata to IPFS
+- `build_create_token_transaction` - Generate transaction calldata
+- `list_tokens` - Query created tokens
+- `validate_promo_code` - Apply promotional discounts
+
+### REST API
+
+For non-MCP agents, use the REST endpoints:
+
+```bash
+# Get deployment calldata
+POST /api/tokens/full-deployment/calldata
+{
+  "tokenType": "celo-native",
+  "owner": "0x...",
+  "name": "My Token",
+  "symbol": "MTK",
+  "initialSupply": "1000000",
+  ...
+}
+```
+
+See [Agent API Documentation](backend/docs/AGENT_API.md) for full details.
+
+---
+
+Technical Details
+-----------------
 
 Overview
 --------

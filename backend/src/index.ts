@@ -1,10 +1,11 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import promoRoutes from './routes/promo';
-import adminRoutes from './routes/admin';
-import tokensRoutes from './routes/tokens';
-import metadataRoutes from './routes/metadata';
+import promoRoutes from './routes/promo.js';
+import adminRoutes from './routes/admin.js';
+import tokensRoutes from './routes/tokens.js';
+import metadataRoutes from './routes/metadata.js';
+import mcpRoutes from './mcp/routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +19,7 @@ app.use('/api/promo', promoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/tokens', tokensRoutes);
 app.use('/api/metadata', metadataRoutes);
+app.use('/mcp', mcpRoutes); // MCP endpoint
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -32,4 +34,5 @@ app.listen(PORT, () => {
   console.log(`🔑 Get signer address: GET /api/promo/signer`);
   console.log(`🖼️  Token logos endpoint: /api/tokens/:chainId/:address/logo`);
   console.log(`📦 Metadata IPFS pinning: POST /api/metadata/pin`);
+  console.log(`🤖 MCP endpoint: POST /mcp`);
 });

@@ -110,7 +110,7 @@ export async function pinTokenAssets(
   imageBuffer?: Buffer,
   imageFilename?: string,
   imageContentType?: string
-): Promise<PinResult> {
+): Promise<PinResult & { imageURI?: string }> {
   let imageURI: string | undefined;
 
   // First, pin the image if provided
@@ -125,7 +125,8 @@ export async function pinTokenAssets(
     image: imageURI,
   };
 
-  return pinMetadata(fullMetadata, metadata.name);
+  const result = await pinMetadata(fullMetadata, metadata.name);
+  return { ...result, imageURI };
 }
 
 /**
