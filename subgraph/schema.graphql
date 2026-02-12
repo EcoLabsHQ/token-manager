@@ -24,6 +24,8 @@ type Token @entity {
   totalBridges: BigInt! # Total number of bridge events (crosschain mint/burn)
   owner: Bytes!
   chain: String! # "ethereum" or "celo"
+  # IPFS URI pointing to token metadata JSON (e.g., "ipfs://Qm...")
+  metadataURI: String
   # For L2 tokens that have a remote L1 token
   remoteToken: Bytes
   # Bridge configuration
@@ -55,6 +57,7 @@ type TokenCreatedEvent @entity(immutable: true) {
   initialSupply: BigInt!
   maxSupply: BigInt!
   owner: Bytes!
+  metadataURI: String
   chain: String!
   blockNumber: BigInt!
   blockTimestamp: BigInt!

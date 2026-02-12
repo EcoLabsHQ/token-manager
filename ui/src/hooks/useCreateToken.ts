@@ -13,9 +13,9 @@ import { getWalletClient } from 'wagmi/actions';
 import {
   parseUnits,
   getAddress,
-  toHex,
-  keccak256,
   decodeEventLog,
+  keccak256,
+  toBytes,
   type TransactionReceipt,
 } from 'viem';
 import {
@@ -32,6 +32,7 @@ import {
   L1_TOKEN_FACTORY_ABI,
   L2_SUPERCHAIN_TOKEN_FACTORY_ABI,
 } from '@/config/contracts';
+import { pinMetadataOnly, type TokenMetadata } from '@/lib/metadata';
 
 export type CreateTokenStep =
   | 'choose-type'
@@ -56,7 +57,7 @@ interface StorableFormData {
 interface PendingDeployment {
   tokenType: TokenType;
   formData: StorableFormData;
-  salt: string;
+  metadataURI: string;
   currentStep: number;
   l1Address?: string;
   l2Address?: string;
@@ -156,7 +157,7 @@ export function useCreateToken() {
   });
   const { switchChainAsync } = useSwitchChain();
   const { addToken } = useTokenStorage();
-  const { uploadLogo } = useTokenLogo();
+  const { preUploadLogo, copyLogoToTokenAddress } = useTokenLogo();
 
   // Load pending deployment from localStorage on mount
   useEffect(() => {
@@ -300,9 +301,63 @@ export function useCreateToken() {
 
       try {
         let result: DeploymentResult;
-        const salt = keccak256(
-          toHex(`${address}-${formData.name}-${formData.symbol}-${Date.now()}`),
-        );
+        
+        // Flow:
+        // Step 1: Generate unique hash from name+symbol+creator and upload image to CDN
+        // Step 2: Pin metadata JSON to IPFS with CDN image URL
+        // Step 3: Create token with metadataURI
+        // Step 4: Copy image to real token address in backend
+        
+        let metadataURI = '';
+        const targetChainId = tokenType === 'celo-native' 
+          ? CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId 
+          : CONTRACTS.L1_TOKEN_FACTORY.chainId;
+
+        // Generate unique hash from name + symbol + creator + chainId
+        // This is the key used to store the image before we know the token address
+        const imageHash = keccak256(toBytes(`${formData.name}-${formData.symbol}-${address}-${targetChainId}`));
+        const imageIdentifier = imageHash.slice(2, 18); // Use first 16 chars of hash (without 0x)
+        
+        // Step 1: Upload image to CDN with hash identifier
+        let imageUrl: string | undefined;
+        if (formData.tokenLogo) {
+          try {
+            const file = dataURLtoFile(formData.tokenLogo, `${formData.symbol}-logo.png`);
+            console.log('🖼️ Uploading image to CDN with hash:', imageIdentifier);
+            const uploadResult = await preUploadLogo(targetChainId, imageIdentifier, file);
+            imageUrl = uploadResult.url;
+            console.log('✅ Image uploaded to CDN:', imageUrl);
+          } catch (logoError) {
+            console.warn('⚠️ Failed to upload image to CDN:', logoError);
+          }
+        }
+
+        // Step 2: Pin metadata to IPFS with image URL
+        try {
+          const metadata: TokenMetadata = {
+            name: formData.name,
+            symbol: formData.symbol,
+            decimals: formData.decimals,
+            image: imageUrl,
+            properties: {
+              maxSupply: formData.maxSupply,
+              initialSupply: formData.initialSupply,
+              creator: address,
+              chainId: targetChainId,
+            },
+          };
+          
+          console.log('📌 Pinning metadata to IPFS...');
+          const pinResult = await pinMetadataOnly(metadata);
+          if (pinResult.success && pinResult.data) {
+            metadataURI = pinResult.data.metadataURI;
+            console.log('✅ Metadata pinned to IPFS:', metadataURI);
+          } else {
+            console.warn('⚠️ Failed to pin metadata to IPFS:', pinResult.error);
+          }
+        } catch (metadataError) {
+          console.warn('⚠️ Error pinning metadata:', metadataError);
+        }
 
         // Save initial deployment state (exclude tokenLogo - too large for localStorage)
         const deploymentState: PendingDeployment = {
@@ -314,13 +369,14 @@ export function useCreateToken() {
             maxSupply: formData.maxSupply,
             decimals: formData.decimals,
           },
-          salt,
+          metadataURI,
           currentStep: 0,
           promoData,
           createdAt: Date.now(),
         };
         saveDeploymentState(deploymentState);
 
+        // Step 3: Create token with metadataURI
         if (tokenType === 'celo-native') {
           setDeployingStep(1);
           deploymentState.currentStep = 1;
@@ -341,7 +397,7 @@ export function useCreateToken() {
                   formData.decimals,
                   parseUnits(formData.initialSupply, formData.decimals),
                   parseUnits(formData.maxSupply, formData.decimals),
-                  salt,
+                  metadataURI,
                   BigInt(promoData.promoFee),
                   promoData.promoNonce as `0x${string}`,
                   BigInt(promoData.expiresAt),
@@ -365,7 +421,7 @@ export function useCreateToken() {
                   formData.decimals,
                   parseUnits(formData.initialSupply, formData.decimals),
                   parseUnits(formData.maxSupply, formData.decimals),
-                  salt,
+                  metadataURI,
                 ],
                 value: l2CreationFee ?? 0n,
                 chain: {
@@ -395,7 +451,7 @@ export function useCreateToken() {
                   formData.decimals,
                   parseUnits(formData.initialSupply, formData.decimals),
                   parseUnits(formData.maxSupply, formData.decimals),
-                  salt,
+                  metadataURI,
                   BigInt(promoData.promoFee),
                   promoData.promoNonce as `0x${string}`,
                   BigInt(promoData.expiresAt),
@@ -415,7 +471,7 @@ export function useCreateToken() {
                   formData.decimals,
                   parseUnits(formData.initialSupply, formData.decimals),
                   parseUnits(formData.maxSupply, formData.decimals),
-                  salt,
+                  metadataURI,
                 ],
                 value: l1CreationFee ?? 0n,
                 chain: { id: CONTRACTS.L1_TOKEN_FACTORY.chainId } as any,
@@ -448,7 +504,7 @@ export function useCreateToken() {
                 parseUnits(formData.maxSupply, formData.decimals),
                 getAddress(L2_BRIDGE),
                 getAddress(l1Addr),
-                salt,
+                metadataURI,
               ],
               chain: {
                 id: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
@@ -528,32 +584,29 @@ export function useCreateToken() {
           result = { l1Address: l1Addr, l2Address: l2Addr };
         }
 
-        // Upload token logo if provided (fire and forget - don't block success)
-        if (formData.tokenLogo) {
+        // Step 4: Copy image from hash to real token address
+        if (formData.tokenLogo && imageIdentifier) {
           try {
-            const file = dataURLtoFile(
-              formData.tokenLogo,
-              `${formData.symbol.toLowerCase()}-logo.png`,
+            console.log('🖼️ Copying image to real token address:', result.l2Address);
+            // Call backend to copy image from hash to token address
+            await copyLogoToTokenAddress(
+              CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId, 
+              result.l2Address, 
+              imageIdentifier
             );
-
-            // Upload for L2 address (always exists)
-            await uploadLogo(
-              CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
-              result.l2Address,
-              file,
-            );
-
-            // If ethereum-enabled, also upload for L1 address
+            console.log('✅ Image copied for L2:', result.l2Address);
+            
+            // Also copy for L1 if exists
             if (result.l1Address) {
-              await uploadLogo(
-                CONTRACTS.L1_TOKEN_FACTORY.chainId,
-                result.l1Address,
-                file,
+              await copyLogoToTokenAddress(
+                CONTRACTS.L1_TOKEN_FACTORY.chainId, 
+                result.l1Address, 
+                imageIdentifier
               );
+              console.log('✅ Image copied for L1:', result.l1Address);
             }
           } catch (logoError) {
-            // Don't fail the deployment if logo upload fails
-            console.warn('Failed to upload token logo:', logoError);
+            console.warn('⚠️ Failed to copy logo to token address:', logoError);
           }
         }
 
@@ -591,7 +644,8 @@ export function useCreateToken() {
       l2Client,
       switchChainAsync,
       addToken,
-      uploadLogo,
+      preUploadLogo,
+      copyLogoToTokenAddress,
       chainId,
       saveDeploymentState,
       clearPendingDeployment,
@@ -636,7 +690,7 @@ export function useCreateToken() {
     const {
       tokenType: savedTokenType,
       formData,
-      salt,
+      metadataURI,
       currentStep,
       l1Address,
       l2Address,
@@ -676,7 +730,7 @@ export function useCreateToken() {
                   formData.decimals,
                   parseUnits(formData.initialSupply, formData.decimals),
                   parseUnits(formData.maxSupply, formData.decimals),
-                  salt,
+                  metadataURI,
                   BigInt(promoData.promoFee),
                   promoData.promoNonce as `0x${string}`,
                   BigInt(promoData.expiresAt),
@@ -700,7 +754,7 @@ export function useCreateToken() {
                   formData.decimals,
                   parseUnits(formData.initialSupply, formData.decimals),
                   parseUnits(formData.maxSupply, formData.decimals),
-                  salt,
+                  metadataURI,
                 ],
                 value: l2CreationFee ?? 0n,
                 chain: {
@@ -735,7 +789,7 @@ export function useCreateToken() {
                   formData.decimals,
                   parseUnits(formData.initialSupply, formData.decimals),
                   parseUnits(formData.maxSupply, formData.decimals),
-                  salt,
+                  metadataURI,
                   BigInt(promoData.promoFee),
                   promoData.promoNonce as `0x${string}`,
                   BigInt(promoData.expiresAt),
@@ -755,7 +809,7 @@ export function useCreateToken() {
                   formData.decimals,
                   parseUnits(formData.initialSupply, formData.decimals),
                   parseUnits(formData.maxSupply, formData.decimals),
-                  salt,
+                  metadataURI,
                 ],
                 value: l1CreationFee ?? 0n,
                 chain: { id: CONTRACTS.L1_TOKEN_FACTORY.chainId } as any,
@@ -789,7 +843,7 @@ export function useCreateToken() {
                 parseUnits(formData.maxSupply, formData.decimals),
                 getAddress(L2_BRIDGE),
                 getAddress(l1Addr),
-                salt,
+                metadataURI,
               ],
               chain: {
                 id: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
@@ -917,7 +971,7 @@ export function useCreateToken() {
     l2Client,
     switchChainAsync,
     addToken,
-    uploadLogo,
+    preUploadLogo,
     saveDeploymentState,
     clearPendingDeployment,
     l1CreationFee,

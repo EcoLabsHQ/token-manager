@@ -227,8 +227,9 @@ export const useL2TokenFactory = () => {
         const initialSupplyBigInt = parseUnits(params.initialSupply, params.decimals);
         const maxSupplyBigInt = parseUnits(params.maxSupply, params.decimals);
         
-        // Generate a unique salt for CREATE2 deployment
-        const salt = keccak256(toHex(`${address}-${params.name}-${params.symbol}-${Date.now()}`));
+        // TODO: Upload metadata to IPFS and get metadataURI
+        // For now, use empty string as placeholder
+        const metadataURI = '';
 
         // Send transaction
         writeContract({
@@ -242,7 +243,7 @@ export const useL2TokenFactory = () => {
             params.decimals as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18,
             initialSupplyBigInt,
             maxSupplyBigInt,
-            salt,
+            metadataURI,
           ],
           chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
         });

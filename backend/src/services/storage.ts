@@ -3,6 +3,8 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  GetObjectCommand,
+  CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 
 // R2 Configuration
@@ -159,6 +161,97 @@ export async function logoExists(fileKey: string): Promise<boolean> {
  */
 export function getPublicLogoUrl(fileKey: string): string {
   return `${R2_PUBLIC_URL}/${fileKey}`;
+}
+
+/**
+ * Sube una imagen con un identificador personalizado (para pre-token-creation uploads)
+ */
+export async function uploadImageWithIdentifier(
+  chainId: number,
+  identifier: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<UploadResult> {
+  const validation = validateFile(buffer, contentType);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  const extension = getExtensionFromContentType(contentType);
+  // Sanitize identifier: lowercase, remove special chars
+  const sanitizedId = identifier.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  const fileKey = `logos/${chainId}/${sanitizedId}.${extension}`;
+
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: fileKey,
+      Body: buffer,
+      ContentType: contentType,
+      CacheControl: 'public, max-age=31536000',
+    })
+  );
+
+  return {
+    fileKey,
+    publicUrl: `${R2_PUBLIC_URL}/${fileKey}`,
+    contentType,
+    fileSize: buffer.length,
+  };
+}
+
+/**
+ * Copia una imagen de un hash temporal a la dirección real del token
+ * Busca en todas las extensiones soportadas
+ */
+export async function copyImageToTokenAddress(
+  chainId: number,
+  sourceHash: string,
+  targetTokenAddress: string
+): Promise<UploadResult | null> {
+  const sanitizedHash = sourceHash.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  const extensions = ['png', 'jpg', 'svg', 'webp'];
+  
+  for (const ext of extensions) {
+    const sourceKey = `logos/${chainId}/${sanitizedHash}.${ext}`;
+    const targetKey = `logos/${chainId}/${targetTokenAddress.toLowerCase()}.${ext}`;
+    
+    try {
+      // Check if source exists
+      const headResponse = await s3Client.send(
+        new HeadObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: sourceKey,
+        })
+      );
+      
+      // Copy to new location
+      await s3Client.send(
+        new CopyObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          CopySource: `${R2_BUCKET_NAME}/${sourceKey}`,
+          Key: targetKey,
+          ContentType: headResponse.ContentType,
+          CacheControl: 'public, max-age=31536000',
+        })
+      );
+      
+      console.log(`✅ Copied image from ${sourceKey} to ${targetKey}`);
+      
+      return {
+        fileKey: targetKey,
+        publicUrl: `${R2_PUBLIC_URL}/${targetKey}`,
+        contentType: headResponse.ContentType || `image/${ext}`,
+        fileSize: headResponse.ContentLength || 0,
+      };
+    } catch (error) {
+      // Source doesn't exist with this extension, try next
+      continue;
+    }
+  }
+  
+  console.warn(`⚠️ No image found for hash ${sanitizedHash} in chain ${chainId}`);
+  return null;
 }
 
 export { R2_PUBLIC_URL, ALLOWED_CONTENT_TYPES, MAX_FILE_SIZE };

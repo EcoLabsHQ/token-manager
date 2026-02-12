@@ -110,6 +110,12 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
         functionName: 'pendingOwner',
         chainId: expectedChainId,
       },
+      {
+        address: getAddress(tokenAddress),
+        abi: TOKEN_ABI,
+        functionName: 'metadataURI',
+        chainId: expectedChainId,
+      },
     ] : [],
     query: {
       enabled: !!tokenAddress,
@@ -137,6 +143,7 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
   const owner = tokenData?.[5]?.result as string | undefined;
   const isPaused = tokenData?.[6]?.result as boolean | undefined;
   const pendingOwner = tokenData?.[7]?.result as string | undefined;
+  const metadataURI = tokenData?.[8]?.result as string | undefined;
 
   const isOwner = address && owner ? address.toLowerCase() === owner.toLowerCase() : false;
   const isPendingOwner = address && pendingOwner && pendingOwner !== '0x0000000000000000000000000000000000000000' 
@@ -332,6 +339,7 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
     decimals,
     totalSupply: formattedTotalSupply,
     maxSupply: formattedMaxSupply,
+    metadataURI: metadataURI ?? '',
     owner,
     pendingOwner,
     isPaused: isPaused ?? false,

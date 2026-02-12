@@ -53,7 +53,7 @@ contract L1TokenFactory is BaseTokenFactory {
      * @param decimals_ Number of decimals for the token
      * @param initialSupply_ Initial supply of the token (minted to owner)
      * @param maxSupply_ Maximum supply of the token
-     * @param salt_ Salt for deterministic deployment
+     * @param metadataURI_ IPFS URI pointing to token metadata JSON (e.g., "ipfs://Qm...")
      * @return tokenAddress The address of the newly created token
      */
     function createToken(
@@ -63,7 +63,7 @@ contract L1TokenFactory is BaseTokenFactory {
         uint8 decimals_,
         uint256 initialSupply_,
         uint256 maxSupply_,
-        bytes memory salt_
+        string memory metadataURI_
     ) external payable nonReentrant returns (address tokenAddress) {
         BaseFactoryStorage storage $ = _getFactoryStorage();
 
@@ -79,7 +79,7 @@ contract L1TokenFactory is BaseTokenFactory {
             decimals_,
             initialSupply_,
             maxSupply_,
-            salt_
+            metadataURI_
         );
     }
 
@@ -91,7 +91,7 @@ contract L1TokenFactory is BaseTokenFactory {
      * @param decimals_ Number of decimals for the token
      * @param initialSupply_ Initial supply of the token (minted to owner)
      * @param maxSupply_ Maximum supply of the token
-     * @param salt_ Salt for deterministic deployment
+     * @param metadataURI_ IPFS URI pointing to token metadata JSON (e.g., "ipfs://Qm...")
      * @param promoFee_ The promotional fee amount
      * @param promoNonce_ Unique nonce for this promo code usage
      * @param expiresAt_ Timestamp when the promo expires
@@ -105,7 +105,7 @@ contract L1TokenFactory is BaseTokenFactory {
         uint8 decimals_,
         uint256 initialSupply_,
         uint256 maxSupply_,
-        bytes memory salt_,
+        string memory metadataURI_,
         uint256 promoFee_,
         bytes32 promoNonce_,
         uint256 expiresAt_,
@@ -126,7 +126,7 @@ contract L1TokenFactory is BaseTokenFactory {
             decimals_,
             initialSupply_,
             maxSupply_,
-            salt_
+            metadataURI_
         );
 
         emit PromoCodeUsed(msg.sender, promoNonce_, promoFee_);
@@ -143,7 +143,7 @@ contract L1TokenFactory is BaseTokenFactory {
         uint8 decimals_,
         uint256 initialSupply_,
         uint256 maxSupply_,
-        bytes memory salt_
+        string memory metadataURI_
     ) internal returns (address tokenAddress) {
         BaseFactoryStorage storage $ = _getFactoryStorage();
 
@@ -154,10 +154,14 @@ contract L1TokenFactory is BaseTokenFactory {
             initialSupply_,
             maxSupply_,
             decimals_,
-            owner_
+            owner_,
+            metadataURI_
         );
 
-        bytes32 salt = keccak256(salt_);
+        // Salt derived from creator + token identity + metadata for anti-squatting
+        bytes32 salt = keccak256(
+            abi.encodePacked(msg.sender, name_, symbol_, keccak256(bytes(metadataURI_)))
+        );
 
         // Deploy proxy pointing to TokenInitializer (deterministic address)
         tokenAddress = address(
@@ -176,7 +180,8 @@ contract L1TokenFactory is BaseTokenFactory {
             initialSupply_,
             maxSupply_,
             decimals_,
-            owner_
+            owner_,
+            metadataURI_
         );
     }
 }

@@ -41,7 +41,7 @@ export const useInstitutionalTokenDeploy = () => {
   const [l2TxHash, setL2TxHash] = useState<`0x${string}` | null>(null);
   const [l1TokenAddress, setL1TokenAddress] = useState<`0x${string}` | null>(null);
   const [l2TokenAddress, setL2TokenAddress] = useState<`0x${string}` | null>(null);
-  const [deploymentSalt, setDeploymentSalt] = useState<`0x${string}` | null>(null);
+  const [deploymentSalt, setDeploymentSalt] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<'idle' | 'creating_l1' | 'creating_l2' | 'configuring' | 'success' | 'error'>('idle');
   const [currentParams, setCurrentParams] = useState<InstitutionalTokenParams | null>(null);
 
@@ -192,10 +192,10 @@ export const useInstitutionalTokenDeploy = () => {
       setCurrentParams(params);
       setCurrentStep('creating_l1');
 
-      // Generate a deterministic salt for both L1 and L2 deploys
+      // TODO: Upload metadata to IPFS and get metadataURI
       // This ensures both tokens have the same address on both chains
-      const salt = keccak256(toHex(`${address}-${params.name}-${params.symbol}-${Date.now()}`));
-      setDeploymentSalt(salt);
+      const metadataURI = '';
+      setDeploymentSalt(metadataURI);
 
       try {
         console.log('Starting L1 token deployment...');
@@ -222,7 +222,7 @@ export const useInstitutionalTokenDeploy = () => {
         }
         const l1MaxSupplyBigInt = parseUnits(maxSupplyNum.toString(), params.decimals);
 
-        // ABI order: owner_, name_, symbol_, decimals_, initialSupply_, maxSupply_, salt_
+        // ABI order: owner_, name_, symbol_, decimals_, initialSupply_, maxSupply_, metadataURI_
         writeL1Contract({
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
           abi: L1_TOKEN_FACTORY_ABI,
@@ -234,7 +234,7 @@ export const useInstitutionalTokenDeploy = () => {
             params.decimals,           // decimals_
             l1InitialSupplyBigInt,     // initialSupply_
             l1MaxSupplyBigInt,         // maxSupply_
-            salt,                      // salt_ - same salt for L1 and L2
+            metadataURI,               // metadataURI_
           ],
         });
 

@@ -277,8 +277,7 @@ contract DeterministicDeployTest is Test {
 
         // Compute expected token address using CREATE2 formula
         // The token proxy will be deployed by the factory using CREATE2
-        bytes memory salt = "test-token-salt";
-        bytes32 computedSalt = keccak256(salt);
+        string memory metadataURI = "ipfs://QmTestDeterministic";
 
         // The token proxy creation code is: ERC1967Proxy(tokenInitializer, "")
         bytes memory tokenProxyCreationCode = abi.encodePacked(
@@ -315,7 +314,7 @@ contract DeterministicDeployTest is Test {
             
             L1TokenFactory l1Factory = L1TokenFactory(address(factoryProxy));
             
-            // Create a token with the test salt
+            // Create a token with the test metadataURI
             l1TokenAddress = l1Factory.createToken(
                 owner,
                 "Test Token",
@@ -323,14 +322,15 @@ contract DeterministicDeployTest is Test {
                 18,
                 1000 ether,
                 10000 ether,
-                salt
+                metadataURI
             );
             
             vm.stopPrank();
         }
 
-        // Compute expected address for this salt deployed from the L1 factory proxy
-        // The factory is the deployer for the token
+        // Compute expected address for the token deployed from the L1 factory proxy
+        // Salt is now derived from: keccak256(abi.encodePacked(msg.sender, name, symbol, keccak256(bytes(metadataURI))))
+        bytes32 computedSalt = keccak256(abi.encodePacked(owner, "Test Token", "TEST", keccak256(bytes(metadataURI))));
         address expectedTokenAddress = _computeCreate2Address(
             l1TokenAddress, // Wait, we need the factory address, not token address
             computedSalt,

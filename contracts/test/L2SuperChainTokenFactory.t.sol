@@ -21,6 +21,7 @@ contract L2SuperChainTokenFactoryTest is Test {
     uint256 constant INITIAL_SUPPLY = 1000 ether;
     uint256 constant MAX_SUPPLY = 10000 ether;
     uint8 constant DECIMALS = 18;
+    string constant METADATA_URI = "ipfs://QmTestL2MetadataHash123";
 
     function setUp() public {
         // Deploy token implementation
@@ -58,7 +59,7 @@ contract L2SuperChainTokenFactoryTest is Test {
     }
 
     function test_CreateToken() public {
-        bytes memory salt = abi.encodePacked("salt1");
+        
         
         vm.prank(user);
         address tokenAddress = factory.createToken(
@@ -68,7 +69,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            salt
+            METADATA_URI
         );
         
         assertTrue(tokenAddress != address(0));
@@ -83,7 +84,7 @@ contract L2SuperChainTokenFactoryTest is Test {
 
     function test_CreateTokenWithFee() public {
         uint256 fee = 0.1 ether;
-        bytes memory salt = abi.encodePacked("salt2");
+        
         
         vm.prank(owner);
         factory.setCreationFee(fee);
@@ -97,7 +98,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            salt
+            METADATA_URI
         );
         
         assertTrue(tokenAddress != address(0));
@@ -107,7 +108,7 @@ contract L2SuperChainTokenFactoryTest is Test {
     function test_CreateTokenWithBridge() public {
         address bridge = address(0x100);
         address remoteToken = address(0x200);
-        bytes memory salt = abi.encodePacked("salt3");
+        
         
         vm.prank(user);
         address tokenAddress = factory.createTokenWithBridge(
@@ -119,7 +120,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             MAX_SUPPLY,
             bridge,
             remoteToken,
-            salt
+            METADATA_URI
         );
         
         assertTrue(tokenAddress != address(0));
@@ -131,7 +132,7 @@ contract L2SuperChainTokenFactoryTest is Test {
 
     function test_CreateTokenInsufficientFee() public {
         uint256 fee = 0.1 ether;
-        bytes memory salt = abi.encodePacked("salt4");
+        
         
         vm.prank(owner);
         factory.setCreationFee(fee);
@@ -146,7 +147,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            salt
+            METADATA_URI
         );
     }
 
@@ -178,14 +179,14 @@ contract L2SuperChainTokenFactoryTest is Test {
     }
 
     function test_GetTokensPaginated() public {
-        bytes memory salt1 = abi.encodePacked("salt5");
-        bytes memory salt2 = abi.encodePacked("salt6");
+        
+        
         
         vm.prank(user);
-        address token1 = factory.createToken(user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, salt1);
+        address token1 = factory.createToken(user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, "ipfs://QmL2Token1");
         
         vm.prank(user);
-        address token2 = factory.createToken(user, "Token 2", "T2", DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, salt2);
+        address token2 = factory.createToken(user, "Token 2", "T2", DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, "ipfs://QmL2Token2");
         
         // Test getTokensPaginated - full range
         address[] memory paginatedTokens = factory.getTokensPaginated(0, 10);
@@ -252,7 +253,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -265,7 +266,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             0,
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -278,7 +279,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             MAX_SUPPLY + 1,
             MAX_SUPPLY,
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -300,7 +301,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("refund-salt")
+            "ipfs://QmRefundTest"
         );
         
         assertEq(user.balance, balanceBefore - fee);
@@ -321,7 +322,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             MAX_SUPPLY,
             address(0),
             address(0x200),
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -336,7 +337,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             MAX_SUPPLY,
             address(0x100),
             address(0),
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -356,7 +357,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             MAX_SUPPLY,
             address(0x100),
             address(0x200),
-            abi.encodePacked("no-fee-salt")
+            "ipfs://QmNoFee"
         );
         
         assertTrue(tokenAddress != address(0));
@@ -373,7 +374,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             MAX_SUPPLY,
             address(0x100),
             address(0x200),
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -453,7 +454,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("get-token-salt")
+            "ipfs://QmGetToken"
         );
         
         assertEq(factory.getToken(0), tokenAddress);
@@ -473,7 +474,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("all-tokens-salt")
+            "ipfs://QmAllTokens"
         );
         
         assertEq(factory.allTokens(0), tokenAddress);
@@ -517,7 +518,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("promo-salt"),
+            "ipfs://QmPromo",
             promoFee,
             promoNonce,
             expiresAt,
@@ -563,7 +564,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("promo-salt-1"),
+            "ipfs://QmPromo1",
             promoFee,
             promoNonce,
             expiresAt,
@@ -579,7 +580,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("promo-salt-2"),
+            "ipfs://QmPromo2",
             promoFee,
             promoNonce,
             expiresAt,
@@ -622,7 +623,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("expired-salt"),
+            "ipfs://QmExpired",
             promoFee,
             promoNonce,
             expiresAt,
@@ -661,7 +662,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("invalid-sig-salt"),
+            "ipfs://QmInvalidSig",
             promoFee,
             promoNonce,
             expiresAt,
@@ -683,7 +684,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("zero-fee-salt")
+            "ipfs://QmZeroFee"
         );
         
         assertTrue(tokenAddress != address(0));
@@ -704,7 +705,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("exact-fee-salt")
+            "ipfs://QmExactFee"
         );
         
         assertTrue(tokenAddress != address(0));
@@ -733,7 +734,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("fee-fail-salt")
+            "ipfs://QmFeeFail"
         );
     }
 
@@ -759,7 +760,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("refund-fail-salt")
+            "ipfs://QmRefundFail"
         );
     }
 
@@ -796,7 +797,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("promo-zero-fee-salt"),
+            "ipfs://QmPromoZeroFee",
             promoFee,
             promoNonce,
             expiresAt,
@@ -841,7 +842,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            abi.encodePacked("promo-insuf-salt"),
+            "ipfs://QmPromoInsuf",
             promoFee,
             promoNonce,
             expiresAt,
@@ -860,7 +861,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             0, // zero max supply
             address(0x100),
             address(0x200),
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -875,7 +876,7 @@ contract L2SuperChainTokenFactoryTest is Test {
             MAX_SUPPLY,
             address(0x100),
             address(0x200),
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -907,17 +908,14 @@ contract L2SuperChainTokenFactoryTest is Test {
     }
 
     function test_UpgradeFactoryPreservesTokenList() public {
-        bytes memory salt1 = abi.encodePacked("upgrade-salt-1");
-        bytes memory salt2 = abi.encodePacked("upgrade-salt-2");
-        
         vm.prank(user);
         address token1 = factory.createToken(
-            user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, salt1
+            user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, "ipfs://QmUpgrade1"
         );
         
         vm.prank(user);
         address token2 = factory.createToken(
-            user, "Token 2", "T2", DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, salt2
+            user, "Token 2", "T2", DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, "ipfs://QmUpgrade2"
         );
         
         L2SuperChainTokenFactoryV2Mock newImplementation = new L2SuperChainTokenFactoryV2Mock();
@@ -1014,7 +1012,7 @@ contract ReentrancyAttacker {
             18,
             1000 ether,
             10000 ether,
-            abi.encodePacked("attack-salt")
+            "ipfs://QmAttack"
         );
     }
 
@@ -1029,7 +1027,7 @@ contract ReentrancyAttacker {
                 18,
                 1000 ether,
                 10000 ether,
-                abi.encodePacked("reentry-salt")
+                "ipfs://QmReentry"
             );
         }
     }

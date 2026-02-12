@@ -36,9 +36,13 @@ contract L1Token is
     Ownable2StepUpgradeable,
     PausableUpgradeable
 {
+    /// @notice Emitted when the contract metadata URI is updated
+    event MetadataUpdated();
+
     struct L1TokenStorage {
         uint256 maxSupply;
         uint8 decimals;
+        string metadataURI;
     }
 
     // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.l1_token_v1")) - 1)) & ~bytes32(uint256(0xff));
@@ -66,7 +70,8 @@ contract L1Token is
         uint256 initialSupply_,
         uint256 maxSupply_,
         uint8 decimals_,
-        address owner_
+        address owner_,
+        string memory metadataURI_
     ) public initializer {
         if (owner_ == address(0)) revert ZeroAddress();
         if (initialSupply_ > maxSupply_) revert ExceedsMaxSupply();
@@ -79,6 +84,7 @@ contract L1Token is
         L1TokenStorage storage $ = _getL1TokenStorage();
         $.maxSupply = maxSupply_;
         $.decimals = decimals_;
+        $.metadataURI = metadataURI_;
 
         _transferOwnership(owner_);
 
@@ -115,6 +121,19 @@ contract L1Token is
 
     function decimals() public view virtual override(ERC20Upgradeable, IToken) returns (uint8) {
         return _getL1TokenStorage().decimals;
+    }
+
+    /// @notice Returns the contract-level metadata URI
+    /// @return The IPFS or HTTP URI pointing to the contract metadata JSON
+    function metadataURI() public view returns (string memory) {
+        return _getL1TokenStorage().metadataURI;
+    }
+
+    /// @notice Updates the contract-level metadata URI
+    /// @param newURI_ The new metadata URI (e.g., "ipfs://Qm...")
+    function setMetadataURI(string calldata newURI_) external onlyOwner {
+        _getL1TokenStorage().metadataURI = newURI_;
+        emit MetadataUpdated();
     }
 
     // ============================================

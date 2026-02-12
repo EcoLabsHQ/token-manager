@@ -27,6 +27,7 @@ contract L2SuperChainTokenTest is Test {
     uint256 constant INITIAL_SUPPLY = 1000 ether;
     uint256 constant MAX_SUPPLY = 10000 ether;
     uint8 constant DECIMALS = 18;
+    string constant METADATA_URI = "ipfs://QmTestL2Token";
 
     function setUp() public {
         implementation = new L2SuperChainToken();
@@ -40,7 +41,8 @@ contract L2SuperChainTokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             address(0), // No bridge
-            address(0) // No remote token
+            address(0), // No remote token
+            METADATA_URI
         );
 
         ERC1967Proxy proxy = new ERC1967Proxy(
@@ -70,7 +72,8 @@ contract L2SuperChainTokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             bridge,
-            remoteToken
+            remoteToken,
+            METADATA_URI
         );
 
         ERC1967Proxy proxy = new ERC1967Proxy(
@@ -180,7 +183,8 @@ contract L2SuperChainTokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             address(0),
-            address(0)
+            address(0),
+            METADATA_URI
         );
         
         vm.expectRevert(IToken.ZeroAddress.selector);
@@ -199,7 +203,8 @@ contract L2SuperChainTokenTest is Test {
             MAX_SUPPLY + 1, // initialSupply > maxSupply
             MAX_SUPPLY,
             address(0),
-            address(0)
+            address(0),
+            METADATA_URI
         );
         
         vm.expectRevert(IToken.ExceedsMaxSupply.selector);
@@ -218,7 +223,8 @@ contract L2SuperChainTokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             bridge,      // bridge set
-            address(0)   // remoteToken not set
+            address(0),  // remoteToken not set
+            METADATA_URI
         );
         
         vm.expectRevert(IToken.ZeroAddress.selector);
@@ -236,8 +242,9 @@ contract L2SuperChainTokenTest is Test {
             DECIMALS,
             INITIAL_SUPPLY,
             MAX_SUPPLY,
-            address(0),  // bridge not set
-            remoteToken  // remoteToken set
+            address(0),   // bridge not set
+            remoteToken,  // remoteToken set
+            METADATA_URI
         );
         
         vm.expectRevert(IToken.ZeroAddress.selector);
@@ -256,7 +263,8 @@ contract L2SuperChainTokenTest is Test {
             0, // zero initial supply
             MAX_SUPPLY,
             address(0),
-            address(0)
+            address(0),
+            METADATA_URI
         );
         
         ERC1967Proxy proxy = new ERC1967Proxy(address(newImpl), initData);
@@ -268,7 +276,7 @@ contract L2SuperChainTokenTest is Test {
 
     function test_CannotReinitialize() public {
         vm.expectRevert();
-        token.initialize(owner, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, address(0), address(0));
+        token.initialize(owner, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY, address(0), address(0), METADATA_URI);
     }
 
     // ============================================
@@ -301,7 +309,8 @@ contract L2SuperChainTokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             bridge,
-            remoteToken
+            remoteToken,
+            METADATA_URI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         L2SuperChainToken tokenWithBridge = L2SuperChainToken(address(proxy));
@@ -324,7 +333,8 @@ contract L2SuperChainTokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             bridge,
-            remoteToken
+            remoteToken,
+            METADATA_URI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         L2SuperChainToken tokenWithBridge = L2SuperChainToken(address(proxy));
@@ -371,7 +381,8 @@ contract L2SuperChainTokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             bridge,
-            remoteToken
+            remoteToken,
+            METADATA_URI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         L2SuperChainToken tokenWithBridge = L2SuperChainToken(address(proxy));
@@ -394,7 +405,8 @@ contract L2SuperChainTokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             bridge,
-            remoteToken
+            remoteToken,
+            METADATA_URI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         L2SuperChainToken tokenWithBridge = L2SuperChainToken(address(proxy));
@@ -762,7 +774,8 @@ contract L2SuperChainTokenTest is Test {
                 INITIAL_SUPPLY,
                 MAX_SUPPLY,
                 bridge,
-                remoteToken
+                remoteToken,
+            METADATA_URI
             );
 
             ERC1967Proxy proxy = new ERC1967Proxy(

@@ -9,7 +9,9 @@ import {
 } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {
+    IERC20Permit
+} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 contract L1TokenTest is Test {
     L1Token public token;
@@ -23,6 +25,7 @@ contract L1TokenTest is Test {
     uint256 constant INITIAL_SUPPLY = 1000 ether;
     uint256 constant MAX_SUPPLY = 10000 ether;
     uint8 constant DECIMALS = 18;
+    string constant METADATA_URI = "ipfs://QmTestL1Token";
 
     function setUp() public {
         implementation = new L1Token();
@@ -34,7 +37,8 @@ contract L1TokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             DECIMALS,
-            owner
+            owner,
+            METADATA_URI
         );
 
         ERC1967Proxy proxy = new ERC1967Proxy(
@@ -135,7 +139,7 @@ contract L1TokenTest is Test {
 
     function test_InitializeWithZeroOwner() public {
         L1Token newImpl = new L1Token();
-        
+
         bytes memory initData = abi.encodeWithSelector(
             L1Token.initialize.selector,
             NAME,
@@ -143,16 +147,17 @@ contract L1TokenTest is Test {
             INITIAL_SUPPLY,
             MAX_SUPPLY,
             DECIMALS,
-            address(0)
+            address(0),
+            METADATA_URI
         );
-        
+
         vm.expectRevert(IToken.ZeroAddress.selector);
         new ERC1967Proxy(address(newImpl), initData);
     }
 
     function test_InitializeWithInitialSupplyExceedsMaxSupply() public {
         L1Token newImpl = new L1Token();
-        
+
         bytes memory initData = abi.encodeWithSelector(
             L1Token.initialize.selector,
             NAME,
@@ -160,16 +165,17 @@ contract L1TokenTest is Test {
             MAX_SUPPLY + 1, // initialSupply > maxSupply
             MAX_SUPPLY,
             DECIMALS,
-            owner
+            owner,
+            METADATA_URI
         );
-        
+
         vm.expectRevert(IToken.ExceedsMaxSupply.selector);
         new ERC1967Proxy(address(newImpl), initData);
     }
 
     function test_InitializeWithZeroInitialSupply() public {
         L1Token newImpl = new L1Token();
-        
+
         bytes memory initData = abi.encodeWithSelector(
             L1Token.initialize.selector,
             NAME,
@@ -177,19 +183,28 @@ contract L1TokenTest is Test {
             0, // zero initial supply
             MAX_SUPPLY,
             DECIMALS,
-            owner
+            owner,
+            METADATA_URI
         );
-        
+
         ERC1967Proxy proxy = new ERC1967Proxy(address(newImpl), initData);
         L1Token newToken = L1Token(address(proxy));
-        
+
         assertEq(newToken.totalSupply(), 0);
         assertEq(newToken.balanceOf(owner), 0);
     }
 
     function test_CannotReinitialize() public {
         vm.expectRevert();
-        token.initialize(NAME, SYMBOL, INITIAL_SUPPLY, MAX_SUPPLY, DECIMALS, owner);
+        token.initialize(
+            NAME,
+            SYMBOL,
+            INITIAL_SUPPLY,
+            MAX_SUPPLY,
+            DECIMALS,
+            owner,
+            METADATA_URI
+        );
     }
 
     // ============================================
@@ -205,7 +220,7 @@ contract L1TokenTest is Test {
     function test_MintWhenPaused() public {
         vm.prank(owner);
         token.pause();
-        
+
         vm.prank(owner);
         vm.expectRevert();
         token.mint(user, 100 ether);
@@ -224,7 +239,7 @@ contract L1TokenTest is Test {
     function test_BurnWhenPaused() public {
         vm.prank(owner);
         token.pause();
-        
+
         vm.prank(owner);
         vm.expectRevert();
         token.burn(owner, 100 ether);
@@ -249,7 +264,7 @@ contract L1TokenTest is Test {
     function test_OnlyOwnerCanUnpause() public {
         vm.prank(owner);
         token.pause();
-        
+
         vm.prank(user);
         vm.expectRevert();
         token.unpause();
@@ -258,7 +273,7 @@ contract L1TokenTest is Test {
     function test_ApproveWhenPaused() public {
         vm.prank(owner);
         token.pause();
-        
+
         vm.prank(owner);
         token.approve(user, 100 ether);
     }
@@ -267,11 +282,11 @@ contract L1TokenTest is Test {
         // First approve
         vm.prank(owner);
         token.approve(user, 100 ether);
-        
+
         // Then pause
         vm.prank(owner);
         token.pause();
-        
+
         // Try transferFrom
         vm.prank(user);
         vm.expectRevert();
@@ -296,7 +311,7 @@ contract L1TokenTest is Test {
 
     function test_SetMaxSupplyEmitsEvent() public {
         uint256 newMaxSupply = 20000 ether;
-        
+
         vm.prank(owner);
         vm.expectEmit(true, true, true, true);
         emit IToken.MaxSupplyUpdated(newMaxSupply);
@@ -309,22 +324,22 @@ contract L1TokenTest is Test {
 
     function test_Approve() public {
         uint256 amount = 500 ether;
-        
+
         vm.prank(owner);
         token.approve(user, amount);
-        
+
         assertEq(token.allowance(owner, user), amount);
     }
 
     function test_TransferFrom() public {
         uint256 amount = 500 ether;
-        
+
         vm.prank(owner);
         token.approve(user, amount);
-        
+
         vm.prank(user);
         token.transferFrom(owner, user, amount);
-        
+
         assertEq(token.balanceOf(user), amount);
         assertEq(token.balanceOf(owner), INITIAL_SUPPLY - amount);
     }
@@ -332,7 +347,7 @@ contract L1TokenTest is Test {
     function test_TransferFromInsufficientAllowance() public {
         vm.prank(owner);
         token.approve(user, 100 ether);
-        
+
         vm.prank(user);
         vm.expectRevert();
         token.transferFrom(owner, user, 200 ether);
@@ -365,7 +380,7 @@ contract L1TokenTest is Test {
     function test_TransferOwnership() public {
         vm.prank(owner);
         token.transferOwnership(user);
-        
+
         assertEq(token.pendingOwner(), user);
         assertEq(token.owner(), owner); // Still owner until accepted
     }
@@ -373,10 +388,10 @@ contract L1TokenTest is Test {
     function test_AcceptOwnership() public {
         vm.prank(owner);
         token.transferOwnership(user);
-        
+
         vm.prank(user);
         token.acceptOwnership();
-        
+
         assertEq(token.owner(), user);
         assertEq(token.pendingOwner(), address(0));
     }
@@ -384,7 +399,7 @@ contract L1TokenTest is Test {
     function test_OnlyPendingOwnerCanAccept() public {
         vm.prank(owner);
         token.transferOwnership(user);
-        
+
         address randomUser = address(0x999);
         vm.prank(randomUser);
         vm.expectRevert();
@@ -403,14 +418,14 @@ contract L1TokenTest is Test {
 
     function test_UpgradeToNewImplementation() public {
         L1TokenV2Mock newImplementation = new L1TokenV2Mock();
-        
+
         vm.prank(owner);
         token.upgradeToAndCall(address(newImplementation), "");
-        
+
         // Verify the upgrade was successful by calling the new function
         L1TokenV2Mock upgraded = L1TokenV2Mock(address(token));
         assertEq(upgraded.newFunction(), 42);
-        
+
         // Verify state is preserved
         assertEq(token.name(), NAME);
         assertEq(token.symbol(), SYMBOL);
@@ -420,7 +435,7 @@ contract L1TokenTest is Test {
 
     function test_OnlyOwnerCanUpgrade() public {
         L1TokenV2Mock newImplementation = new L1TokenV2Mock();
-        
+
         vm.prank(user);
         vm.expectRevert();
         token.upgradeToAndCall(address(newImplementation), "");
@@ -431,12 +446,12 @@ contract L1TokenTest is Test {
         uint256 transferAmount = 100 ether;
         vm.prank(owner);
         token.transfer(user, transferAmount);
-        
+
         L1TokenV2Mock newImplementation = new L1TokenV2Mock();
-        
+
         vm.prank(owner);
         token.upgradeToAndCall(address(newImplementation), "");
-        
+
         // Verify balances are preserved
         assertEq(token.balanceOf(owner), INITIAL_SUPPLY - transferAmount);
         assertEq(token.balanceOf(user), transferAmount);
@@ -446,12 +461,12 @@ contract L1TokenTest is Test {
         uint256 newMaxSupply = 50000 ether;
         vm.prank(owner);
         token.setMaxSupply(newMaxSupply);
-        
+
         L1TokenV2Mock newImplementation = new L1TokenV2Mock();
-        
+
         vm.prank(owner);
         token.upgradeToAndCall(address(newImplementation), "");
-        
+
         assertEq(token.maxSupply(), newMaxSupply);
     }
 
@@ -462,22 +477,24 @@ contract L1TokenTest is Test {
     function test_Permit() public {
         uint256 privateKey = 0xA11CE;
         address signer = vm.addr(privateKey);
-        
+
         // Transfer some tokens to signer
         vm.prank(owner);
         token.transfer(signer, 100 ether);
-        
+
         uint256 nonce = token.nonces(signer);
         uint256 deadline = block.timestamp + 1 days;
         uint256 amount = 50 ether;
-        
+
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 token.DOMAIN_SEPARATOR(),
                 keccak256(
                     abi.encode(
-                        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+                        keccak256(
+                            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+                        ),
                         signer,
                         user,
                         amount,
@@ -487,11 +504,11 @@ contract L1TokenTest is Test {
                 )
             )
         );
-        
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-        
+
         token.permit(signer, user, amount, deadline, v, r, s);
-        
+
         assertEq(token.allowance(signer, user), amount);
         assertEq(token.nonces(signer), nonce + 1);
     }
@@ -499,17 +516,19 @@ contract L1TokenTest is Test {
     function test_PermitExpired() public {
         uint256 privateKey = 0xA11CE;
         address signer = vm.addr(privateKey);
-        
+
         uint256 deadline = block.timestamp - 1; // Already expired
         uint256 amount = 50 ether;
-        
+
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 token.DOMAIN_SEPARATOR(),
                 keccak256(
                     abi.encode(
-                        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+                        keccak256(
+                            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+                        ),
                         signer,
                         user,
                         amount,
@@ -519,9 +538,9 @@ contract L1TokenTest is Test {
                 )
             )
         );
-        
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-        
+
         vm.expectRevert();
         token.permit(signer, user, amount, deadline, v, r, s);
     }
@@ -530,17 +549,19 @@ contract L1TokenTest is Test {
         uint256 privateKey = 0xA11CE;
         address signer = vm.addr(privateKey);
         uint256 wrongPrivateKey = 0xBAD;
-        
+
         uint256 deadline = block.timestamp + 1 days;
         uint256 amount = 50 ether;
-        
+
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 token.DOMAIN_SEPARATOR(),
                 keccak256(
                     abi.encode(
-                        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+                        keccak256(
+                            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+                        ),
                         signer,
                         user,
                         amount,
@@ -550,10 +571,10 @@ contract L1TokenTest is Test {
                 )
             )
         );
-        
+
         // Sign with wrong key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongPrivateKey, digest);
-        
+
         vm.expectRevert();
         token.permit(signer, user, amount, deadline, v, r, s);
     }
@@ -561,21 +582,23 @@ contract L1TokenTest is Test {
     function test_PermitReplayProtection() public {
         uint256 privateKey = 0xA11CE;
         address signer = vm.addr(privateKey);
-        
+
         vm.prank(owner);
         token.transfer(signer, 100 ether);
-        
+
         uint256 nonce = token.nonces(signer);
         uint256 deadline = block.timestamp + 1 days;
         uint256 amount = 50 ether;
-        
+
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 token.DOMAIN_SEPARATOR(),
                 keccak256(
                     abi.encode(
-                        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+                        keccak256(
+                            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+                        ),
                         signer,
                         user,
                         amount,
@@ -585,12 +608,12 @@ contract L1TokenTest is Test {
                 )
             )
         );
-        
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-        
+
         // First permit should succeed
         token.permit(signer, user, amount, deadline, v, r, s);
-        
+
         // Replay should fail
         vm.expectRevert();
         token.permit(signer, user, amount, deadline, v, r, s);

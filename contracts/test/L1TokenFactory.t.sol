@@ -21,6 +21,7 @@ contract L1TokenFactoryTest is Test {
     uint256 constant INITIAL_SUPPLY = 1000 ether;
     uint256 constant MAX_SUPPLY = 10000 ether;
     uint8 constant DECIMALS = 18;
+    string constant METADATA_URI = "ipfs://QmTestMetadataHash123";
 
     function setUp() public {
         tokenImplementation = new L1Token();
@@ -81,7 +82,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         address tokenAddress = factory.createToken(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked(user, block.timestamp)
+            METADATA_URI
         );
         
         assertTrue(tokenAddress != address(0));
@@ -104,7 +105,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         address tokenAddress = factory.createToken{value: fee}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked(user, block.timestamp)
+            METADATA_URI
         );
         
         assertTrue(tokenAddress != address(0));
@@ -122,7 +123,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.InsufficientFee.selector);
         factory.createToken{value: 0.05 ether}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked(user, block.timestamp)
+            METADATA_URI
         );
     }
 
@@ -144,13 +145,13 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         factory.createToken(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked(user, uint256(1))
+            "ipfs://QmMetadata1"
         );
         
         vm.prank(user);
         factory.createToken(
             user, "Token 2", "T2", DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked(user, uint256(2))
+            "ipfs://QmMetadata2"
         );
         
         // Test getTokensPaginated - full range
@@ -201,7 +202,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.ZeroAddress.selector);
         factory.createToken(
             address(0), NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -209,7 +210,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.MaxSupplyMustBeGreaterThanZero.selector);
         factory.createToken(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, 0,
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -217,7 +218,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.InitialSupplyExceedsMaxSupply.selector);
         factory.createToken(
             user, NAME, SYMBOL, DECIMALS, MAX_SUPPLY + 1, MAX_SUPPLY,
-            abi.encodePacked("salt")
+            METADATA_URI
         );
     }
 
@@ -234,7 +235,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         factory.createToken{value: sent}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("refund-salt")
+            "ipfs://QmRefundTest"
         );
         
         assertEq(user.balance, balanceBefore - fee);
@@ -299,7 +300,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         address tokenAddress = factory.createToken(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("get-token-salt")
+            "ipfs://QmGetToken"
         );
         assertEq(factory.getToken(0), tokenAddress);
     }
@@ -313,7 +314,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         address tokenAddress = factory.createToken(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("all-tokens-salt")
+            "ipfs://QmAllTokens"
         );
         assertEq(factory.allTokens(0), tokenAddress);
     }
@@ -340,7 +341,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         address tokenAddress = factory.createTokenWithPromo{value: promoFee}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("promo-salt"),
+            "ipfs://QmPromo",
             promoFee, promoNonce, expiresAt, signature
         );
         
@@ -371,7 +372,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         factory.createTokenWithPromo{value: promoFee}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("promo-salt-1"),
+            "ipfs://QmPromo1",
             promoFee, promoNonce, expiresAt, signature
         );
         
@@ -379,7 +380,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.PromoNonceAlreadyUsed.selector);
         factory.createTokenWithPromo{value: promoFee}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("promo-salt-2"),
+            "ipfs://QmPromo2",
             promoFee, promoNonce, expiresAt, signature
         );
     }
@@ -407,7 +408,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.PromoCodeExpired.selector);
         factory.createTokenWithPromo{value: promoFee}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("expired-salt"),
+            "ipfs://QmExpired",
             promoFee, promoNonce, expiresAt, signature
         );
     }
@@ -431,7 +432,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.InvalidPromoSignature.selector);
         factory.createTokenWithPromo{value: promoFee}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("invalid-sig-salt"),
+            "ipfs://QmInvalidSig",
             promoFee, promoNonce, expiresAt, signature
         );
     }
@@ -440,7 +441,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         address tokenAddress = factory.createToken(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("zero-fee-salt")
+            "ipfs://QmZeroFee"
         );
         assertTrue(tokenAddress != address(0));
     }
@@ -455,7 +456,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         address tokenAddress = factory.createToken{value: fee}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("exact-fee-salt")
+            "ipfs://QmExactFee"
         );
         
         assertTrue(tokenAddress != address(0));
@@ -477,7 +478,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.FeeTransferFailed.selector);
         factory.createToken{value: fee}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("fee-fail-salt")
+            "ipfs://QmFeeFail"
         );
     }
 
@@ -495,7 +496,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.RefundFailed.selector);
         factory.createToken{value: sent}(
             address(rejectContract), NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("refund-fail-salt")
+            "ipfs://QmRefundFail"
         );
     }
 
@@ -520,7 +521,7 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         address tokenAddress = factory.createTokenWithPromo(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("promo-zero-fee-salt"),
+            "ipfs://QmPromoZeroFee",
             promoFee, promoNonce, expiresAt, signature
         );
         
@@ -550,7 +551,7 @@ contract L1TokenFactoryTest is Test {
         vm.expectRevert(IFactory.InsufficientFee.selector);
         factory.createTokenWithPromo{value: 0.01 ether}(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("promo-insuf-salt"),
+            "ipfs://QmPromoInsuf",
             promoFee, promoNonce, expiresAt, signature
         );
     }
@@ -587,13 +588,13 @@ contract L1TokenFactoryTest is Test {
         vm.prank(user);
         address token1 = factory.createToken(
             user, NAME, SYMBOL, DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("upgrade-salt-1")
+            "ipfs://QmUpgrade1"
         );
         
         vm.prank(user);
         address token2 = factory.createToken(
             user, "Token 2", "T2", DECIMALS, INITIAL_SUPPLY, MAX_SUPPLY,
-            abi.encodePacked("upgrade-salt-2")
+            "ipfs://QmUpgrade2"
         );
 
         L1TokenFactoryV2Mock newImplementation = new L1TokenFactoryV2Mock();

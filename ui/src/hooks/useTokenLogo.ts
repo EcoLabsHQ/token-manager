@@ -10,9 +10,11 @@ export interface TokenLogoData {
 
 export interface UseTokenLogoReturn {
   uploadLogo: (chainId: number, tokenAddress: string, file: File) => Promise<TokenLogoData>;
+  preUploadLogo: (chainId: number, identifier: string, file: File) => Promise<TokenLogoData & { identifier: string }>;
   getLogoUrl: (chainId: number, tokenAddress: string) => Promise<string | null>;
   getLogoBatch: (tokens: Array<{ chainId: number; address: string }>) => Promise<Record<string, string>>;
   deleteLogo: (chainId: number, tokenAddress: string) => Promise<void>;
+  copyLogoToTokenAddress: (chainId: number, tokenAddress: string, sourceHash: string) => Promise<TokenLogoData>;
   isUploading: boolean;
   uploadProgress: number;
   error: string | null;
@@ -40,6 +42,52 @@ function notifyLogoUpdate() {
  */
 export function getDirectLogoUrl(chainId: number, tokenAddress: string, extension = 'png'): string {
   return `${R2_PUBLIC_URL}/logos/${chainId}/${tokenAddress.toLowerCase()}.${extension}`;
+}
+
+/**
+ * Lista de extensiones de imagen soportadas en orden de prioridad
+ */
+const SUPPORTED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
+
+/**
+ * Busca la URL del logo probando múltiples extensiones
+ * Retorna la primera URL que exista o null si ninguna existe
+ */
+export async function findLogoUrl(chainId: number, tokenAddress: string): Promise<string | null> {
+  const baseUrl = `${R2_PUBLIC_URL}/logos/${chainId}/${tokenAddress.toLowerCase()}`;
+  
+  for (const ext of SUPPORTED_EXTENSIONS) {
+    const url = `${baseUrl}.${ext}`;
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      if (response.ok) {
+        return url;
+      }
+    } catch {
+      // Continue to next extension
+    }
+  }
+  return null;
+}
+
+/**
+ * Busca logos para múltiples tokens en paralelo
+ */
+export async function findLogoBatch(
+  tokens: Array<{ chainId: number; address: string }>
+): Promise<Record<string, string>> {
+  const results: Record<string, string> = {};
+  
+  await Promise.all(
+    tokens.map(async ({ chainId, address }) => {
+      const url = await findLogoUrl(chainId, address);
+      if (url) {
+        results[address.toLowerCase()] = url;
+      }
+    })
+  );
+  
+  return results;
 }
 
 /**
@@ -106,6 +154,63 @@ export function useTokenLogo(): UseTokenLogoReturn {
 
       // Notify all listeners that a logo was updated
       notifyLogoUpdate();
+
+      return result.data;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      setError(message);
+      throw err;
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
+
+  /**
+   * Sube un logo ANTES de crear el token usando un hash identifier
+   * Este endpoint NO guarda en la DB, solo sube a R2
+   */
+  const preUploadLogo = useCallback(async (
+    chainId: number,
+    identifier: string,
+    file: File
+  ): Promise<TokenLogoData & { identifier: string }> => {
+    setError(null);
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Validar tipo de archivo
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        throw new Error(`Tipo de archivo no permitido. Permitidos: ${ALLOWED_TYPES.join(', ')}`);
+      }
+
+      // Validar tamaño
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(`Archivo muy grande. Máximo: ${MAX_FILE_SIZE / 1024}KB`);
+      }
+
+      const formData = new FormData();
+      formData.append('logo', file);
+
+      setUploadProgress(30);
+
+      const response = await fetch(
+        `${BACKEND_API_URL}/api/tokens/${chainId}/pre-upload/${identifier}/logo`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      setUploadProgress(80);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'Error al subir el logo');
+      }
+
+      const result = await response.json();
+      setUploadProgress(100);
 
       return result.data;
     } catch (err) {
@@ -197,11 +302,45 @@ export function useTokenLogo(): UseTokenLogoReturn {
     }
   }, []);
 
+  /**
+   * Copia una imagen de un hash temporal a la dirección real del token
+   */
+  const copyLogoToTokenAddress = useCallback(async (
+    chainId: number,
+    tokenAddress: string,
+    sourceHash: string
+  ): Promise<TokenLogoData> => {
+    const response = await fetch(
+      `${BACKEND_API_URL}/api/tokens/${chainId}/${tokenAddress}/logo/copy`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sourceHash }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.message || 'Error al copiar el logo');
+    }
+
+    const result = await response.json();
+    
+    // Notify all listeners that a logo was updated
+    notifyLogoUpdate();
+
+    return result.data;
+  }, []);
+
   return {
     uploadLogo,
+    preUploadLogo,
     getLogoUrl,
     getLogoBatch,
     deleteLogo,
+    copyLogoToTokenAddress,
     isUploading,
     uploadProgress,
     error,

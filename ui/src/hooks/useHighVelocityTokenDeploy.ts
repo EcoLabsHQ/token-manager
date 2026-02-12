@@ -134,8 +134,8 @@ export const useHighVelocityTokenDeploy = () => {
         }
         const maxSupplyBigInt = parseUnits(maxSupplyInt.toString(), params.decimals);
         
-        // Generate a deterministic salt from timestamp (integer only)
-        const salt = toHex(BigInt(Math.floor(Date.now())));
+        // TODO: Upload metadata to IPFS and get metadataURI
+        const metadataURI = '';
 
         // Deploy HighVelocity token (no bridge, no remoteToken)
         writeContract({
@@ -149,7 +149,7 @@ export const useHighVelocityTokenDeploy = () => {
             params.decimals,
             maxSupplyBigInt, // initialSupply = maxSupply for high velocity tokens
             maxSupplyBigInt,
-            salt, // salt for deterministic deployment
+            metadataURI, // metadataURI for IPFS metadata
           ],
           chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
         });

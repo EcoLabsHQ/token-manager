@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft, Clock, AlertTriangle, Camera } from 'lucide-react';
-import { useTokenManager, useWithdraw, usePendingWithdrawals, useTokenLogo, type PendingWithdrawalStorage, type WithdrawalStatus } from '../hooks';
+import { useTokenManager, useWithdraw, usePendingWithdrawals, useTokenLogo, findLogoUrl, type PendingWithdrawalStorage, type WithdrawalStatus } from '../hooks';
 import { useAccount, useWalletClient, usePublicClient, useSwitchChain, useConfig } from 'wagmi';
 import { parseUnits, getAddress } from 'viem';
 import { celoSepolia } from 'viem/chains';
@@ -1509,6 +1509,7 @@ interface TokenInfoHeaderProps {
   maxSupply: string;
   userBalance: string;
   decimals: number;
+  metadataURI?: string;
   // For Ethereum Enabled tokens - show both L1 and L2
   isEthereumEnabled?: boolean;
   l1TokenAddress?: string;
@@ -1533,6 +1534,7 @@ const TokenInfoHeader = ({
   maxSupply,
   userBalance, 
   decimals,
+  metadataURI,
   isEthereumEnabled,
   l1TokenAddress,
   l2TokenAddress,
@@ -1637,6 +1639,16 @@ const TokenInfoHeader = ({
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
           <ReadOnlyField label="Decimals" value={decimals.toString()} />
         </div>
+        {/* Metadata URI */}
+        {(l2TokenManager?.metadataURI || l1TokenManager?.metadataURI) && (
+          <div className="flex flex-col gap-2">
+            <ReadOnlyField 
+              label="Metadata URI" 
+              value={l2TokenManager?.metadataURI || l1TokenManager?.metadataURI || ''} 
+              onCopy={() => {}}
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -1723,6 +1735,13 @@ const TokenInfoHeader = ({
         <ReadOnlyField label="Max Supply" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(maxSupply)} />
         <ReadOnlyField label="Available to Mint" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(calculateAvailableToMint(totalSupply, maxSupply))} />
       </div>
+
+      {/* Metadata URI */}
+      <ReadOnlyField 
+        label="Metadata URI" 
+        value={metadataURI || 'Not set'} 
+        onCopy={metadataURI ? () => {} : undefined}
+      />
     </div>
   );
 };
@@ -2015,7 +2034,7 @@ export default function TokenManager() {
   const [tokenLogoUrl, setTokenLogoUrl] = useState<string | undefined>(undefined);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const { address } = useAccount();
-  const { getLogoBatch, uploadLogo, logoUpdateTrigger } = useTokenLogo();
+  const { uploadLogo, logoUpdateTrigger } = useTokenLogo();
 
   // Check if this is an Ethereum Enabled token with both L1 and L2
   const l2TokenFromParams = searchParams.get('l2Token');
@@ -2052,40 +2071,21 @@ export default function TokenManager() {
   // Use the appropriate token manager for actions
   const tokenManager = isL2Token === false ? tokenManagerL1 : tokenManagerL2;
 
-  // Fetch token logo
+  // Fetch token logo - tries multiple extensions (png, jpg, webp, svg)
   useEffect(() => {
     if (!tokenAddress) return;
     
-    const fetchLogo = async () => {
-      const tokenRequests: Array<{ chainId: number; address: string }> = [];
-      
-      // Try L1 address first for ethereum-enabled tokens
-      if (isEthereumEnabled && tokenAddress) {
-        tokenRequests.push({
-          chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
-          address: tokenAddress,
-        });
-      }
-      
-      // Try L2 address
-      const l2Address = l2TokenFromParams || tokenAddress;
-      if (l2Address) {
-        tokenRequests.push({
-          chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
-          address: l2Address,
-        });
-      }
-      
-      if (tokenRequests.length > 0) {
-        const logos = await getLogoBatch(tokenRequests);
-        // Use the first available logo
-        const firstLogoUrl = Object.values(logos).find(url => url);
-        setTokenLogoUrl(firstLogoUrl);
-      }
-    };
+    // Use L2 address for logo (always exists)
+    const l2Address = l2TokenFromParams || tokenAddress;
     
-    fetchLogo();
-  }, [tokenAddress, l2TokenFromParams, isEthereumEnabled, getLogoBatch, logoUpdateTrigger]);
+    // Try to find the logo with any supported extension
+    findLogoUrl(CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId, l2Address)
+      .then(url => {
+        if (url) {
+          setTokenLogoUrl(url);
+        }
+      });
+  }, [tokenAddress, l2TokenFromParams, logoUpdateTrigger]);
 
   // Handle logo upload
   const handleLogoChange = useCallback(async (file: File) => {
@@ -2199,6 +2199,7 @@ export default function TokenManager() {
           maxSupply={tokenManager.maxSupply}
           userBalance={tokenManager.userBalance}
           decimals={tokenManager.decimals}
+          metadataURI={tokenManager.metadataURI}
           isEthereumEnabled={isEthereumEnabled}
           l1TokenAddress={isEthereumEnabled ? tokenAddress : undefined}
           l2TokenAddress={isEthereumEnabled ? l2TokenFromParams || undefined : undefined}

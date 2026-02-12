@@ -42,6 +42,7 @@ export function handleL1TokenCreated(event: TokenCreatedEvent): void {
   token.totalBridges = BigInt.fromI32(0) // N/A for L1 tokens
   token.owner = event.params.owner
   token.chain = CHAIN
+  token.metadataURI = event.params.metadataURI
   token.createdAt = event.block.timestamp
   token.createdAtBlock = event.block.number
   token.createdTxHash = event.transaction.hash
@@ -61,6 +62,7 @@ export function handleL1TokenCreated(event: TokenCreatedEvent): void {
   tokenCreatedEvent.initialSupply = event.params.initialSupply
   tokenCreatedEvent.maxSupply = event.params.maxSupply
   tokenCreatedEvent.owner = event.params.owner
+  tokenCreatedEvent.metadataURI = event.params.metadataURI
   tokenCreatedEvent.chain = CHAIN
   tokenCreatedEvent.blockNumber = event.block.number
   tokenCreatedEvent.blockTimestamp = event.block.timestamp

@@ -1,11 +1,11 @@
 {
   "network": "celo",
   "dataSourceName": "L2SuperChainTokenFactory",
-  "address": "0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4",
-  "startBlock": 58766365,
+  "address": "0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4",
+  "startBlock": 58957301,
   "abiName": "L2SuperChainTokenFactory",
   "abiFile": "L2SuperChainTokenFactory.json",
-  "eventSignature": "TokenCreated(indexed address,string,string,uint256,uint256,uint8,indexed address)",
+  "eventSignature": "TokenCreated(indexed address,string,string,uint256,uint256,uint8,indexed address,string)",
   "handler": "handleL2TokenCreated",
   "mappingFile": "l2-token-factory.ts",
   "hasL2TokenTemplate": true

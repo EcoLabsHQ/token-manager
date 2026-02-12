@@ -180,7 +180,8 @@ export const useConvertToInstitutional = () => {
         }
         const l1MaxSupplyBigInt = parseUnits(maxSupplyInt.toString(), params.decimals);
 
-        const salt = keccak256(toHex(`${address}-${params.name}-${params.symbol}-${Date.now()}`));
+        // TODO: Upload metadata to IPFS and get metadataURI
+        const metadataURI = '';
 
         writeL1Contract({
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
@@ -193,7 +194,7 @@ export const useConvertToInstitutional = () => {
             params.decimals,
             l1InitialSupplyBigInt,
             l1MaxSupplyBigInt,
-            salt,
+            metadataURI,
           ],
         });
 

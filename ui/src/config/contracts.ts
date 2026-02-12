@@ -1,12 +1,12 @@
 // Factory addresses deployed on different chains
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
-    address: '0x8b0BBA85A6D074738689151dcEf4B15be0d62524',
+    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4',
     chainId: 1, // Ethereum Mainnet
     name: 'L1TokenFactory',
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
-    address: '0x8b0BBA85A6D074738689151dcEf4B15be0d62524',
+    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4',
     chainId: 42220, // Celo Mainnet
     name: 'L2SuperChainTokenFactory',
   },
@@ -59,7 +59,7 @@ export const L1_TOKEN_FACTORY_ABI = [
         internalType: 'uint256',
       },
       { name: 'maxSupply_', type: 'uint256', internalType: 'uint256' },
-      { name: 'salt_', type: 'bytes', internalType: 'bytes' },
+      { name: 'metadataURI_', type: 'string', internalType: 'string' },
     ],
     outputs: [
       { name: 'tokenAddress', type: 'address', internalType: 'address' },
@@ -80,7 +80,7 @@ export const L1_TOKEN_FACTORY_ABI = [
         internalType: 'uint256',
       },
       { name: 'maxSupply_', type: 'uint256', internalType: 'uint256' },
-      { name: 'salt_', type: 'bytes', internalType: 'bytes' },
+      { name: 'metadataURI_', type: 'string', internalType: 'string' },
       { name: 'promoFee_', type: 'uint256', internalType: 'uint256' },
       { name: 'promoNonce_', type: 'bytes32', internalType: 'bytes32' },
       { name: 'expiresAt_', type: 'uint256', internalType: 'uint256' },
@@ -375,6 +375,12 @@ export const L1_TOKEN_FACTORY_ABI = [
         type: 'address',
         indexed: true,
         internalType: 'address',
+      },
+      {
+        name: 'metadataURI',
+        type: 'string',
+        indexed: false,
+        internalType: 'string',
       },
     ],
     anonymous: false,
@@ -1033,7 +1039,7 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
         internalType: 'uint256',
       },
       { name: 'maxSupply_', type: 'uint256', internalType: 'uint256' },
-      { name: 'salt_', type: 'bytes', internalType: 'bytes' },
+      { name: 'metadataURI_', type: 'string', internalType: 'string' },
     ],
     outputs: [
       { name: 'tokenAddress', type: 'address', internalType: 'address' },
@@ -1060,7 +1066,7 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
         type: 'address',
         internalType: 'address',
       },
-      { name: 'salt_', type: 'bytes', internalType: 'bytes' },
+      { name: 'metadataURI_', type: 'string', internalType: 'string' },
     ],
     outputs: [
       { name: 'tokenAddress', type: 'address', internalType: 'address' },
@@ -1081,7 +1087,7 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
         internalType: 'uint256',
       },
       { name: 'maxSupply_', type: 'uint256', internalType: 'uint256' },
-      { name: 'salt_', type: 'bytes', internalType: 'bytes' },
+      { name: 'metadataURI_', type: 'string', internalType: 'string' },
       { name: 'promoFee_', type: 'uint256', internalType: 'uint256' },
       { name: 'promoNonce_', type: 'bytes32', internalType: 'bytes32' },
       { name: 'expiresAt_', type: 'uint256', internalType: 'uint256' },
@@ -1377,6 +1383,12 @@ export const L2_SUPERCHAIN_TOKEN_FACTORY_ABI = [
         indexed: true,
         internalType: 'address',
       },
+      {
+        name: 'metadataURI',
+        type: 'string',
+        indexed: false,
+        internalType: 'string',
+      },
     ],
     anonymous: false,
   },
@@ -1604,6 +1616,20 @@ export const L2_SUPERCHAIN_TOKEN_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
     stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'metadataURI',
+    inputs: [],
+    outputs: [{ name: '', type: 'string', internalType: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'setMetadataURI',
+    inputs: [{ name: 'newURI_', type: 'string', internalType: 'string' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',

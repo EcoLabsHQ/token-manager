@@ -4,7 +4,7 @@ import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle, UserCheck }
 import { useSubgraphTokens, type TokenPair, type TokenSetupStatus } from '../hooks/useSubgraphTokens';
 import { usePendingOwnershipTransfers, type PendingOwnershipTransfer } from '../hooks/usePendingOwnershipTransfers';
 import { useAcceptOwnership } from '../hooks/useAcceptOwnership';
-import { useTokenLogo } from '../hooks/useTokenLogo';
+import { useTokenLogo, findLogoBatch } from '../hooks/useTokenLogo';
 import { CONTRACTS } from '@/config/contracts';
 import { MultistepProgressModal, type MultistepProgressStep } from '../components';
 
@@ -177,27 +177,33 @@ interface TokenTableProps {
   onCompleteSetup: (token: TokenPair) => void;
   isLoading?: boolean;
   onRefresh?: () => void;
-  tokenLogos?: Record<string, string>; // chainId:address -> logoUrl
 }
 
-const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _onRefresh, tokenLogos = {} }: TokenTableProps) => {
+const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _onRefresh }: TokenTableProps) => {
+  const [tokenLogos, setTokenLogos] = useState<Record<string, string>>({});
+  
   const handleCopy = (text: string) => {
     if (text) navigator.clipboard.writeText(text);
   }
   
+  // Fetch logos for all tokens (tries multiple extensions: png, jpg, webp, svg)
+  useEffect(() => {
+    if (tokens.length === 0) return;
+    
+    const tokensToFetch = tokens.map(token => ({
+      chainId: token.addressL2 
+        ? CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId 
+        : CONTRACTS.L1_TOKEN_FACTORY.chainId,
+      address: token.addressL2 || token.address,
+    }));
+    
+    findLogoBatch(tokensToFetch).then(setTokenLogos);
+  }, [tokens]);
+  
   // Helper to get logo URL for a token
   const getLogoUrl = (token: TokenPair): string | undefined => {
-    // Try L2 address first (always exists)
-    const l2Key = `${CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId}:${token.addressL2?.toLowerCase() || token.address.toLowerCase()}`;
-    if (tokenLogos[l2Key]) return tokenLogos[l2Key];
-    
-    // Try L1 address if ethereum-enabled
-    if (token.addressL1) {
-      const l1Key = `${CONTRACTS.L1_TOKEN_FACTORY.chainId}:${token.addressL1.toLowerCase()}`;
-      if (tokenLogos[l1Key]) return tokenLogos[l1Key];
-    }
-    
-    return undefined;
+    const address = (token.addressL2 || token.address).toLowerCase();
+    return tokenLogos[address];
   };
 
   if (isLoading) {
@@ -630,45 +636,7 @@ export default function Dashboard() {
     currentStep,
     isSwitchingChain,
   } = useAcceptOwnership();
-  const { getLogoBatch, logoUpdateTrigger } = useTokenLogo();
   const [hideIncomplete, setHideIncomplete] = useState(false);
-  const [tokenLogos, setTokenLogos] = useState<Record<string, string>>({});
-
-  // Fetch logos for all tokens (re-fetches when logos are updated)
-  useEffect(() => {
-    if (tokens.length === 0) return;
-    
-    const fetchLogos = async () => {
-      // Build list of token addresses to fetch
-      const tokenRequests: Array<{ chainId: number; address: string }> = [];
-      
-      for (const token of tokens) {
-        // Add L2 address
-        const l2Address = token.addressL2 || token.address;
-        if (l2Address) {
-          tokenRequests.push({
-            chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId,
-            address: l2Address,
-          });
-        }
-        
-        // Add L1 address if exists
-        if (token.addressL1) {
-          tokenRequests.push({
-            chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId,
-            address: token.addressL1,
-          });
-        }
-      }
-      
-      if (tokenRequests.length > 0) {
-        const logos = await getLogoBatch(tokenRequests);
-        setTokenLogos(logos);
-      }
-    };
-    
-    fetchLogos();
-  }, [tokens, getLogoBatch, logoUpdateTrigger]);
 
   // Auto-refetch when coming from token creation (subgraph may need time to index)
   useEffect(() => {
@@ -892,7 +860,6 @@ export default function Dashboard() {
           onCompleteSetup={handleCompleteSetup} 
           isLoading={isLoading} 
           onRefresh={refetch}
-          tokenLogos={tokenLogos}
         />
       </div>
 

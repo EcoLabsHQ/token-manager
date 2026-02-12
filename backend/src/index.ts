@@ -4,18 +4,20 @@ import cors from 'cors';
 import promoRoutes from './routes/promo';
 import adminRoutes from './routes/admin';
 import tokensRoutes from './routes/tokens';
+import metadataRoutes from './routes/metadata';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' })); // Increased limit for base64 images
 
 // Routes
 app.use('/api/promo', promoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/tokens', tokensRoutes);
+app.use('/api/metadata', metadataRoutes);
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -29,4 +31,5 @@ app.listen(PORT, () => {
   console.log(`🔍 Check promo code: GET /api/promo/check/:code`);
   console.log(`🔑 Get signer address: GET /api/promo/signer`);
   console.log(`🖼️  Token logos endpoint: /api/tokens/:chainId/:address/logo`);
+  console.log(`📦 Metadata IPFS pinning: POST /api/metadata/pin`);
 });

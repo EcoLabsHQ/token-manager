@@ -32,7 +32,8 @@ interface IFactory {
         uint256 initialSupply,
         uint256 maxSupply,
         uint8 decimals,
-        address indexed owner
+        address indexed owner,
+        string metadataURI
     );
 
     /// @dev Event emitted when the creation fee is updated
@@ -124,7 +125,7 @@ interface IFactory {
         uint8 decimals_,
         uint256 initialSupply_,
         uint256 maxSupply_,
-        bytes memory salt_
+        string memory metadataURI_
     ) external payable returns (address tokenAddress);
 
     function createTokenWithPromo(
@@ -134,7 +135,7 @@ interface IFactory {
         uint8 decimals_,
         uint256 initialSupply_,
         uint256 maxSupply_,
-        bytes memory salt_,
+        string memory metadataURI_,
         uint256 promoFee_,
         bytes32 promoNonce_,
         uint256 expiresAt_,

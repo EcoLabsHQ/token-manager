@@ -162,12 +162,12 @@ export function useMigrateToEthereum() {
       setStep('deploying-l1');
       setStepNumber(1);
 
-      // Generate salt for the L1 token deployment
-      // Note: Since L2 token already exists, addresses won't match, but we need a valid salt
-      const salt = keccak256(toHex(`${address}-${params.name}-${params.symbol}-${Date.now()}`));
+      // TODO: Upload metadata to IPFS and get metadataURI
+      // Note: Since L2 token already exists, addresses won't match, but we need a valid metadataURI
+      const metadataURI = '';
 
       // Create L1 token with 0 initial supply (we'll mint to bridge)
-      // ABI order: owner_, name_, symbol_, decimals_, initialSupply_, maxSupply_, salt_
+      // ABI order: owner_, name_, symbol_, decimals_, initialSupply_, maxSupply_, metadataURI_
       const { hash: deployHash, receipt: deployReceipt } = await sendTx(
         {
           address: getAddress(CONTRACTS.L1_TOKEN_FACTORY.address),
@@ -180,7 +180,7 @@ export function useMigrateToEthereum() {
             params.decimals,      // decimals_
             0n,                   // initialSupply_ = 0 (will mint to bridge later)
             params.maxSupply,     // maxSupply_
-            salt,                 // salt_
+            metadataURI,          // metadataURI_
           ],
           value: l1CreationFee ?? 0n,
           chain: { id: CONTRACTS.L1_TOKEN_FACTORY.chainId } as any,
