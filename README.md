@@ -1,4 +1,4 @@
-Token Minter
+Token Manager
 ============
 
 A comprehensive platform for deploying and managing ERC-20 tokens on Celo and Ethereum with cross-chain bridge support.
