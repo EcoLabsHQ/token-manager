@@ -29,7 +29,7 @@ interface Step {
 const STEPS: Step[] = [
   { id: 'initiate', title: 'Initiate withdrawal', description: 'Start withdrawal on L2', chain: 'celo' },
   { id: 'wait-prove', title: 'Wait for state root', description: 'State root publication (~1 hour)', chain: 'ethereum' },
-  { id: 'prove', title: 'Prove on Sepolia', description: 'Submit proof to L1', chain: 'ethereum' },
+  { id: 'prove', title: 'Prove on Ethereum', description: 'Submit proof to L1', chain: 'ethereum' },
   { id: 'wait-finalize', title: 'Wait for challenge period', description: 'Security period (~7 days)', chain: 'ethereum' },
   { id: 'finalize', title: 'Finalize withdrawal', description: 'Claim tokens on L1', chain: 'ethereum' },
 ];
@@ -172,7 +172,7 @@ export function WithdrawalProgressModal({
                     <StepIcon status={status} chain={step.chain} />
                     <div className="flex-1 pt-1">
                       <p className={`font-medium ${status === 'pending' ? 'text-gray-400' : 'text-black'}`}>
-                        {step.id === 'finalize' ? `Get ${amount} ${symbol} on Sepolia` : step.title}
+                        {step.id === 'finalize' ? `Get ${amount} ${symbol} on Ethereum` : step.title}
                       </p>
                       <p className={`text-sm ${status === 'pending' ? 'text-gray-400' : 'text-gray-500'}`}>
                         {step.description}

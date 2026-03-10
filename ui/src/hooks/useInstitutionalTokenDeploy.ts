@@ -200,10 +200,10 @@ export const useInstitutionalTokenDeploy = () => {
       try {
         console.log('Starting L1 token deployment...');
         
-        // Switch to Sepolia (L1) if not already there
+        // Switch to Ethereum (L1) if not already there
         const l1ChainId = CONTRACTS.L1_TOKEN_FACTORY.chainId;
         if (chainId !== l1ChainId) {
-          console.log('Switching to Sepolia (L1)...');
+          console.log('Switching to Ethereum (L1)...');
           await switchChainAsync({ chainId: l1ChainId });
           // Wait a bit for chain switch to complete
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -258,10 +258,10 @@ export const useInstitutionalTokenDeploy = () => {
       try {
         console.log('Starting L2 token deployment with same salt as L1...');
         
-        // Switch to Celo Sepolia (L2) if not already there
+        // Switch to Celo (L2) if not already there
         const l2ChainId = CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId;
         if (chainId !== l2ChainId) {
-          console.log('Switching to Celo Sepolia (L2)...');
+          console.log('Switching to Celo (L2)...');
           await switchChainAsync({ chainId: l2ChainId });
           // Wait a bit for chain switch to complete
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -311,10 +311,10 @@ export const useInstitutionalTokenDeploy = () => {
       try {
         console.log('Configuring bridge connections...');
         
-        // Ensure we're on L2 (Celo Sepolia) for setting remote token
+        // Ensure we're on L2 (Celo) for setting remote token
         const l2ChainId = CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId;
         if (chainId !== l2ChainId) {
-          console.log('Switching to Celo Sepolia (L2) for bridge config...');
+          console.log('Switching to Celo (L2) for bridge config...');
           await switchChainAsync({ chainId: l2ChainId });
           await new Promise(resolve => setTimeout(resolve, 1000));
         }

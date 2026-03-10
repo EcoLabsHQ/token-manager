@@ -218,10 +218,10 @@ export const useConvertToInstitutional = () => {
       try {
         console.log('Convert: Configuring bridge on L2 token...');
         
-        // Switch to L2 (Celo Sepolia) for configuring the L2 token
+        // Switch to L2 (Celo) for configuring the L2 token
         const l2ChainId = CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId;
         if (chainId !== l2ChainId) {
-          console.log('Convert: Switching to Celo Sepolia (L2)...');
+          console.log('Convert: Switching to Celo (L2)...');
           await switchChainAsync({ chainId: l2ChainId });
           await new Promise(resolve => setTimeout(resolve, 1000));
         }

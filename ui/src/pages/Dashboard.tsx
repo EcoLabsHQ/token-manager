@@ -122,14 +122,19 @@ interface AddressWithActionsProps {
 
 // Explorer URLs
 const EXPLORER_URLS = {
-  ethereum: 'https://sepolia.etherscan.io/address/',
-  celo: 'https://sepolia.celoscan.io/address/',
+  ethereum: 'https://etherscan.io/address/',
+  celo: 'https://celoscan.io/address/',
 };
 
 // Truncate address for display
 const truncateAddress = (address: string) => {
   if (!address) return '';
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+const truncateAddressLong = (address: string) => {
+  if (!address) return '';
+  return `${address.slice(0, 10)}...${address.slice(-4)}`;
 };
 
 const AddressWithActions = ({ address, chain, onCopy }: AddressWithActionsProps) => {
@@ -167,6 +172,72 @@ const AddressWithActions = ({ address, chain, onCopy }: AddressWithActionsProps)
       >
         <ExternalLink className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" />
       </a>
+    </div>
+  );
+};
+
+interface MergedAddressWithActionsProps {
+  addressL1?: string;
+  addressL2?: string;
+  onCopy: () => void;
+}
+
+const MergedAddressWithActions = ({ addressL1, addressL2, onCopy }: MergedAddressWithActionsProps) => {
+  const [copied, setCopied] = useState(false);
+  const displayAddress = addressL1 || addressL2 || '';
+
+  if (!displayAddress) return <span className="text-sm text-gray-400">—</span>;
+
+  const handleCopy = () => {
+    onCopy();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <span className="text-sm text-black font-mono" title={displayAddress}>
+        {truncateAddressLong(displayAddress)}
+      </span>
+      <button
+        onClick={handleCopy}
+        className="p-0.5 rounded transition-colors duration-150 hover:bg-gray-100 cursor-pointer"
+        title="Copy address"
+      >
+        {copied ? (
+          <Check className="w-3.5 h-3.5 text-green-500" />
+        ) : (
+          <Copy className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" />
+        )}
+      </button>
+      {addressL1 && (
+        <a
+          href={`${EXPLORER_URLS.ethereum}${addressL1}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-0.5 rounded transition-colors duration-150 hover:bg-gray-100 cursor-pointer flex items-center gap-0.5"
+          title="View on Etherscan (L1)"
+        >
+          <div className="w-3 h-3 rounded overflow-hidden">
+            <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
+          </div>
+          <ExternalLink className="w-3 h-3 text-gray-400 hover:text-gray-700" />
+        </a>
+      )}
+      {addressL2 && (
+        <a
+          href={`${EXPLORER_URLS.celo}${addressL2}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-0.5 rounded transition-colors duration-150 hover:bg-gray-100 cursor-pointer flex items-center gap-0.5"
+          title="View on Celoscan (L2)"
+        >
+          <div className="w-3 h-3 rounded overflow-hidden">
+            <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
+          </div>
+          <ExternalLink className="w-3 h-3 text-gray-400 hover:text-gray-700" />
+        </a>
+      )}
     </div>
   );
 };
@@ -237,8 +308,7 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
         <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Total Supply</div>
         <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Max Supply</div>
         <div className="w-[70px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Holders</div>
-        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide pl-4">Address (L1)</div>
-        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide">Address (L2)</div>
+        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide pl-4">Address</div>
         <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
       </div>
 
@@ -372,30 +442,13 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
               <span className="text-sm text-black tabular-nums">{token.totalUniqueHolders.toLocaleString()}</span>
             </div>
 
-            {/* Address L1 */}
+            {/* Address (merged) */}
             <div className="flex-1 pl-4 min-w-0">
-              {token.addressL1 ? (
-                <AddressWithActions
-                  address={token.addressL1}
-                  chain="ethereum"
-                  onCopy={() => handleCopy(token.addressL1 || '')}
-                />
-              ) : (
-                <span className="text-sm text-gray-400">—</span>
-              )}
-            </div>
-
-            {/* Address L2 */}
-            <div className="flex-1 min-w-0">
-              {token.addressL2 ? (
-                <AddressWithActions
-                  address={token.addressL2}
-                  chain="celo"
-                  onCopy={() => handleCopy(token.addressL2 || '')}
-                />
-              ) : (
-                <span className="text-sm text-gray-400">—</span>
-              )}
+              <MergedAddressWithActions
+                addressL1={token.addressL1}
+                addressL2={token.addressL2}
+                onCopy={() => handleCopy(token.addressL1 || token.addressL2 || '')}
+              />
             </div>
 
             {/* Action */}

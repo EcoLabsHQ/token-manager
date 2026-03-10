@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useAccount, useConfig, useSwitchChain } from 'wagmi';
 import { parseUnits, type Hash, type Address } from 'viem';
 import { getPublicClient, getWalletClient } from 'wagmi/actions';
-import { celoSepolia } from 'viem/chains';
+import { celoOpStack } from '@/config/chains';
 import {
   publicActionsL1,
   publicActionsL2,
@@ -156,7 +156,7 @@ export function useWithdraw() {
         // Check current withdrawal status on-chain
         const currentStatus = await publicClientL1.getWithdrawalStatus({
           receipt: withdrawalReceipt,
-          targetChain: celoSepolia as any,
+          targetChain: celoOpStack as any,
         });
 
         console.log('Current withdrawal status:', currentStatus);
@@ -177,7 +177,7 @@ export function useWithdraw() {
         console.log('Waiting for withdrawal to be provable...');
         const { output, withdrawal } = await publicClientL1.waitToProve({
           receipt: withdrawalReceipt,
-          targetChain: celoSepolia as any,
+          targetChain: celoOpStack as any,
         });
         console.log('Withdrawal is ready to prove');
 
@@ -252,7 +252,7 @@ export function useWithdraw() {
         // Check current withdrawal status on-chain
         const currentStatus = await publicClientL1.getWithdrawalStatus({
           receipt: withdrawalReceipt,
-          targetChain: celoSepolia as any,
+          targetChain: celoOpStack as any,
         });
 
         console.log('Current withdrawal status:', currentStatus);
@@ -270,20 +270,20 @@ export function useWithdraw() {
         // Wait to prove first to get the withdrawal object
         const { withdrawal } = await publicClientL1.waitToProve({
           receipt: withdrawalReceipt,
-          targetChain: celoSepolia as any,
+          targetChain: celoOpStack as any,
         });
 
         // Wait until ready to finalize
         console.log('Waiting for withdrawal to be finalizable...');
         await publicClientL1.waitToFinalize({
-          targetChain: celoSepolia as any,
+          targetChain: celoOpStack as any,
           withdrawalHash: withdrawal.withdrawalHash,
         });
         console.log('Withdrawal is ready to finalize');
 
         // Finalize (cast to any to avoid complex viem type issues)
         const finalizeHash = await (walletClientL1 as any).finalizeWithdrawal({
-          targetChain: celoSepolia as any,
+          targetChain: celoOpStack as any,
           withdrawal,
         });
         console.log(`Finalize transaction hash: ${finalizeHash}`);
@@ -329,7 +329,7 @@ export function useWithdraw() {
         });
         const status = await publicClientL1.getWithdrawalStatus({
           receipt,
-          targetChain: celoSepolia as any,
+          targetChain: celoOpStack as any,
         });
 
         console.log('Withdrawal status:', status);
@@ -368,7 +368,7 @@ export function useWithdraw() {
         // This will wait until the state root is published on L1
         const { output, withdrawal } = await publicClientL1.waitToProve({
           receipt: withdrawalReceipt,
-          targetChain: celoSepolia,
+          targetChain: celoOpStack as any,
         });
 
         console.debug(output, withdrawal);
@@ -411,14 +411,14 @@ export function useWithdraw() {
         // Get withdrawal object first
         const { withdrawal } = await publicClientL1.waitToProve({
           receipt: withdrawalReceipt,
-          targetChain: celoSepolia as any,
+          targetChain: celoOpStack as any,
         });
 
         console.log('Waiting for withdrawal to be ready to finalize...');
 
         // Wait for finalization period to pass
         await publicClientL1.waitToFinalize({
-          targetChain: celoSepolia as any,
+          targetChain: celoOpStack as any,
           withdrawalHash: withdrawal.withdrawalHash,
         });
 

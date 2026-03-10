@@ -5,19 +5,21 @@ import {
   useWalletClient,
   useSwitchChain,
   useReadContract,
+  useConfig,
 } from 'wagmi';
+import { getWalletClient } from 'wagmi/actions';
 import {
   getAddress,
   decodeEventLog,
   type TransactionReceipt,
 } from 'viem';
-import { celoSepolia } from 'viem/chains';
 import {
   CONTRACTS,
   L1_TOKEN_FACTORY_ABI,
 } from '@/config/contracts';
+import { CELO_BRIDGE_ADDRESSES } from '@/config/chains';
 
-export type MigrationStep = 
+export type MigrationStep =
   | 'idle'
   | 'deploying-l1'
   | 'minting-to-bridge'
@@ -41,10 +43,9 @@ export interface MigrationResult {
   error?: string;
 }
 
-// L1 Standard Bridge on Sepolia
-const L1_STANDARD_BRIDGE = '0xFBb0621E0B23b5478B630BD55a5f21f67730B0F1';
-// L2 Standard Bridge on Celo Sepolia
-const L2_STANDARD_BRIDGE = celoSepolia.contracts.l2StandardBridge.address;
+// Bridge addresses (see @/config/chains for source references)
+const L1_STANDARD_BRIDGE = CELO_BRIDGE_ADDRESSES.L1_STANDARD_BRIDGE;
+const L2_STANDARD_BRIDGE = CELO_BRIDGE_ADDRESSES.L2_STANDARD_BRIDGE;
 
 // ABI for L1Token mint
 const L1_TOKEN_MINT_ABI = [
@@ -95,12 +96,12 @@ const L2_TOKEN_CONFIG_ABI = [
 const extractToken = (r: TransactionReceipt, abi: any): string | null => {
   for (const log of r.logs)
     try {
-      const d = decodeEventLog({ abi, data: log.data, topics: log.topics }) as { 
-        eventName: string; 
-        args: { tokenAddress: string } 
+      const d = decodeEventLog({ abi, data: log.data, topics: log.topics }) as {
+        eventName: string;
+        args: { tokenAddress: string }
       };
       if (d.eventName === 'TokenCreated') return d.args.tokenAddress;
-    } catch {}
+    } catch { }
   return null;
 };
 
@@ -119,6 +120,7 @@ export function useMigrateToEthereum() {
 
   const { address, chainId } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const config = useConfig();
   const l1Client = usePublicClient({ chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId });
   const l2Client = usePublicClient({ chainId: CONTRACTS.L2_SUPERCHAIN_TOKEN_FACTORY.chainId });
   const { switchChainAsync } = useSwitchChain();
@@ -136,11 +138,13 @@ export function useMigrateToEthereum() {
       await switchChainAsync({ chainId: targetChainId });
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-    const hash = await walletClient!.writeContract(params);
-    const receipt = await publicClient!.waitForTransactionReceipt({ 
-      hash, 
-      confirmations: 1, 
-      timeout: 120_000 
+    const freshWalletClient = await getWalletClient(config, { chainId: targetChainId });
+    if (!freshWalletClient) throw new Error('Failed to get wallet client');
+    const hash = await freshWalletClient.writeContract(params);
+    const receipt = await publicClient!.waitForTransactionReceipt({
+      hash,
+      confirmations: 1,
+      timeout: 120_000
     });
     if (receipt.status === 'reverted') throw new Error('Transaction reverted');
     return { hash, receipt };
@@ -265,7 +269,7 @@ export function useMigrateToEthereum() {
     } finally {
       setIsProcessing(false);
     }
-  }, [address, walletClient, l1Client, l2Client, switchChainAsync, l1CreationFee, chainId]);
+  }, [address, walletClient, l1Client, l2Client, switchChainAsync, l1CreationFee, chainId, config]);
 
   const reset = useCallback(() => {
     setStep('idle');

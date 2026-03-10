@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { MainLayout } from '../layouts';
+import LandingPage from '@/pages/LandingPage';
 import Dashboard from '@/pages/Dashboard';
+import ExplorePage from '@/pages/ExplorePage';
 import { CreateTokenPage } from '@/pages/CreateTokenPage';
 import TokenManager from '@/pages/TokenManager';
 import SetupBridge from '@/pages/SetupBridge';
@@ -13,9 +15,15 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: (
-          <Dashboard  />
-        ),
+        element: <LandingPage />,
+      },
+      {
+        path: 'explore',
+        element: <ExplorePage />,
+      },
+      {
+        path: 'dashboard',
+        element: <Dashboard />,
       },
       {
         path: 'create',
@@ -40,3 +48,4 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+

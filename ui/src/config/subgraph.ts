@@ -66,6 +66,48 @@ export const QUERIES = {
     }
   `,
 
+  // Obtener todos los tokens L1 (sin filtro de owner)
+  getAllL1Tokens: `
+    query GetAllL1Tokens($first: Int!, $skip: Int!) {
+      tokens(first: $first, skip: $skip, orderBy: createdAt, orderDirection: desc) {
+        id
+        tokenAddress
+        owner
+        name
+        symbol
+        decimals
+        initialSupply
+        maxSupply
+        totalSupply
+        totalUniqueHolders
+        chain
+        createdAt
+      }
+    }
+  `,
+
+  // Obtener todos los tokens L2 (sin filtro de owner), ordenados por totalSupply
+  getAllL2Tokens: `
+    query GetAllL2Tokens($first: Int!, $skip: Int!) {
+      tokens(first: $first, skip: $skip, orderBy: createdAt, orderDirection: desc) {
+        id
+        tokenAddress
+        owner
+        name
+        symbol
+        decimals
+        initialSupply
+        maxSupply
+        totalSupply
+        totalUniqueHolders
+        chain
+        remoteToken
+        bridge
+        createdAt
+      }
+    }
+  `,
+
   // Obtener transferencias de ownership pendientes donde el usuario es el nuevo owner
   getPendingOwnershipTransfersByNewOwner: `
     query GetPendingOwnershipTransfersByNewOwner($newOwner: Bytes!) {

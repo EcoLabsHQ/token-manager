@@ -7,7 +7,6 @@ import {
 } from 'wagmi';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { parseUnits, getAddress } from 'viem';
-import { celoSepolia } from 'viem/chains';
 import {
   CONTRACTS,
   L1_TOKEN_FACTORY_ABI,
@@ -384,10 +383,9 @@ export const useL1TokenFactory = () => {
         });
 
         // Deposit tokens to bridge
-        // Use l1StandardBridgeAddress directly without targetChain to avoid type issues
-        // The bridge address is from celoSepolia.contracts.l1StandardBridge[11155111]
-        const L1_STANDARD_BRIDGE_ADDRESS =
-          celoSepolia.contracts.l1StandardBridge[11155111].address;
+        // L1StandardBridgeProxy on Ethereum Mainnet (for Celo L2)
+        // Source: https://docs.celo.org/cel2/l1-contracts
+        const L1_STANDARD_BRIDGE_ADDRESS = '0x9C4955b92F34148dbcfDCD82e9c9eCe5CF2badfe';
 
         const depositTx = await depositERC20(walletClient, {
           tokenAddress: getAddress(params.l1TokenAddress),

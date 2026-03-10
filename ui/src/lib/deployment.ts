@@ -1,5 +1,5 @@
 import { createPublicClient, createWalletClient, http, getAddress, parseAbi } from 'viem';
-import { celoSepolia } from 'viem/chains';
+import { celo } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
 // Contract ABIs
@@ -33,13 +33,13 @@ export async function deploySimpleERC20(config: DeploymentConfig) {
   const account = privateKeyToAccount(`0x${config.privateKey}`);
   
   const publicClient = createPublicClient({
-    chain: celoSepolia,
-    transport: http(config.rpcUrl || 'https://alfajores-forno.celo-testnet.org'),
+    chain: celo,
+    transport: http(config.rpcUrl || 'https://forno.celo.org'),
   });
 
   const walletClient = createWalletClient({
-    chain: celoSepolia,
-    transport: http(config.rpcUrl || 'https://alfajores-forno.celo-testnet.org'),
+    chain: celo,
+    transport: http(config.rpcUrl || 'https://forno.celo.org'),
     account,
   });
 
@@ -101,12 +101,12 @@ export async function createTokenViaFactory(config: FactoryDeploymentConfig) {
   const account = privateKeyToAccount(`0x${config.privateKey}`);
   
   const publicClient = createPublicClient({
-    chain: celoSepolia,
+    chain: celo,
     transport: http(config.rpcUrl || 'https://lb.drpc.org/ogrpc?network=celo&dkey=AnN38OUr3EcfnfM04Tc8vZSVaPnrRU8R8IlbKlzbRHZc'),
   });
 
   const walletClient = createWalletClient({
-    chain: celoSepolia,
+    chain: celo,
     transport: http(config.rpcUrl || 'https://lb.drpc.org/ogrpc?network=celo&dkey=AnN38OUr3EcfnfM04Tc8vZSVaPnrRU8R8IlbKlzbRHZc'),
     account,
   });

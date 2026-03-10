@@ -1,13 +1,14 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitNetwork } from '@reown/appkit/react';
+import { useEnsName, useEnsAvatar } from 'wagmi';
 
 // Local image paths
 const imgVector = "/images/logo.svg";
 
 // Network image mapping
 const networkImages: Record<number, string> = {
-  1: "/images/ethereum.png", // Sepolia
-  42220: "/images/celo.png",     // Celo Sepolia (Alfajores)
+  1: "/images/ethereum.png", // Ethereum Mainnet
+  42220: "/images/celo.png",     // Celo Mainnet
 };
 
 // Get network image based on chainId
@@ -38,24 +39,40 @@ export function Nav() {
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
   const { caipNetwork } = useAppKitNetwork();
+  const { data: ensName } = useEnsName({ address: address as `0x${string}` | undefined, chainId: 1 });
+  const { data: ensAvatar } = useEnsAvatar({ name: ensName ?? undefined, chainId: 1 });
+  const location = useLocation();
+
+  const navLink = (to: string, label: string) => {
+    const active = location.pathname === to || (to !== '/' && location.pathname.startsWith(to));
+    return (
+      <Link
+        to={to}
+        className={`text-xs sm:text-sm font-medium px-2.5 py-1.5 rounded-lg transition-colors ${
+          active ? 'bg-gray-100 text-black' : 'text-gray-500 hover:text-black hover:bg-gray-50'
+        }`}
+      >
+        {label}
+      </Link>
+    );
+  };
 
   return (
     <nav className="bg-white flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4.5 shadow-[1px_2px_9px_0px_rgba(0,0,0,0.03)] w-full">
-      {/* Logo */}
-      <div className="flex items-center min-w-0">
-        <Link to="/" className="flex items-center px-1 sm:px-3 gap-1.5 hover:opacity-80 transition-opacity">
-          <img 
-            src={imgVector} 
-            alt="Logo" 
-            className="w-[18.7px] h-[20.9px] flex-shrink-0" 
+      {/* Logo + Nav links */}
+      <div className="flex items-center gap-1 min-w-0">
+        <Link to="/" className="flex items-center px-1 sm:px-3 gap-1.5 hover:opacity-80 transition-opacity mr-1">
+          <img
+            src={imgVector}
+            alt="Logo"
+            className="w-[18.7px] h-[20.9px] shrink-0"
           />
-          <span className="font-semibold text-base sm:text-[19.8px] text-black tracking-[-0.55px] truncate hidden xs:inline">
-            Token Manager
-          </span>
-          <span className="font-semibold text-base text-black tracking-[-0.55px] xs:hidden">
+          <span className="font-semibold text-base sm:text-[19.8px] text-black tracking-[-0.55px] truncate hidden sm:inline">
             Token Manager
           </span>
         </Link>
+        {navLink('/explore', 'Explore')}
+        {isConnected && navLink('/dashboard', 'My Tokens')}
       </div>
 
       {/* Right side - Network selector and wallet */}
@@ -83,13 +100,21 @@ export function Nav() {
             onClick={() => open({ view: 'Account' })}
             className="bg-white border border-gray-200 flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2 sm:pl-2.5 sm:pr-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-[10px] font-bold text-white">
-                {address.slice(2, 4).toUpperCase()}
-              </span>
-            </div>
+            {ensAvatar ? (
+              <img
+                src={ensAvatar}
+                alt={ensName || address}
+                className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-[10px] font-bold text-white">
+                  {address.slice(2, 4).toUpperCase()}
+                </span>
+              </div>
+            )}
             <span className="font-medium text-xs sm:text-[13px] text-black tracking-[0.25px] hidden sm:inline">
-              {formatAddress(address)}
+              {formatAddress(ensName || address || '')}
             </span>
           </button>
         ) : (

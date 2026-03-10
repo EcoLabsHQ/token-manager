@@ -118,9 +118,9 @@ export const useBridge = () => {
       // await publicClient.waitForTransactionReceipt({ hash: approveTx });
 
       // Deposit tokens to bridge
-      // Use l1StandardBridgeAddress directly without targetChain to avoid type issues
-      // The bridge address is for Celo L2 on Ethereum Mainnet
-      const L1_STANDARD_BRIDGE_ADDRESS = '0x4200000000000000000000000000000000000010' as const;
+      // L1StandardBridgeProxy on Ethereum Mainnet (for Celo L2)
+      // Source: https://docs.celo.org/cel2/l1-contracts
+      const L1_STANDARD_BRIDGE_ADDRESS = '0x9C4955b92F34148dbcfDCD82e9c9eCe5CF2badfe' as const;
       
       const depositTx = await depositERC20(walletClient, {
         tokenAddress: getAddress(L1_TOKEN),

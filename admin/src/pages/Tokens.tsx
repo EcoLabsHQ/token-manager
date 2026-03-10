@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,67 @@ import { fetchTokensFromSubgraph } from '@/lib/api'
 import { formatNumber, formatDate, truncateAddress } from '@/lib/utils'
 import { Search, ExternalLink, Users, ArrowRightLeft, GitBranch, ChevronLeft, ChevronRight } from 'lucide-react'
 
+// ---- Token Logo utilities ----
+const R2_PUBLIC_URL = 'https://pub-3e106f2284d449d682bad32c5eeb3490.r2.dev'
+const SUPPORTED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'svg']
+const LOGO_CHAIN_ID = 42220 // Celo – primary chain for logos
+
+async function findLogoUrl(chainId: number, tokenAddress: string): Promise<string | null> {
+  const baseUrl = `${R2_PUBLIC_URL}/logos/${chainId}/${tokenAddress.toLowerCase()}`
+  for (const ext of SUPPORTED_EXTENSIONS) {
+    const url = `${baseUrl}.${ext}`
+    try {
+      const res = await fetch(url, { method: 'HEAD' })
+      if (res.ok) return url
+    } catch {
+      // try next extension
+    }
+  }
+  return null
+}
+
+function stringToColor(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const h = Math.abs(hash) % 360
+  return `hsl(${h}, 60%, 75%)`
+}
+
+interface TokenLogoProps {
+  logoUrl?: string
+  name: string
+  symbol: string
+}
+
+function TokenLogo({ logoUrl, name, symbol }: TokenLogoProps) {
+  const [hasError, setHasError] = useState(false)
+  const firstLetter = (name || symbol || '?').charAt(0).toUpperCase()
+  const bgColor = stringToColor(name || symbol || '')
+
+  if (!logoUrl || hasError) {
+    return (
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-bold select-none"
+        style={{ backgroundColor: bgColor }}
+      >
+        {firstLetter}
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={logoUrl}
+      alt={`${name} logo`}
+      className="w-8 h-8 rounded-full object-contain shrink-0"
+      onError={() => setHasError(true)}
+    />
+  )
+}
+// ---- end Token Logo utilities ----
+
 type SortField = 'createdAt' | 'uniqueHolders' | 'totalTransfers' | 'totalBridges'
 type SortOrder = 'asc' | 'desc'
 type PageSize = 10 | 25
@@ -35,6 +96,7 @@ export function Tokens() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState<PageSize>(10)
+  const [logoUrls, setLogoUrls] = useState<Record<string, string>>({})
 
   const { data: tokens, isLoading } = useQuery({
     queryKey: ['tokens'],
@@ -98,6 +160,29 @@ export function Tokens() {
     setPageSize(Number(size) as PageSize)
     setCurrentPage(1)
   }
+
+  // Fetch logos for the currently visible tokens
+  useEffect(() => {
+    if (!paginatedTokens?.length) return
+    Promise.all(
+      paginatedTokens.map(async (token) => {
+        const address = (token.addressL2 || token.tokenAddress).toLowerCase()
+        if (logoUrls[address] !== undefined) return null // already fetched
+        const url = await findLogoUrl(LOGO_CHAIN_ID, address)
+        return { address, url }
+      })
+    ).then((results) => {
+      const newUrls: Record<string, string> = {}
+      results.forEach((r) => {
+        if (r && r.url) newUrls[r.address] = r.url
+        else if (r) newUrls[r.address] = '' // mark as checked (no logo)
+      })
+      if (Object.keys(newUrls).length > 0) {
+        setLogoUrls((prev) => ({ ...prev, ...newUrls }))
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paginatedTokens])
 
   const formatSupply = (supply: string) => {
     const num = BigInt(supply) / BigInt(10 ** 18)
@@ -217,6 +302,7 @@ export function Tokens() {
                 <TableRow>
                   <TableHead>Token</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Creator</TableHead>
                   <TableHead>Admin</TableHead>
                   <TableHead>Supply</TableHead>
                   <TableHead>Created</TableHead>
@@ -245,15 +331,25 @@ export function Tokens() {
                 {paginatedTokens?.map((token) => (
                   <TableRow key={token.id}>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{token.name}</p>
-                        <p className="text-sm text-gray-500">{token.symbol}</p>
+                      <div className="flex items-center gap-3">
+                        <TokenLogo
+                          logoUrl={logoUrls[(token.addressL2 || token.tokenAddress).toLowerCase()] || undefined}
+                          name={token.name}
+                          symbol={token.symbol}
+                        />
+                        <div>
+                          <p className="font-medium">{token.name}</p>
+                          <p className="text-sm text-gray-500">{token.symbol}</p>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={token.type === 'ethereum-enabled' ? 'default' : 'secondary'}>
                         {getTokenTypeLabel(token.type)}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {token.creator ? truncateAddress(token.creator) : <span className="text-gray-400">—</span>}
                     </TableCell>
                     <TableCell className="font-mono text-sm">
                       {truncateAddress(token.owner)}

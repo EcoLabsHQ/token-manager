@@ -229,10 +229,10 @@ export default function SetupBridge() {
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
                 <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600 mx-auto mb-1.5 sm:mb-2" />
                 <p className="text-yellow-800 font-medium text-sm sm:text-base">
-                  Switch to Celo Sepolia
+                  Switch to Celo
                 </p>
                 <p className="text-yellow-600 text-xs sm:text-sm mt-1">
-                  You need to be on Celo Sepolia network to set the bridge.
+                  You need to be on Celo network to set the bridge.
                 </p>
               </div>
               <button

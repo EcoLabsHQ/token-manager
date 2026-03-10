@@ -4,7 +4,8 @@ import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft, Clock, AlertTriangle, 
 import { useTokenManager, useWithdraw, usePendingWithdrawals, useTokenLogo, findLogoUrl, type PendingWithdrawalStorage, type WithdrawalStatus } from '../hooks';
 import { useAccount, useWalletClient, usePublicClient, useSwitchChain, useConfig } from 'wagmi';
 import { parseUnits, getAddress } from 'viem';
-import { celoSepolia } from 'viem/chains';
+import { getWalletClient } from 'wagmi/actions';
+import { celo } from 'viem/chains';
 import { CONTRACTS } from '@/config/contracts';
 import { formatNumberWithCommas, parseFormattedNumber, formatDisplayNumber } from '../lib/utils';
 import { MultistepProgressModal, type MultistepProgressStep } from '../components';
@@ -347,9 +348,10 @@ interface TransferSectionProps {
   userBalance: string;
   onSuccess?: () => void;
   isPaused?: boolean;
+  title?: string;
 }
 
-const TransferSection = ({ symbol, onTransfer, isLoading, userBalance, onSuccess, isPaused = false }: TransferSectionProps) => {
+const TransferSection = ({ symbol, onTransfer, isLoading, userBalance, onSuccess, isPaused = false, title = 'Transfer' }: TransferSectionProps) => {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -378,7 +380,7 @@ const TransferSection = ({ symbol, onTransfer, isLoading, userBalance, onSuccess
   };
 
   return (
-    <SectionCard title="Transfer">
+    <SectionCard title={title}>
       {isPaused && <PausedWarning />}
       <div className="flex flex-col sm:flex-row gap-3">
         <InputField
@@ -400,6 +402,146 @@ const TransferSection = ({ symbol, onTransfer, isLoading, userBalance, onSuccess
       {exceedsBalance && !error && <p className="text-red-500 text-xs sm:text-sm">Amount exceeds your balance ({formatDisplayNumber(userBalance)} {symbol})</p>}
       {success && <p className="text-green-500 text-xs sm:text-sm">Transfer successful!</p>}
       <ActionButton label="Transfer" onClick={handleTransfer} disabled={!isValid || isPaused} loading={isLoading} />
+    </SectionCard>
+  );
+};
+
+// Dual Transfer Section (for Ethereum-enabled tokens)
+interface DualTransferSectionProps {
+  symbol: string;
+  onTransferL1: (to: string, amount: string) => Promise<{ success: boolean; error?: string }>;
+  onTransferL2: (to: string, amount: string) => Promise<{ success: boolean; error?: string }>;
+  isLoading: boolean;
+  l1Balance: string;
+  l2Balance: string;
+  l1IsPaused?: boolean;
+  l2IsPaused?: boolean;
+  onSuccess?: () => void;
+}
+
+const DualTransferSection = ({
+  symbol,
+  onTransferL1,
+  onTransferL2,
+  isLoading,
+  l1Balance,
+  l2Balance,
+  l1IsPaused = false,
+  l2IsPaused = false,
+  onSuccess,
+}: DualTransferSectionProps) => {
+  const [toAddress, setToAddress] = useState('');
+  const [amount, setAmount] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const amountNum = parseFloat(amount.replace(/,/g, '') || '0');
+  const l1BalanceNum = parseFloat(l1Balance.replace(/,/g, '') || '0');
+  const l2BalanceNum = parseFloat(l2Balance.replace(/,/g, '') || '0');
+  const isValidAddress = toAddress.startsWith('0x') && toAddress.length === 42;
+  const isValidAmount = amountNum > 0;
+  const canSendL1 = isValidAddress && isValidAmount && amountNum <= l1BalanceNum && !l1IsPaused;
+  const canSendL2 = isValidAddress && isValidAmount && amountNum <= l2BalanceNum && !l2IsPaused;
+
+  const handleTransfer = async (chain: 'l1' | 'l2') => {
+    setError(null);
+    setSuccess(null);
+    const fn = chain === 'l1' ? onTransferL1 : onTransferL2;
+    const result = await fn(toAddress, amount);
+    if (result.success) {
+      setSuccess(`Transfer on ${chain === 'l1' ? 'Ethereum L1' : 'Celo'} successful!`);
+      setToAddress('');
+      setAmount('');
+      onSuccess?.();
+      setTimeout(() => setSuccess(null), 3000);
+    } else {
+      setError(result.error || 'Transfer failed');
+    }
+  };
+
+  return (
+    <SectionCard title="Transfer">
+      {/* Shared inputs */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <InputField
+          label="To"
+          value={toAddress}
+          onChange={setToAddress}
+          placeholder="0x..."
+        />
+        <InputField
+          label="Amount"
+          value={amount}
+          onChange={setAmount}
+          placeholder="1,000,000"
+          suffix={symbol}
+          formatNumber
+        />
+      </div>
+
+      {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+      {success && <p className="text-green-500 text-xs sm:text-sm">{success}</p>}
+
+      {/* Per-chain balance + send row */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        {/* L1 */}
+        <div className="border border-gray-200 rounded-xl p-3 flex flex-col gap-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded overflow-hidden shrink-0">
+              <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
+            </div>
+            <span className="text-xs font-semibold text-black">Ethereum L1</span>
+          </div>
+          <p className="text-xs text-gray-500">
+            Balance: <span className="font-medium text-black">{formatDisplayNumber(l1Balance)} {symbol}</span>
+          </p>
+          {l1IsPaused && <p className="text-xs text-amber-600">⚠️ Contract is paused</p>}
+          {amountNum > l1BalanceNum && amountNum > 0 && (
+            <p className="text-xs text-red-500">Insufficient balance</p>
+          )}
+          <button
+            onClick={() => handleTransfer('l1')}
+            disabled={!canSendL1 || isLoading}
+            className={`w-full h-8 rounded-lg text-xs font-medium transition-all
+              ${
+                canSendL1 && !isLoading
+                  ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+          >
+            {isLoading ? 'Sending…' : 'Send on L1'}
+          </button>
+        </div>
+
+        {/* L2 */}
+        <div className="border border-gray-200 rounded-xl p-3 flex flex-col gap-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded overflow-hidden shrink-0">
+              <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
+            </div>
+            <span className="text-xs font-semibold text-black">Celo</span>
+          </div>
+          <p className="text-xs text-gray-500">
+            Balance: <span className="font-medium text-black">{formatDisplayNumber(l2Balance)} {symbol}</span>
+          </p>
+          {l2IsPaused && <p className="text-xs text-amber-600">⚠️ Contract is paused</p>}
+          {amountNum > l2BalanceNum && amountNum > 0 && (
+            <p className="text-xs text-red-500">Insufficient balance</p>
+          )}
+          <button
+            onClick={() => handleTransfer('l2')}
+            disabled={!canSendL2 || isLoading}
+            className={`w-full h-8 rounded-lg text-xs font-medium transition-all
+              ${
+                canSendL2 && !isLoading
+                  ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+          >
+            {isLoading ? 'Sending…' : 'Send on Celo'}
+          </button>
+        </div>
+      </div>
     </SectionCard>
   );
 };
@@ -491,6 +633,11 @@ const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess, isPaused =
           formatNumber
         />
       </div>
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
+        <ReadOnlyField label="Total Supply" value={formatDisplayNumber(totalSupply)} />
+        <ReadOnlyField label="Max Supply" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(maxSupply)} />
+        <ReadOnlyField label="Available to Mint" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber((Math.max(0, (parseFloat(maxSupply) || 0) - (parseFloat(totalSupply) || 0))).toString())} />
+      </div>
       {exceedsMaxSupply && (
         <p className="text-red-500 text-xs sm:text-sm bg-red-50 p-2 rounded-lg">
           ⚠️ No additional tokens can be minted beyond the Max Total Supply of your token.
@@ -537,6 +684,12 @@ const BurnSection = ({ symbol, onBurn, isLoading, userBalance, onSuccess, isPaus
   return (
     <SectionCard title="Burn">
       {isPaused && <PausedWarning />}
+      <div className="flex items-start gap-2 rounded-md bg-blue-50 border border-blue-200 p-3 text-xs sm:text-sm text-blue-800">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+        </svg>
+        <span>For ETH-enabled tokens burning has to happen on the L1 chain. Please first bridge the desired amount to L1 and then burn it here.</span>
+      </div>
       <p className="text-xs sm:text-sm text-gray-600">
         Your balance: {formatDisplayNumber(userBalance)} {symbol}
       </p>
@@ -795,25 +948,28 @@ const BridgeSection = ({
 
     try {
       if (direction === 'l1-to-l2') {
-        // Bridge from L1 (Sepolia) to L2 (Celo)
+        // Bridge from L1 (Ethereum) to L2 (Celo)
         // First ensure we're on L1
         if (chainId !== CONTRACTS.L1_TOKEN_FACTORY.chainId) {
           await switchChainAsync({ chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId });
           await new Promise(resolve => setTimeout(resolve, 500));
         }
 
+        const freshWalletClientL1 = await getWalletClient(config, { chainId: CONTRACTS.L1_TOKEN_FACTORY.chainId });
+        if (!freshWalletClientL1) throw new Error('Failed to get wallet client for L1');
+
         const amountBigInt = parseUnits(amount, decimals);
-        const L1_STANDARD_BRIDGE_ADDRESS = celoSepolia.contracts.l1StandardBridge[11155111].address;
+        const L1_STANDARD_BRIDGE_ADDRESS = '0xEc18a3c30131A0Db4246e785355fBc16E2eAF408';
 
         // Step 1: Approve the bridge to spend tokens
         setBridgeStep('approving');
-        const approveTx = await walletClient.writeContract({
+        const approveTx = await (freshWalletClientL1 as any).writeContract({
           address: getAddress(l1TokenAddress),
           abi: ERC20_APPROVE_ABI,
           functionName: 'approve',
           args: [getAddress(L1_STANDARD_BRIDGE_ADDRESS), amountBigInt],
-          chain: walletClient.chain,
-          account: walletClient.account,
+          chain: freshWalletClientL1.chain,
+          account: freshWalletClientL1.account,
         });
 
         await l1PublicClient.waitForTransactionReceipt({ hash: approveTx });
@@ -822,15 +978,16 @@ const BridgeSection = ({
         setBridgeStep('bridging');
         const { depositERC20 } = await import('@eth-optimism/viem/actions');
 
-        const depositTx = await depositERC20(walletClient, {
+        const depositTx = await depositERC20(freshWalletClientL1 as any, {
           tokenAddress: getAddress(l1TokenAddress),
           remoteTokenAddress: getAddress(l2TokenAddress),
           amount: amountBigInt,
           to: address,
+          chain: freshWalletClientL1.chain,
           minGasLimit: 2000000,
           l1StandardBridgeAddress: L1_STANDARD_BRIDGE_ADDRESS,
           unsafe: true,
-        });
+        } as any);
 
         setTxHash(depositTx);
 
@@ -849,16 +1006,19 @@ const BridgeSection = ({
         setTimeout(() => setSuccess(false), 5000);
       } else {
         // Bridge from L2 to L1 - Approve + Initiate Withdrawal
-        if (chainId !== celoSepolia.id) {
-          await switchChainAsync({ chainId: celoSepolia.id });
+        if (chainId !== celo.id) {
+          await switchChainAsync({ chainId: celo.id });
           await new Promise(resolve => setTimeout(resolve, 500));
         }
+
+        const freshWalletClientL2 = await getWalletClient(config, { chainId: celo.id });
+        if (!freshWalletClientL2) throw new Error('Failed to get wallet client for L2');
 
         const amountBigInt = parseUnits(amount, decimals);
         const L2_STANDARD_BRIDGE_ADDRESS = '0x4200000000000000000000000000000000000010';
 
         // Get L2 public client
-        const l2PublicClient = await import('wagmi/actions').then(m => m.getPublicClient(config, { chainId: celoSepolia.id }));
+        const l2PublicClient = await import('wagmi/actions').then(m => m.getPublicClient(config, { chainId: celo.id }));
         if (!l2PublicClient) throw new Error('Failed to get L2 public client');
 
         // Show the withdrawal modal immediately
@@ -866,13 +1026,13 @@ const BridgeSection = ({
 
         // Step 1: Approve the bridge to spend tokens
         setBridgeStep('approving');
-        const approveTx = await walletClient.writeContract({
+        const approveTx = await (freshWalletClientL2 as any).writeContract({
           address: getAddress(l2TokenAddress),
           abi: ERC20_APPROVE_ABI,
           functionName: 'approve',
           args: [getAddress(L2_STANDARD_BRIDGE_ADDRESS), amountBigInt],
-          chain: walletClient.chain,
-          account: walletClient.account,
+          chain: freshWalletClientL2.chain,
+          account: freshWalletClientL2.account,
         });
 
         await l2PublicClient.waitForTransactionReceipt({ hash: approveTx });
@@ -1070,7 +1230,7 @@ const BridgeSection = ({
     <SectionCard title="Bridge Tokens">
       {isPaused && <PausedWarning />}
       <p className="text-xs sm:text-sm text-gray-600">
-        Transfer tokens between Ethereum L1 (Sepolia) and Celo L2.
+        Transfer tokens between Ethereum L1 and Celo L2.
       </p>
 
       {/* Direction Selector */}
@@ -1197,7 +1357,7 @@ const BridgeSection = ({
           <p>Bridge transaction submitted successfully!</p>
           {txHash && (
             <a
-              href={`https://sepolia.etherscan.io/tx/${txHash}`}
+              href={`https://etherscan.io/tx/${txHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="underline hover:text-green-600"
@@ -1547,14 +1707,6 @@ const TokenInfoHeader = ({
   isUploadingLogo
 }: TokenInfoHeaderProps) => {
   const navigate = useNavigate();
-  // Calculate available to mint
-  const calculateAvailableToMint = (total: string, max: string) => {
-    const totalNum = parseFloat(total) || 0;
-    const maxNum = parseFloat(max) || 0;
-    if (maxNum === 0) return 'Unlimited';
-    const available = maxNum - totalNum;
-    return available > 0 ? available.toString() : '0';
-  };
   // If Ethereum Enabled, show both tokens
   if (isEthereumEnabled && l1TokenAddress && l2TokenAddress && l1TokenManager && l2TokenManager) {
     return (
@@ -1585,53 +1737,38 @@ const TokenInfoHeader = ({
           </div>
         </div>
 
-        {/* L1 Token Info */}
-        <div className="border border-gray-200 rounded-xl p-3 sm:p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-5 h-5 rounded overflow-hidden flex-shrink-0">
-              <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
-            </div>
-            <span className="text-sm font-semibold text-black">Ethereum L1 Token</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            <ReadOnlyField
-              label="Token address"
-              value={l1TokenAddress}
-              onCopy={() => {}}
-            />
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
-              <ReadOnlyField label="Total Supply" value={formatDisplayNumber(l1TokenManager.totalSupply)} />
-              <ReadOnlyField label="Max Supply" value={l1TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(l1TokenManager.maxSupply)} />
-              <ReadOnlyField label="My Balance" value={formatDisplayNumber(l1TokenManager.userBalance)} />
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
-              <ReadOnlyField label="Available to Mint" value={l1TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(calculateAvailableToMint(l1TokenManager.totalSupply, l1TokenManager.maxSupply))} />
-            </div>
-          </div>
-        </div>
+        {/* Single Token Address */}
+        <ReadOnlyField
+          label="Token address"
+          value={l1TokenAddress}
+          onCopy={() => {}}
+        />
 
-        {/* L2 Token Info */}
-        <div className="border border-gray-200 rounded-xl p-3 sm:p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-5 h-5 rounded overflow-hidden flex-shrink-0">
-              <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
+        {/* Per-chain stats */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          {/* L1 column */}
+          <div className="border border-gray-200 rounded-xl p-3 flex flex-col gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded overflow-hidden shrink-0">
+                <img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" />
+              </div>
+              <span className="text-xs font-semibold text-black">Ethereum L1</span>
             </div>
-            <span className="text-sm font-semibold text-black">Celo L2 Token</span>
+            <ReadOnlyField label="Total Supply" value={formatDisplayNumber(l1TokenManager.totalSupply)} />
+            <ReadOnlyField label="Max Supply" value={l1TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(l1TokenManager.maxSupply)} />
+            <ReadOnlyField label="My Balance" value={formatDisplayNumber(l1TokenManager.userBalance)} />
           </div>
-          <div className="flex flex-col gap-2">
-            <ReadOnlyField
-              label="Token address"
-              value={l2TokenAddress}
-              onCopy={() => {}}
-            />
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
-              <ReadOnlyField label="Total Supply" value={formatDisplayNumber(l2TokenManager.totalSupply)} />
-              <ReadOnlyField label="Max Supply" value={l2TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(l2TokenManager.maxSupply)} />
-              <ReadOnlyField label="My Balance" value={formatDisplayNumber(l2TokenManager.userBalance)} />
+          {/* L2 column */}
+          <div className="border border-gray-200 rounded-xl p-3 flex flex-col gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded overflow-hidden shrink-0">
+                <img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" />
+              </div>
+              <span className="text-xs font-semibold text-black">Celo L2</span>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
-              <ReadOnlyField label="Available to Mint" value={l2TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(calculateAvailableToMint(l2TokenManager.totalSupply, l2TokenManager.maxSupply))} />
-            </div>
+            <ReadOnlyField label="Total Supply" value={formatDisplayNumber(l2TokenManager.totalSupply)} />
+            <ReadOnlyField label="Max Supply" value={l2TokenManager.maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(l2TokenManager.maxSupply)} />
+            <ReadOnlyField label="My Balance" value={formatDisplayNumber(l2TokenManager.userBalance)} />
           </div>
         </div>
 
@@ -1733,7 +1870,6 @@ const TokenInfoHeader = ({
       {/* Supply Info */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
         <ReadOnlyField label="Max Supply" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(maxSupply)} />
-        <ReadOnlyField label="Available to Mint" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(calculateAvailableToMint(totalSupply, maxSupply))} />
       </div>
 
       {/* Metadata URI */}
@@ -1915,14 +2051,28 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connecte
         return (
           <div className="flex flex-col gap-5">
             <h3 className="text-base font-semibold text-black">General</h3>
-            <TransferSection 
-              symbol={symbol || ''} 
-              onTransfer={transfer}
-              isLoading={isOperationLoading}
-              userBalance={userBalance}
-              onSuccess={onOperationSuccess}
-              isPaused={isPaused}
-            />
+            {isEthereumEnabled && l2TokenManager ? (
+              <DualTransferSection
+                symbol={symbol || ''}
+                onTransferL1={transfer}
+                onTransferL2={l2TokenManager.transfer}
+                isLoading={isOperationLoading}
+                l1Balance={userBalance}
+                l2Balance={l2TokenManager.userBalance}
+                l1IsPaused={isPaused}
+                l2IsPaused={l2TokenManager.isPaused}
+                onSuccess={onOperationSuccess}
+              />
+            ) : (
+              <TransferSection
+                symbol={symbol || ''}
+                onTransfer={transfer}
+                isLoading={isOperationLoading}
+                userBalance={userBalance}
+                onSuccess={onOperationSuccess}
+                isPaused={isPaused}
+              />
+            )}
           </div>
         );
       case 'mint':
@@ -2060,7 +2210,7 @@ export default function TokenManager() {
       // For ethereum-enabled, we always use L1 as primary for actions
       setIsL2Token(false);
     } else if (tokenManagerL1.name) {
-      // Check L1 first (Ethereum Mainnet / Sepolia)
+      // Check L1 first (Ethereum Mainnet)
       setIsL2Token(false);
     } else if (tokenManagerL2.name) {
       // Fallback to L2 (Celo)
@@ -2164,7 +2314,7 @@ export default function TokenManager() {
             The token you're looking for doesn't exist or couldn't be loaded.
           </p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             className="bg-black text-white text-sm font-medium h-9 px-4 rounded-lg 
                        flex items-center gap-2 mx-auto cursor-pointer
                        transition-all duration-150 hover:bg-gray-800"
@@ -2182,7 +2332,7 @@ export default function TokenManager() {
       <div className="w-full max-w-[960px]">
         {/* Back Button */}
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 hover:text-black transition-colors mb-3 sm:mb-4 cursor-pointer"
         >
           <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />

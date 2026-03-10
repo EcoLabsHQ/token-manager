@@ -146,6 +146,7 @@ export interface Token {
   addressL1?: string;
   addressL2?: string;
   createdAt: string;
+  creator?: string; // Original creator address (from TokenCreatedEvent)
   // Metrics from subgraph
   uniqueHolders: number;
   totalTransfers: number;
@@ -248,6 +249,11 @@ interface SubgraphToken {
   createdAt: string;
 }
 
+interface SubgraphTokenCreatedEvent {
+  tokenAddress: string;
+  owner: string;
+}
+
 interface SubgraphResponse<T> {
   data?: T;
   errors?: Array<{ message: string }>;
@@ -275,6 +281,16 @@ async function querySubgraph<T>(
   }
 }
 
+// Query to get token creators (immutable event records)
+const GET_TOKEN_CREATORS_QUERY = `
+  query GetTokenCreators {
+    tokenCreatedEvents(first: 1000, orderBy: blockTimestamp, orderDirection: asc) {
+      tokenAddress
+      owner
+    }
+  }
+`;
+
 // Query to get ALL tokens (not filtered by owner)
 const GET_ALL_TOKENS_QUERY = `
   query GetAllTokens {
@@ -300,11 +316,19 @@ const GET_ALL_TOKENS_QUERY = `
 `;
 
 export async function fetchTokensFromSubgraph(): Promise<Token[]> {
-  // Fetch from both subgraphs
-  const [ethereumResult, celoResult] = await Promise.all([
+  // Fetch tokens and creator events from both subgraphs in parallel
+  const [ethereumResult, celoResult, ethCreators, celoCreators] = await Promise.all([
     querySubgraph<{ tokens: SubgraphToken[] }>(SUBGRAPH_URLS.ethereum, GET_ALL_TOKENS_QUERY),
     querySubgraph<{ tokens: SubgraphToken[] }>(SUBGRAPH_URLS.celo, GET_ALL_TOKENS_QUERY),
+    querySubgraph<{ tokenCreatedEvents: SubgraphTokenCreatedEvent[] }>(SUBGRAPH_URLS.ethereum, GET_TOKEN_CREATORS_QUERY),
+    querySubgraph<{ tokenCreatedEvents: SubgraphTokenCreatedEvent[] }>(SUBGRAPH_URLS.celo, GET_TOKEN_CREATORS_QUERY),
   ]);
+
+  // Build creator map: tokenAddress.toLowerCase() -> creatorAddress
+  const creatorMap = new Map<string, string>();
+  [...(ethCreators?.tokenCreatedEvents ?? []), ...(celoCreators?.tokenCreatedEvents ?? [])].forEach((ev) => {
+    creatorMap.set(ev.tokenAddress.toLowerCase(), ev.owner);
+  });
 
   const l1Tokens = ethereumResult?.tokens ?? [];
   const l2Tokens = celoResult?.tokens ?? [];
@@ -353,6 +377,7 @@ export async function fetchTokensFromSubgraph(): Promise<Token[]> {
       initialSupply: token.initialSupply,
       maxSupply: token.maxSupply,
       owner: token.owner,
+      creator: creatorMap.get(token.tokenAddress.toLowerCase()),
       type: 'ethereum-enabled',
       addressL1: token.tokenAddress,
       addressL2: linkedL2?.tokenAddress,
@@ -382,6 +407,7 @@ export async function fetchTokensFromSubgraph(): Promise<Token[]> {
       initialSupply: token.initialSupply,
       maxSupply: token.maxSupply,
       owner: token.owner,
+      creator: creatorMap.get(token.tokenAddress.toLowerCase()),
       type: 'celo-native',
       addressL2: token.tokenAddress,
       createdAt: token.createdAt,

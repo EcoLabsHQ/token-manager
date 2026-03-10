@@ -16,6 +16,8 @@ function ChooseTokenType({
   hasResumableDeployment,
   onResume,
   onCancelResume,
+  l1CreationFee,
+  l2CreationFee,
 }: {
   selectedType: TokenType | null;
   onSelectType: (type: TokenType) => void;
@@ -24,7 +26,14 @@ function ChooseTokenType({
   hasResumableDeployment?: boolean;
   onResume?: () => void;
   onCancelResume?: () => void;
+  l1CreationFee?: bigint;
+  l2CreationFee?: bigint;
 }) {
+  const formatFee = (fee: bigint | undefined, symbol: string) => {
+    if (fee === undefined) return `... ${symbol}`;
+    const formatted = Number(fee) / 1e18;
+    return `${formatted % 1 === 0 ? formatted.toLocaleString() : formatted.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${symbol}`;
+  };
   return (
     <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-[456px] px-2 sm:px-0">
       {/* Resume Banner */}
@@ -79,7 +88,7 @@ function ChooseTokenType({
           type="celo-native"
           title="Celo-Native"
           description="Fast, cheap, and easy to deploy on the Celo Network."
-          price="100 CELO"
+          price={formatFee(l2CreationFee, 'CELO')}
           features={[
             'Deploys on Celo L2 only',
             'No bridge configuration required',
@@ -95,7 +104,7 @@ function ChooseTokenType({
           type="ethereum-enabled"
           title="Ethereum Enabled"
           description="Institutional-grade assets, secured by Ethereum L1 and optimized for interopability."
-          price="1,000 CELO"
+          price={formatFee(l1CreationFee, 'ETH')}
           features={[
             'Deploys on Ethereum (L1) and Celo (L2)',
             'Automatic bridge configuration included',
@@ -689,11 +698,11 @@ export function CreateTokenPage() {
   } = useCreateToken();
 
   const handleViewToken = () => {
-    navigate('/', { state: { fromTokenCreation: true } });
+    navigate('/dashboard', { state: { fromTokenCreation: true } });
   };
 
   const handleCancel = () => {
-    navigate('/');
+    navigate('/dashboard');
   };
 
   const handleConnectWallet = () => {
@@ -725,6 +734,8 @@ export function CreateTokenPage() {
             hasResumableDeployment={hasResumableDeployment}
             onResume={resumeDeployment}
             onCancelResume={cancelResumableDeployment}
+            l1CreationFee={l1CreationFee}
+            l2CreationFee={l2CreationFee}
           />
         )}
 
