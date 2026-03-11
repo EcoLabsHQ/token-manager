@@ -23,10 +23,7 @@ const projectId = '62c810723ad1406ccdb5a36768a29b3b';
 const metadata = {
   name: 'ecolabs Token Manager',
   description: 'Manage Tokens with Reown',
-  url:
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : 'https://example.com',
+  url: "https://token.celopg.eco/",
   icons: ['https://avatars.githubusercontent.com/u/179229932'],
 };
 
