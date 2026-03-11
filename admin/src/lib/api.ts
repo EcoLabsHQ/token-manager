@@ -15,14 +15,14 @@ export const SUPPORTED_CHAINS: Record<number, { name: string; symbol: string; su
     name: 'Ethereum Mainnet',
     symbol: 'ETH',
     suffix: 'ETH',
-    address: '0xa7763537F4C1F321C31AaAc2a2e3b5c674f568D2',
+    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4',
     rpcUrl: 'https://ethereum-rpc.publicnode.com',
   },
   42220: { // Celo Mainnet
     name: 'Celo Mainnet',
     symbol: 'CELO',
     suffix: 'CELO',
-    address: '0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4',
+    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4',
     rpcUrl: 'https://forno.celo.org',
   },
 };
@@ -30,11 +30,11 @@ export const SUPPORTED_CHAINS: Record<number, { name: string; symbol: string; su
 // Legacy contract references (for backward compatibility)
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
-    address: '0xa7763537F4C1F321C31AaAc2a2e3b5c674f568D2' as `0x${string}`,
+    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4' as `0x${string}`,
     chainId: 1, // Ethereum Mainnet
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
-    address: '0x5D36082CeA243a5aA7532aBb6Ff31b25418281a4' as `0x${string}`,
+    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4' as `0x${string}`,
     chainId: 42220, // Celo Mainnet
   },
 } as const;

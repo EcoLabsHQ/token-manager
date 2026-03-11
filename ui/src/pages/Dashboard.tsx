@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle, UserCheck } from 'lucide-react';
 import { useSubgraphTokens, type TokenPair, type TokenSetupStatus } from '../hooks/useSubgraphTokens';
 import { usePendingOwnershipTransfers, type PendingOwnershipTransfer } from '../hooks/usePendingOwnershipTransfers';
@@ -677,9 +678,37 @@ const PendingTransfersTable = ({ transfers, onAccept, isLoading, processingToken
 };
 
 
+function ConnectWalletPrompt() {
+  const { open } = useAppKit();
+  return (
+    <div className="bg-gray-100 flex flex-col flex-1 items-center justify-center min-h-0 w-full p-6 animate-fade-in">
+      <div className="bg-white rounded-2xl p-8 sm:p-12 flex flex-col items-center gap-5 shadow-sm max-w-sm w-full text-center">
+        <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+          <svg className="w-7 h-7 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+            <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+            <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+          </svg>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <h2 className="text-lg font-semibold text-black tracking-tight">Connect your wallet</h2>
+          <p className="text-sm text-gray-500">Connect your wallet to see your tokens</p>
+        </div>
+        <button
+          onClick={() => open()}
+          className="bg-black text-white text-sm font-medium h-10 px-6 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer w-full"
+        >
+          Connect Wallet
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isConnected } = useAppKitAccount();
   const { tokens, isLoading, l1TokenCount, l2TokenCount, refetch } = useSubgraphTokens();
   const { pendingTransfers, isLoading: isPendingLoading, refetch: refetchPending } = usePendingOwnershipTransfers();
   const { 
@@ -690,6 +719,7 @@ export default function Dashboard() {
     isSwitchingChain,
   } = useAcceptOwnership();
   const [hideIncomplete, setHideIncomplete] = useState(false);
+  const [acceptedTransferIds, setAcceptedTransferIds] = useState<Set<string>>(new Set());
 
   // Auto-refetch when coming from token creation (subgraph may need time to index)
   useEffect(() => {
@@ -740,9 +770,21 @@ export default function Dashboard() {
   const handleAcceptOwnership = async (transfer: PendingOwnershipTransfer) => {
     const result = await acceptOwnership(transfer);
     if (result.success) {
-      // Refetch to update the lists after successful acceptance
+      // Optimistically remove the transfer so the UI updates immediately,
+      // before the subgraph has a chance to re-index the event.
+      setAcceptedTransferIds(prev => new Set([...prev, transfer.id]));
+      // Also remove the paired transfer ID if it exists (Ethereum Enabled tokens)
+      if (transfer.pairedTransfer) {
+        setAcceptedTransferIds(prev => new Set([...prev, transfer.pairedTransfer!.id]));
+      }
+      // Refresh tokens list (new owner should appear in My Tokens)
       refetch();
-      refetchPending();
+      // Delayed refetches to sync once the subgraph indexes the event
+      const t1 = setTimeout(() => refetchPending(), 5000);
+      const t2 = setTimeout(() => refetchPending(), 12000);
+      const t3 = setTimeout(() => refetchPending(), 25000);
+      // Cleanup timers if component unmounts (not critical but clean)
+      setTimeout(() => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); }, 30000);
     } else {
       // Could add toast notification here for error
       console.error('Failed to accept ownership:', result.error);
@@ -753,10 +795,15 @@ export default function Dashboard() {
     navigate('/create');
   };
 
+  // Hide transfers that have been accepted optimistically (subgraph may lag behind)
+  const visiblePendingTransfers = pendingTransfers.filter(t => !acceptedTransferIds.has(t.id));
+
+  if (!isConnected) return <ConnectWalletPrompt />;
+
   return (
     <div className="bg-gray-100 flex flex-col flex-1 min-h-0 w-full p-3 sm:p-6 animate-fade-in gap-4 sm:gap-6">
       {/* Pending Ownership Transfers Section */}
-      {pendingTransfers.length > 0 && (
+      {visiblePendingTransfers.length > 0 && (
         <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-4 sm:gap-5 shadow-sm transition-shadow duration-300 hover:shadow-md animate-slide-up border-l-4 border-purple-500">
           {/* Section Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -771,7 +818,7 @@ export default function Dashboard() {
               </div>
               {!isPendingLoading && (
                 <span className="text-xs sm:text-sm text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                  {pendingTransfers.length} pending
+                  {visiblePendingTransfers.length} pending
                 </span>
               )}
             </div>
@@ -795,7 +842,7 @@ export default function Dashboard() {
 
           {/* Pending Transfers Table */}
           <PendingTransfersTable 
-            transfers={pendingTransfers} 
+            transfers={visiblePendingTransfers} 
             onAccept={handleAcceptOwnership} 
             isLoading={isPendingLoading}
             processingTokenId={processingTokenId}

@@ -3,6 +3,7 @@ import { Layout } from './components/Layout'
 import { Dashboard } from './pages/Dashboard'
 import { PromoCodes } from './pages/PromoCodes'
 import { Tokens } from './pages/Tokens'
+import { FeesPage } from './pages/FeesPage'
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="promo-codes" element={<PromoCodes />} />
         <Route path="tokens" element={<Tokens />} />
+        <Route path="fees" element={<FeesPage />} />
       </Route>
     </Routes>
   )

@@ -178,8 +178,13 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
             await switchChainAsync({ chainId: expectedChainId });
             // Small delay to ensure wallet is ready after chain switch
             await new Promise(resolve => setTimeout(resolve, 500));
-          } finally {
             setIsSwitchingChain(false);
+          } catch (switchErr) {
+            setIsSwitchingChain(false);
+            const msg = switchErr instanceof Error ? switchErr.message : 'Chain switch failed';
+            setError(msg);
+            setIsLoading(false);
+            return { success: false, error: msg };
           }
         }
 

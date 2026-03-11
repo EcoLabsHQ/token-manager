@@ -72,7 +72,7 @@ export function Nav() {
           </span>
         </Link>
         {navLink('/explore', 'Explore')}
-        {isConnected && navLink('/dashboard', 'My Tokens')}
+        {navLink('/dashboard', 'My Tokens')}
       </div>
 
       {/* Right side - Network selector and wallet */}

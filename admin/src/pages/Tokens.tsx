@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { fetchTokensFromSubgraph } from '@/lib/api'
-import { formatNumber, formatDate, truncateAddress } from '@/lib/utils'
+import { formatNumber, formatDate } from '@/lib/utils'
+import { ENSAddress } from '@/components/ENSAddress'
 import { Search, ExternalLink, Users, ArrowRightLeft, GitBranch, ChevronLeft, ChevronRight } from 'lucide-react'
 
 // ---- Token Logo utilities ----
@@ -348,11 +349,13 @@ export function Tokens() {
                         {getTokenTypeLabel(token.type)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {token.creator ? truncateAddress(token.creator) : <span className="text-gray-400">—</span>}
+                    <TableCell>
+                      {token.creator
+                        ? <ENSAddress address={token.creator} />
+                        : <span className="text-gray-400">—</span>}
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {truncateAddress(token.owner)}
+                    <TableCell>
+                      <ENSAddress address={token.owner} />
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">

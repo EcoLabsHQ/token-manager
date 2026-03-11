@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchAdminStats, fetchTokenStats, fetchTokensFromSubgraph } from '@/lib/api'
-import { formatNumber, truncateAddress } from '@/lib/utils'
+import { formatNumber } from '@/lib/utils'
+import { ENSAddress } from '@/components/ENSAddress'
 import { Tag, Coins, Users, ArrowRightLeft, GitBranch, TrendingUp } from 'lucide-react'
 import {
   Table,
@@ -206,8 +207,8 @@ export function Dashboard() {
                         {token.type === 'ethereum-enabled' ? 'ETH Enabled' : 'Celo Native'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {truncateAddress(token.owner)}
+                    <TableCell>
+                      <ENSAddress address={token.owner} />
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatNumber(token.uniqueHolders)}

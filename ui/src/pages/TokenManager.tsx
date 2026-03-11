@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft, Clock, AlertTriangle, Camera } from 'lucide-react';
+import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft, Clock, AlertTriangle, Camera, ChevronDown } from 'lucide-react';
 import { useTokenManager, useWithdraw, usePendingWithdrawals, useTokenLogo, findLogoUrl, type PendingWithdrawalStorage, type WithdrawalStatus } from '../hooks';
 import { useAccount, useWalletClient, usePublicClient, useSwitchChain, useConfig } from 'wagmi';
 import { parseUnits, getAddress } from 'viem';
@@ -1607,7 +1607,7 @@ const TransferOwnershipSection = ({
           )}
           {!isPendingOwner && isOwner && (
             <p className="text-xs text-gray-500">
-              Waiting for the pending owner to accept the transfer.
+              Waiting for the invited owner to accept the transfer in their Token Manager interface.
             </p>
           )}
         </div>
@@ -1791,9 +1791,11 @@ const TokenInfoHeader = ({
   }
 
   // Single token display (Celo-Native or fallback)
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
-    <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-5">
-      {/* Header */}
+    <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-4">
+      {/* Header - always visible */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <TokenLogo 
@@ -1822,62 +1824,78 @@ const TokenInfoHeader = ({
         </div>
       </div>
 
-      {/* Migration Banner for Celo-Native tokens */}
-      {isCeloNative && isL2Token && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <ArrowRightLeft className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 text-sm">Migrate to Ethereum</h4>
-                <p className="text-xs text-gray-600">Enable cross-chain bridging by deploying on Ethereum L1</p>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate(`/migrate?l2Token=${tokenAddress}`)}
-              disabled={!isOwner}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
-                ${isOwner 
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer' 
-                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
-            >
-              <EthereumIcon />
-              Migrate
-            </button>
-          </div>
-          {!isOwner && (
-            <p className="text-xs text-amber-600 mt-2">Only the token owner can perform migration.</p>
-          )}
+      {/* Always visible: Token Address + My Balance in 2 columns */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
+        <div className="flex-1">
+          <ReadOnlyField
+            label="Token address"
+            value={tokenAddress}
+            onCopy={() => {}}
+          />
         </div>
+        <div className="sm:w-56 shrink-0">
+          <ReadOnlyField label="My Balance" value={formatDisplayNumber(userBalance)} />
+        </div>
+      </div>
+
+      {/* Full description toggle */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition-colors self-start cursor-pointer -mt-1"
+      >
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+        {isExpanded ? 'Hide details' : 'Full description'}
+      </button>
+
+      {/* Collapsible section */}
+      {isExpanded && (
+        <>
+          {/* Total Supply | Max Supply | Decimals in 3 columns */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
+            <ReadOnlyField label="Total Supply" value={formatDisplayNumber(totalSupply)} />
+            <ReadOnlyField label="Max Supply" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(maxSupply)} />
+            <ReadOnlyField label="Decimals" value={decimals.toString()} />
+          </div>
+
+          {/* Metadata URI */}
+          <ReadOnlyField 
+            label="Metadata URI" 
+            value={metadataURI || 'Not set'} 
+            onCopy={metadataURI ? () => {} : undefined}
+          />
+
+          {/* Migration Banner for Celo-Native tokens - at the bottom */}
+          {isCeloNative && isL2Token && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <ArrowRightLeft className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">Migrate to Ethereum</h4>
+                    <p className="text-xs text-gray-600">Enable cross-chain bridging by deploying on Ethereum L1</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate(`/migrate?l2Token=${tokenAddress}`)}
+                  disabled={!isOwner}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                    ${isOwner 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer' 
+                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                >
+                  <EthereumIcon />
+                  Migrate
+                </button>
+              </div>
+              {!isOwner && (
+                <p className="text-xs text-amber-600 mt-2">Only the token owner can perform migration.</p>
+              )}
+            </div>
+          )}
+        </>
       )}
-
-      {/* Token Address */}
-      <ReadOnlyField
-        label="Token address"
-        value={tokenAddress}
-        onCopy={() => {}}
-      />
-
-      {/* Stats */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
-        <ReadOnlyField label="Decimals" value={decimals.toString()} />
-        <ReadOnlyField label="Total Supply" value={formatDisplayNumber(totalSupply)} />
-        <ReadOnlyField label="My Balance" value={formatDisplayNumber(userBalance)} />
-      </div>
-
-      {/* Supply Info */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5">
-        <ReadOnlyField label="Max Supply" value={maxSupply === '0' ? 'Unlimited' : formatDisplayNumber(maxSupply)} />
-      </div>
-
-      {/* Metadata URI */}
-      <ReadOnlyField 
-        label="Metadata URI" 
-        value={metadataURI || 'Not set'} 
-        onCopy={metadataURI ? () => {} : undefined}
-      />
     </div>
   );
 };

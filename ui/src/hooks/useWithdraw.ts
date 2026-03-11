@@ -4,12 +4,11 @@ import { parseUnits, type Hash, type Address } from 'viem';
 import { getPublicClient, getWalletClient } from 'wagmi/actions';
 import { celoOpStack } from '@/config/chains';
 import {
-  publicActionsL1,
-  publicActionsL2,
   walletActionsL1,
 } from 'viem/op-stack';
 import { CONTRACTS } from '@/config/contracts';
 import { withdrawOptimismERC20 } from '@eth-optimism/viem/actions';
+import { archivePublicClientL2, archivePublicClientL1 } from '@/lib/viemClient';
 
 // Types
 export type WithdrawalStatus =
@@ -133,18 +132,19 @@ export function useWithdraw() {
       try {
         await ensureChain(L1_CHAIN_ID);
 
-        // Get L1 and L2 clients with OP Stack extensions
-        const publicClientL1 = getPublicClient(config, {
-          chainId: L1_CHAIN_ID,
-        })?.extend(publicActionsL1());
-        const publicClientL2 = getPublicClient(config, {
-          chainId: L2_CHAIN_ID,
-        })?.extend(publicActionsL2());
+        // Get L1 and L2 clients with OP Stack extensions.
+        // IMPORTANT: publicClientL2 MUST use an archive node (Forno) because
+        // buildProveWithdrawal calls eth_getProof on historical L2 state.
+        // WalletConnect's RPC proxy does NOT serve archived trie nodes.
         const walletClientL1 = (
           await getWalletClient(config, { chainId: L1_CHAIN_ID })
         )?.extend(walletActionsL1());
 
-        if (!publicClientL1 || !publicClientL2 || !walletClientL1) {
+        // Use dedicated archive clients for proof reads
+        const publicClientL1 = archivePublicClientL1;
+        const publicClientL2 = archivePublicClientL2;
+
+        if (!walletClientL1) {
           throw new Error('Failed to get clients');
         }
 
@@ -230,17 +230,15 @@ export function useWithdraw() {
         await ensureChain(L1_CHAIN_ID);
 
         // Get clients
-        const publicClientL1 = getPublicClient(config, {
-          chainId: L1_CHAIN_ID,
-        })?.extend(publicActionsL1());
-        const publicClientL2 = getPublicClient(config, {
-          chainId: L2_CHAIN_ID,
-        })?.extend(publicActionsL2());
         const walletClientL1 = (
           await getWalletClient(config, { chainId: L1_CHAIN_ID })
         )?.extend(walletActionsL1());
 
-        if (!publicClientL1 || !publicClientL2 || !walletClientL1) {
+        // Use dedicated archive clients — same reason as proveWithdrawal
+        const publicClientL1 = archivePublicClientL1;
+        const publicClientL2 = archivePublicClientL2;
+
+        if (!walletClientL1) {
           throw new Error('Failed to get clients');
         }
 
@@ -315,14 +313,8 @@ export function useWithdraw() {
   const getWithdrawalStatus = useCallback(
     async (l2TxHash: Hash): Promise<WithdrawalStatus | null> => {
       try {
-        const publicClientL1 = getPublicClient(config, {
-          chainId: L1_CHAIN_ID,
-        })?.extend(publicActionsL1());
-        const publicClientL2 = getPublicClient(config, {
-          chainId: L2_CHAIN_ID,
-        })?.extend(publicActionsL2());
-
-        if (!publicClientL1 || !publicClientL2) return null;
+        const publicClientL1 = archivePublicClientL1;
+        const publicClientL2 = archivePublicClientL2;
 
         const receipt = await publicClientL2.getTransactionReceipt({
           hash: l2TxHash,
@@ -346,16 +338,8 @@ export function useWithdraw() {
   const waitForReadyToProve = useCallback(
     async (l2TxHash: Hash): Promise<{ ready: boolean; error?: string }> => {
       try {
-        const publicClientL1 = getPublicClient(config, {
-          chainId: L1_CHAIN_ID,
-        })?.extend(publicActionsL1());
-        const publicClientL2 = getPublicClient(config, {
-          chainId: L2_CHAIN_ID,
-        })?.extend(publicActionsL2());
-
-        if (!publicClientL1 || !publicClientL2) {
-          return { ready: false, error: 'Failed to get clients' };
-        }
+        const publicClientL1 = archivePublicClientL1;
+        const publicClientL2 = archivePublicClientL2;
 
         // Get the L2 receipt
         const withdrawalReceipt = await publicClientL2.getTransactionReceipt({
@@ -393,16 +377,8 @@ export function useWithdraw() {
   const waitForReadyToFinalize = useCallback(
     async (l2TxHash: Hash): Promise<{ ready: boolean; error?: string }> => {
       try {
-        const publicClientL1 = getPublicClient(config, {
-          chainId: L1_CHAIN_ID,
-        })?.extend(publicActionsL1());
-        const publicClientL2 = getPublicClient(config, {
-          chainId: L2_CHAIN_ID,
-        })?.extend(publicActionsL2());
-
-        if (!publicClientL1 || !publicClientL2) {
-          return { ready: false, error: 'Failed to get clients' };
-        }
+        const publicClientL1 = archivePublicClientL1;
+        const publicClientL2 = archivePublicClientL2;
 
         const withdrawalReceipt = await publicClientL2.getTransactionReceipt({
           hash: l2TxHash,

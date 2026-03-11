@@ -1,19 +1,59 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Tag, Coins } from 'lucide-react'
+import { LayoutDashboard, Tag, Coins, Settings2, Wallet, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAccount, useDisconnect } from 'wagmi'
+import { useAppKit } from '@reown/appkit/react'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/promo-codes', label: 'Promo Codes', icon: Tag },
   { to: '/tokens', label: 'Tokens', icon: Coins },
+  { to: '/fees', label: 'Fee Management', icon: Settings2 },
 ]
+
+function WalletButton() {
+  const { address, isConnected } = useAccount()
+  const { disconnect } = useDisconnect()
+  const { open } = useAppKit()
+
+  if (!isConnected || !address) {
+    return (
+      <button
+        onClick={() => open()}
+        className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+      >
+        <Wallet className="h-5 w-5" />
+        Connect Wallet
+      </button>
+    )
+  }
+
+  return (
+    <div className="px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+          <span className="text-xs font-medium text-gray-700 truncate">
+            {address.slice(0, 6)}…{address.slice(-4)}
+          </span>
+        </div>
+        <button
+          onClick={() => disconnect()}
+          className="text-xs text-gray-400 hover:text-gray-600 shrink-0 flex items-center gap-0.5"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export function Layout() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-[1px_2px_9px_0px_rgba(0,0,0,0.03)]">
-        <div className="flex h-16 items-center gap-2.5 px-6">
+      <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-[1px_2px_9px_0px_rgba(0,0,0,0.03)] flex flex-col">
+        <div className="flex h-16 items-center gap-2.5 px-6 shrink-0">
           <div className="h-8 w-8 rounded-lg bg-black flex items-center justify-center">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M3.98775 12.1049L5.30712 9.84469L6.27053 10.3915C6.29628 10.4062 6.3229 10.4099 6.3473 10.4056C6.41745 10.3933 6.46921 10.3151 6.42899 10.2409L5.77735 9.03914L4.44052 6.57367C4.41995 6.53573 4.37921 6.51261 4.3355 6.51406L2.69946 6.5685L1.22698 6.6175L0.110907 6.65463C0.0254601 6.65748 -0.0175424 6.74065 0.00671431 6.80651C0.0151505 6.82942 0.0317221 6.85024 0.057473 6.86486L1.01275 7.40709C0.502431 9.6789 0.856091 12.0938 2.07373 14.1673C3.67067 16.8867 6.52795 18.6344 9.6828 18.8639V17.5073V14.1303H5.18072C4.12345 14.1303 3.46148 13.0064 3.98775 12.1049Z" fill="white"/>
@@ -23,7 +63,7 @@ export function Layout() {
           </div>
           <span className="font-semibold text-lg tracking-[-0.3px]">Token Dashboard</span>
         </div>
-        <nav className="p-4 space-y-1">
+        <nav className="p-4 space-y-1 flex-1">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -42,6 +82,10 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+        {/* Wallet section at the bottom of sidebar */}
+        <div className="p-4 border-t border-gray-100">
+          <WalletButton />
+        </div>
       </aside>
 
       {/* Main content */}

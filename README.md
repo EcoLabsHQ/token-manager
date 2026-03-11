@@ -39,7 +39,17 @@ A comprehensive platform for deploying and managing ERC-20 tokens on Celo and Et
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Backend (Express.js)                       │
+try {
+  await switchChainAsync({ chainId: expectedChainId });
+  await new Promise(resolve => setTimeout(resolve, 500));
+  setIsSwitchingChain(false);
+} catch (switchErr) {
+  setIsSwitchingChain(false);
+  const msg = switchErr instanceof Error ? switchErr.message : 'Chain switch failed';
+  setError(msg);
+  setIsLoading(false);
+  return { success: false, error: msg }; // ← se detiene aquí
+}│                      Backend (Express.js)                       │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
 │  │  REST API   │  │ MCP Server  │  │      Services           │  │
 │  │  /api/*     │  │   /mcp      │  │  IPFS, Signer, Storage  │  │
@@ -157,160 +167,127 @@ Technical Details
 Overview
 --------
 
-The project provides a flexible architecture and simple interface for deploying and managing ERC20 tokens with different functionality on Celo and Ethereum Mainnet:
+The project provides a flexible architecture and simple interface for deploying and managing ERC20 tokens with different functionality on Celo L2 and Ethereum Mainnet:
 
 ### Key Components
 
-*   **ITokenFactory**: Base interface for token factories TBD
-    
-*   **Interfaces**:
-    
-    *   **IERC20Factory**: Interface for deploying UERC20 tokens for Ethereum Mainnet usage TBD
-        
-    *   **IERC20SuperchainFactory**: Interface for deploying UERC20Superchain tokens that work across the Superchain ecosystem TVD
-         
+*   **IFactory**: Base interface implemented by all token factories (`contracts/src/interfaces/IFactory.sol`)
+
 *   **Factories**:
-    
-    *   **CN-ERC20Factory**: For deploying CN-ERC20 tokens for Celo Mainnet usage
-        
-    *   **EN-ERC20Factory**: For deploying EN-ERC20 tokens that are rooted on Ethereum Mainnet.
-        
-*   **Libraries**:
-    
-    *   **ERC20MetadataLibrary**: Handles encoding of token metadata to JSON format TBD
-        
-*   **BaseERC20**: Abstract base token implementation with common functionality  TBD
-    
+
+    *   **L2SuperChainTokenFactory**: Deploys `L2SuperChainToken` instances on Celo L2. Supports both native (no bridge) and bridged tokens.
+
+    *   **L1TokenFactory**: Deploys `L1Token` instances on Ethereum L1. Tokens can optionally be paired with an `L2SuperChainToken` on Celo for cross-chain bridging.
+
+*   **Shared Infrastructure**:
+
+    *   **BaseTokenFactory**: Abstract base contract with common factory logic — fee handling, promo codes (ECDSA signatures), UUPS upgradeability, and deterministic deployment via CREATE2.
+
+    *   **FactoryInitializer**: Placeholder implementation deployed via CREATE2 to reserve the factory proxy address on all chains before initialization.
+
+    *   **TokenInitializer**: Placeholder implementation deployed via CREATE2 to ensure token proxy addresses are identical across all chains before upgrading to the real implementation.
+
 *   **Token Implementations**:
-    
-    *   **CN-ERC20**: ERC-20 tokens deployed and controlled natively on Celo.
-        
-    *   **EN-ERC20**: ERC-20 tokens implementing IERC7802 for Superchain compatibility
-        
+
+    *   **L1Token**: ERC-20 token for Ethereum Mainnet. Supports owner minting/burning, max supply, pausability, EIP-2612 permit, and UUPS upgradeability.
+
+    *   **L2SuperChainToken**: ERC-20 token for Celo L2. In addition to `L1Token` features, implements `IOptimismMintableERC20` (for the Optimism Standard Bridge) and `IERC7802` (for Superchain cross-L2 transfers).
+
 
 Token Features
 --------------
 
-### Common Features (BaseERC20)
+### Common Features (L1Token & L2SuperChainToken)
 
-*   Standard ERC-20 functionality with EIP-2612 permit support via Solady
-    
-*   ERC-165 interface support for IERC20, IERC20Permit, and IERC165
-    
-*   Stores creator address and graffiti (additional data for salt generation)
-    
-*   Stores optional metadata:
-    
-    *   **Description**
-        
-    *   **Website**
-        
-    *   **Image**
-        
-*   **tokenURI()**: Returns base64-encoded JSON metadata
-    
+*   Standard ERC-20 with EIP-2612 permit support
+*   Upgradeable via UUPS proxy pattern (EIP-1967)
+*   Namespaced storage (EIP-7201) to avoid collisions during upgrades
+*   Max supply enforcement on all mints
+*   Owner-controlled mint and burn
+*   Pausable transfers
+*   `tokenURI()` returning base64-encoded ERC-7572 JSON metadata (name, symbol, description, website, image)
 
-### ERC20 (Ethereum Mainnet)
 
-*   Standard ERC-20 implementation for Ethereum Mainnet usage
-    
-*   Includes all BaseUERC20 metadata features
-    
-*   Simple constructor that gets parameters from factory during deployment
-    
+### L1Token (Ethereum Mainnet)
 
-### ERC20Superchain (Superchain)
+*   Standard ERC-20 for Ethereum L1 usage
+*   Initial supply minted to a specified recipient at deployment
+*   No bridge integration — L1 tokens are locked/unlocked by the Optimism Standard Bridge when paired with an `L2SuperChainToken`
 
-*   Implements IERC7802 for Superchain compatibility
-    
-*   Supports cross-chain transfers via the SuperchainTokenBridge (0x4200000000000000000000000000000000000028)
-    
-*   **Home Chain**: The chain where totalSupply is initially minted and metadata is stored
-    
-*   Ensures the total supply remains constant across all chains
-    
-*   Metadata (creator, description, website, and image) is stored on the home chain only, so off-chain indexing is required to access them on other chains
-    
-*   Only mints initial supply when deployed on the home chain
-    
+
+### L2SuperChainToken (Celo L2)
+
+*   Implements `IOptimismMintableERC20`: the Optimism L2StandardBridge can call `mint()` and `burn()` when bridging from L1
+*   Implements `IERC7802`: the SuperchainTokenBridge (`0x4200000000000000000000000000000000000028`) can call `crosschainMint()` and `crosschainBurn()` for cross-L2 transfers
+*   **Native mode** (`bridge = address(0)`): no bridge integration; owner controls supply entirely
+*   **Bridged mode**: linked to an `L1Token` via `remoteToken`; bridge mints/burns on L2 to reflect L1 locked supply
+
 
 Deployment Rules
 ----------------
 
-### ERC20 (Ethereum Mainnet)
+### L1Token (Ethereum Mainnet)
 
-*   The caller (msg.sender) becomes the creator
-    
-*   The total supply is minted to the specified recipient at deployment time
-    
-*   The token's address is uniquely determined by its creator, name, symbol, decimals, and graffiti
-    
+*   Deployed via `L1TokenFactory.createToken()`
+*   The caller (`msg.sender`) becomes the token owner
+*   Initial supply minted to the specified recipient at deployment
+*   Token address is deterministically derived via CREATE2 from owner, name, symbol, decimals, and salt
 *   **Required validations**:
-    
     *   Recipient cannot be zero address
-        
-    *   Initial supply cannot be zero
-        
+    *   Initial supply cannot exceed max supply
 
-### ERC20Superchain (Superchain)
 
-*   **On the home chain**: Only the specified creator can deploy the token
-    
-*   **On other chains**: Anyone can deploy the token permissionlessly at the same address
-    
-*   The total supply is always minted on the home chain at deployment time
-    
-*   A UERC20Superchain token can be deployed on any chain at the same address in a permissionless way
-    
-*   Tokens can move between chains via the Superchain Token Bridge
-    
-*   The token's address is uniquely determined by its creator, name, symbol, decimals, home chain ID, and graffiti
-    
-*   **Required validations (home chain only)**:
-    
-    *   Caller must be the creator
-        
-    *   Recipient cannot be zero address
-        
-    *   Initial supply cannot be zero
-        
+### L2SuperChainToken (Celo L2)
 
-Cross-Chain Transfers (UERC20Superchain)
-----------------------------------------
+*   Deployed via `L2SuperChainTokenFactory.createToken()`
+*   The caller (`msg.sender`) becomes the token owner
+*   **Native mode**: set `bridge = address(0)` — owner manages supply directly
+*   **Bridged mode**: set `bridge = L2StandardBridge` and `remoteToken = L1Token address`
+*   Token address is deterministically derived via CREATE2, enabling identical addresses across multiple Superchain networks
+*   **Required validations**:
+    *   If bridged: `bridge` and `remoteToken` must be non-zero addresses
+    *   Initial supply cannot exceed max supply
 
-*   The SuperchainTokenBridge facilitates cross-chain transfers
-    
-*   **Mechanism:**
-    
-    *   crosschainBurn is called on the source chain, decreasing its local totalSupply
-        
-    *   crosschainMint is called on the destination chain, increasing its local totalSupply
-        
-    *   While the totalSupply variable changes on individual chains, the aggregate total supply across all chains remains unchanged at the amount initially minted on the home chain
-        
-*   Both functions are restricted to the SuperchainTokenBridge and emit appropriate events
-    
+
+Cross-Chain Transfers (L2SuperChainToken via Superchain)
+---------------------------------------------------------
+
+*   The SuperchainTokenBridge (`0x4200000000000000000000000000000000000028`) facilitates cross-L2 transfers (e.g. Celo ↔ Base ↔ OP Mainnet)
+*   **Mechanism**:
+    *   `crosschainBurn()` is called on the source chain, decreasing local `totalSupply`
+    *   `crosschainMint()` is called on the destination chain, increasing local `totalSupply`
+    *   Aggregate total supply across all chains remains constant
+*   Both functions are restricted to the SuperchainTokenBridge
+
 
 Factory Interface
 -----------------
 
-All factories implement the base ITokenFactory interface with a common createToken function:
+Both `L1TokenFactory` and `L2SuperChainTokenFactory` implement `IFactory` with a common `createToken` function:
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   function createToken(      string calldata name,      string calldata symbol,      uint8 decimals,      uint256 initialSupply,      address recipient,      bytes calldata data,      bytes32 graffiti  ) external returns (address tokenAddress);   `
+```solidity
+function createToken(
+    string calldata name,
+    string calldata symbol,
+    uint8 decimals,
+    uint256 initialSupply,
+    uint256 maxSupply,
+    address recipient,
+    bytes calldata data,
+    bytes32 salt
+) external payable returns (address tokenAddress);
+```
 
-*   **data**: Factory-specific encoded data
-    
-    *   UERC20Factory: abi.encode(UERC20Metadata)
-        
-    *   UERC20SuperchainFactory: abi.encode(homeChainId, creator, UERC20Metadata)
-        
-*   **graffiti**: Additional data for salt generation to enable address customization
-    
+*   **data**: Factory-specific encoded parameters
+    *   `L1TokenFactory`: `abi.encode(tokenURI)`
+    *   `L2SuperChainTokenFactory`: `abi.encode(bridge, remoteToken, tokenURI)`
+*   **salt**: Used with CREATE2 for deterministic address derivation
+
 
 Extensibility
 -------------
 
-The architecture is designed to be extensible by allowing new token factories to inherit from the base ITokenFactory interface. This enables developers to create specialized implementations with custom functionality while maintaining a consistent interface for token creation.
+New token factories can inherit from `BaseTokenFactory` to gain fee management, promo code support, UUPS upgradeability, and deterministic deployment out of the box, while implementing custom token creation logic.
 
 License
 -------
@@ -322,26 +299,44 @@ Usage
 
 ### Compile and Run Tests
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   forge install  forge build  forge test   `
+```bash
+cd contracts
+forge install
+forge build
+forge test
+```
 
 ### Formatting
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   forge fmt   `
+```bash
+forge fmt
+```
 
 Deployment Addresses
 --------------------
 
-### ERC20Factory
+### L1TokenFactory (Ethereum)
 
-**NetworkAddressCommit HashVersion**Mainnet0x0cde87c11b959e5eb0924c1abf5250ee3f9bd1b59705debfea9e6a641bc04352398f9e549055ac44v1.0.0-candidateSepolia0x0cde87c11b959e5eb0924c1abf5250ee3f9bd1b59705debfea9e6a641bc04352398f9e549055ac44v1.0.0-candidate
+| Network | Proxy Address | Implementation |
+|---------|--------------|----------------|
+| Ethereum Mainnet | `0x1b23dce73c327f8e07e45fe3a1605dafd8286ab4` | `0xfefbf0eac7562598c6f00e9fed6e1d256acefc52` |
+| Sepolia | `0xf87ea3325c6f5be2119d40747752bb255cdf1ee8` | `0x1adc588afd3e635c95c1efa71790cfe3408ca410` |
 
-### SUPERC20Factory
+### L2SuperChainTokenFactory (Celo)
 
-**NetworkAddressCommit HashVersion**Unichain0x24016ed99a69e9b86d16d84351e1661266b7ac6a9705debfea9e6a641bc04352398f9e549055ac44v1.0.0-candidateUnichain Sepolia0x24016ed99a69e9b86d16d84351e1661266b7ac6a9705debfea9e6a641bc04352398f9e549055ac44v1.0.0-candidate
+| Network | Proxy Address | Implementation |
+|---------|--------------|----------------|
+| Celo Mainnet | `0x1b23dce73c327f8e07e45fe3a1605dafd8286ab4` | `0x8c82a00b5aae0b6624bead9982db7028145c7714` |
+| Celo Alfajores (testnet) | see `contracts/broadcast/` | — |
+
+### Shared Infrastructure (same address on all networks)
+
+| Contract | Address |
+|----------|---------|
+| FactoryInitializer | `0xb30e5525b8eb7969cda4c7dec893d2856cfe6f18` |
+| TokenInitializer | `0xc35410f3536f453dc0ae23ed0c85cb3dab081211` |
 
 Audits
 ------
 
-*   3/14 [OpenZeppelin](https://github.com/Uniswap/uerc20-factory/blob/main/docs/The Uniswap ERC-20 Token Factory Audit.pdf)
-    
-*   6/3 [OpenZeppelin](https://github.com/Uniswap/uerc20-factory/blob/main/docs/UERC20 Factory Separation Diff Audit.pdf)
+No external audits have been completed yet. See [contracts/docs/SECURITY.md](contracts/docs/SECURITY.md) for the threat model, trust assumptions, and known attack vectors.
