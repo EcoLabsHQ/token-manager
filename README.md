@@ -165,9 +165,9 @@ The project provides a flexible architecture and simple interface for deploying 
     
 *   **Interfaces**:
     
-    *   **IUERC20Factory**: Interface for deploying UERC20 tokens for Ethereum Mainnet usage TBD
+    *   **IERC20Factory**: Interface for deploying UERC20 tokens for Ethereum Mainnet usage TBD
         
-    *   **IUERC20SuperchainFactory**: Interface for deploying UERC20Superchain tokens that work across the Superchain ecosystem TVD
+    *   **IERC20SuperchainFactory**: Interface for deploying UERC20Superchain tokens that work across the Superchain ecosystem TVD
          
 *   **Factories**:
     
@@ -177,9 +177,9 @@ The project provides a flexible architecture and simple interface for deploying 
         
 *   **Libraries**:
     
-    *   **UERC20MetadataLibrary**: Handles encoding of token metadata to JSON format TBD
+    *   **ERC20MetadataLibrary**: Handles encoding of token metadata to JSON format TBD
         
-*   **BaseUERC20**: Abstract base token implementation with common functionality  TBD
+*   **BaseERC20**: Abstract base token implementation with common functionality  TBD
     
 *   **Token Implementations**:
     
@@ -191,7 +191,7 @@ The project provides a flexible architecture and simple interface for deploying 
 Token Features
 --------------
 
-### Common Features (BaseUERC20)
+### Common Features (BaseERC20)
 
 *   Standard ERC-20 functionality with EIP-2612 permit support via Solady
     
@@ -210,7 +210,7 @@ Token Features
 *   **tokenURI()**: Returns base64-encoded JSON metadata
     
 
-### UERC20 (Ethereum Mainnet)
+### ERC20 (Ethereum Mainnet)
 
 *   Standard ERC-20 implementation for Ethereum Mainnet usage
     
@@ -219,7 +219,7 @@ Token Features
 *   Simple constructor that gets parameters from factory during deployment
     
 
-### UERC20Superchain (Superchain)
+### ERC20Superchain (Superchain)
 
 *   Implements IERC7802 for Superchain compatibility
     
@@ -237,7 +237,7 @@ Token Features
 Deployment Rules
 ----------------
 
-### UERC20 (Ethereum Mainnet)
+### ERC20 (Ethereum Mainnet)
 
 *   The caller (msg.sender) becomes the creator
     
@@ -252,7 +252,7 @@ Deployment Rules
     *   Initial supply cannot be zero
         
 
-### UERC20Superchain (Superchain)
+### ERC20Superchain (Superchain)
 
 *   **On the home chain**: Only the specified creator can deploy the token
     
@@ -331,11 +331,11 @@ Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQL
 Deployment Addresses
 --------------------
 
-### UERC20Factory
+### ERC20Factory
 
 **NetworkAddressCommit HashVersion**Mainnet0x0cde87c11b959e5eb0924c1abf5250ee3f9bd1b59705debfea9e6a641bc04352398f9e549055ac44v1.0.0-candidateSepolia0x0cde87c11b959e5eb0924c1abf5250ee3f9bd1b59705debfea9e6a641bc04352398f9e549055ac44v1.0.0-candidate
 
-### USUPERC20Factory
+### SUPERC20Factory
 
 **NetworkAddressCommit HashVersion**Unichain0x24016ed99a69e9b86d16d84351e1661266b7ac6a9705debfea9e6a641bc04352398f9e549055ac44v1.0.0-candidateUnichain Sepolia0x24016ed99a69e9b86d16d84351e1661266b7ac6a9705debfea9e6a641bc04352398f9e549055ac44v1.0.0-candidate
 
