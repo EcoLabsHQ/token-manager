@@ -31,10 +31,11 @@ export function Dashboard() {
     queryFn: fetchTokensFromSubgraph,
   })
 
-  // Get top 5 tokens by holders
+  // Get top 10 tokens by number of transfers (transactions)
   const topTokens = tokens
-    ?.sort((a, b) => b.uniqueHolders - a.uniqueHolders)
-    .slice(0, 5)
+    ?.slice()
+    .sort((a, b) => b.totalTransfers - a.totalTransfers)
+    .slice(0, 10)
 
   return (
     <div className="space-y-6">
@@ -171,7 +172,7 @@ export function Dashboard() {
         <CardContent>
           {loadingTokens ? (
             <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
+              {[...Array(10)].map((_, i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>

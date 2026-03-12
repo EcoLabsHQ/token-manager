@@ -17,6 +17,8 @@ export interface SubgraphToken {
   chain: string;
   remoteToken?: string;
   bridge?: string;
+  totalTransfers?: string;
+  totalBridges?: string;
   createdAt: string;
 }
 
@@ -38,6 +40,8 @@ export interface TokenPair {
   addressL2?: string;
   remoteToken?: string;
   bridgeAddress?: string;
+  totalTransfers: number;
+  totalBridges: number;
   createdAt: number;
   setupStatus: TokenSetupStatus; // Track if token setup is complete
 }
@@ -194,6 +198,12 @@ export function useSubgraphTokens() {
           totalSupply: currentTotalSupply,
           totalSupplyFormatted: parseFloat(formattedTotalSupply).toLocaleString(),
           totalUniqueHolders: combinedHolders,
+          totalTransfers:
+            parseInt(l1Token.totalTransfers || '0') +
+            (linkedL2 ? parseInt(linkedL2.totalTransfers || '0') : 0),
+          totalBridges:
+            parseInt(l1Token.totalBridges || '0') +
+            (linkedL2 ? parseInt(linkedL2.totalBridges || '0') : 0),
           type: 'ethereum-enabled',
           address: l1Token.tokenAddress,
           addressL1: l1Token.tokenAddress,
@@ -244,6 +254,8 @@ export function useSubgraphTokens() {
           totalSupply: currentTotalSupply,
           totalSupplyFormatted: parseFloat(formattedTotalSupply).toLocaleString(),
           totalUniqueHolders: parseInt(l2Token.totalUniqueHolders || '0'),
+          totalTransfers: parseInt(l2Token.totalTransfers || '0'),
+          totalBridges: parseInt(l2Token.totalBridges || '0'),
           type: hasRemoteToken ? 'ethereum-enabled' : 'celo-native',
           address: l2Token.tokenAddress,
           addressL1: l2Token.remoteToken,

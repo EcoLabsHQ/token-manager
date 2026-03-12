@@ -85,6 +85,12 @@ export function useAllSubgraphTokens() {
 
         const l1Holders = parseInt(l1Token.totalUniqueHolders || '0');
         const l2Holders = linkedL2 ? parseInt(linkedL2.totalUniqueHolders || '0') : 0;
+        const combinedTransfers =
+          parseInt(l1Token.totalTransfers || '0') +
+          (linkedL2 ? parseInt(linkedL2.totalTransfers || '0') : 0);
+        const combinedBridges =
+          parseInt(l1Token.totalBridges || '0') +
+          (linkedL2 ? parseInt(linkedL2.totalBridges || '0') : 0);
 
         // Use L2 totalSupply if available (more up-to-date for combined view)
         const l2TotalSupply = linkedL2?.totalSupply || linkedL2?.initialSupply;
@@ -103,6 +109,8 @@ export function useAllSubgraphTokens() {
           totalSupply: combinedSupplyRaw,
           totalSupplyFormatted: combinedSupplyFormatted.toLocaleString(),
           totalUniqueHolders: l1Holders + l2Holders,
+          totalTransfers: combinedTransfers,
+          totalBridges: combinedBridges,
           type: 'ethereum-enabled',
           address: l1Token.tokenAddress,
           addressL1: l1Token.tokenAddress,
@@ -142,6 +150,8 @@ export function useAllSubgraphTokens() {
           totalSupply: currentTotalSupply,
           totalSupplyFormatted: formattedTotalSupply.toLocaleString(),
           totalUniqueHolders: parseInt(l2Token.totalUniqueHolders || '0'),
+          totalTransfers: parseInt(l2Token.totalTransfers || '0'),
+          totalBridges: parseInt(l2Token.totalBridges || '0'),
           type: hasRemoteToken ? 'ethereum-enabled' : 'celo-native',
           address: l2Token.tokenAddress,
           addressL1: l2Token.remoteToken,

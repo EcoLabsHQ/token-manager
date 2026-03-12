@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, ExternalLink, Check, Loader2, RefreshCw, Search } from 'lucide-react';
+import { Copy, ExternalLink, Check, Loader2, RefreshCw, Search, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { useAllSubgraphTokens } from '../hooks/useAllSubgraphTokens';
 import { findLogoBatch } from '../hooks/useTokenLogo';
 import { CONTRACTS } from '@/config/contracts';
@@ -48,41 +48,97 @@ const CeloIcon = () => (
 );
 
 const truncateAddress = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
+const truncateAddressLong = (addr: string) => addr ? `${addr.slice(0, 10)}...${addr.slice(-4)}` : '';
 
 const EXPLORER_URLS = { ethereum: 'https://etherscan.io/address/', celo: 'https://celoscan.io/address/' };
 
-const AddressWithActions = ({ address, chain }: { address: string; chain: 'ethereum' | 'celo' }) => {
+const MergedAddressWithActions = ({ addressL1, addressL2 }: { addressL1?: string; addressL2?: string }) => {
   const [copied, setCopied] = useState(false);
+  const displayAddress = addressL1 || addressL2 || '';
+  if (!displayAddress) return <span className="text-sm text-gray-400">—</span>;
   const handleCopy = () => {
-    navigator.clipboard.writeText(address);
+    navigator.clipboard.writeText(displayAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
   return (
     <div className="flex items-center gap-0.5">
-      <span className="text-sm text-black font-mono" title={address}>{truncateAddress(address)}</span>
+      <span className="text-sm text-black font-mono" title={displayAddress}>{truncateAddressLong(displayAddress)}</span>
       <button onClick={handleCopy} className="p-0.5 rounded hover:bg-gray-100 cursor-pointer transition-colors">
         {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" />}
       </button>
-      <a href={`${EXPLORER_URLS[chain]}${address}`} target="_blank" rel="noopener noreferrer" className="p-0.5 rounded hover:bg-gray-100 cursor-pointer transition-colors">
-        <ExternalLink className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" />
-      </a>
+      {addressL1 && (
+        <a href={`${EXPLORER_URLS.ethereum}${addressL1}`} target="_blank" rel="noopener noreferrer" className="p-0.5 rounded hover:bg-gray-100 cursor-pointer transition-colors flex items-center gap-0.5" title="View on Etherscan (L1)">
+          <div className="w-3 h-3 rounded overflow-hidden"><img src="/images/ethereum.png" alt="Ethereum" className="w-full h-full object-cover" /></div>
+          <ExternalLink className="w-3 h-3 text-gray-400 hover:text-gray-700" />
+        </a>
+      )}
+      {addressL2 && (
+        <a href={`${EXPLORER_URLS.celo}${addressL2}`} target="_blank" rel="noopener noreferrer" className="p-0.5 rounded hover:bg-gray-100 cursor-pointer transition-colors flex items-center gap-0.5" title="View on Celoscan (L2)">
+          <div className="w-3 h-3 rounded overflow-hidden"><img src="/images/celo.png" alt="Celo" className="w-full h-full object-cover" /></div>
+          <ExternalLink className="w-3 h-3 text-gray-400 hover:text-gray-700" />
+        </a>
+      )}
     </div>
   );
 };
 
 // ─── Token Table ─────────────────────────────────────────────────────────────
 
+type SortColumn = 'holders' | 'transfers' | 'bridges';
+type SortDir = 'asc' | 'desc';
+
+const SortableColHeader = ({
+  label,
+  col,
+  sortColumn,
+  sortDir,
+  onSort,
+  className = '',
+}: {
+  label: string;
+  col: SortColumn;
+  sortColumn: SortColumn | null;
+  sortDir: SortDir;
+  onSort: (col: SortColumn) => void;
+  className?: string;
+}) => {
+  const active = sortColumn === col;
+  return (
+    <button
+      onClick={() => onSort(col)}
+      className={`flex items-center gap-0.5 group select-none cursor-pointer ${className}`}
+    >
+      <span className={`text-xs font-medium uppercase tracking-wide transition-colors ${
+        active ? 'text-black' : 'text-gray-500 group-hover:text-gray-700'
+      }`}>{label}</span>
+      {active ? (
+        sortDir === 'asc'
+          ? <ChevronUp className="w-3.5 h-3.5 text-black shrink-0" />
+          : <ChevronDown className="w-3.5 h-3.5 text-black shrink-0" />
+      ) : (
+        <ArrowUpDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600 shrink-0" />
+      )}
+    </button>
+  );
+};
+
 const ExploreTokenTable = ({
   tokens,
   onView,
   isLoading,
   tokenLogos,
+  sortColumn,
+  sortDir,
+  onSort,
 }: {
   tokens: TokenPair[];
   onView: (token: TokenPair) => void;
   isLoading?: boolean;
   tokenLogos: Record<string, string>;
+  sortColumn: SortColumn | null;
+  sortDir: SortDir;
+  onSort: (col: SortColumn) => void;
 }) => {
   const getLogoUrl = (token: TokenPair) => {
     const address = (token.addressL2 || token.address).toLowerCase();
@@ -104,33 +160,91 @@ const ExploreTokenTable = ({
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-      {/* Desktop Header */}
-      <div className="bg-gray-50/80 border-b border-gray-200 hidden lg:flex items-center px-4 py-3">
-        <div className="w-[180px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
-        <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
-        <div className="w-[120px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
-        <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Total Supply</div>
-        <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Max Supply</div>
-        <div className="w-[70px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Holders</div>
-        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide pl-4">Address (L1)</div>
-        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide">Address (L2)</div>
-        <div className="w-[70px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
-      </div>
-      {/* Mobile Header */}
-      <div className="bg-gray-50/80 border-b border-gray-200 flex items-center px-3 py-2.5 lg:hidden">
-        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
-        <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
-        <div className="w-24 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
-        <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
+      {/* Desktop — horizontally scrollable */}
+      <div className="hidden lg:block overflow-x-auto">
+        <div className="min-w-[1060px]">
+          {/* Desktop Header */}
+          <div className="bg-gray-50/80 border-b border-gray-200 flex items-center px-4 py-3">
+            <div className="w-[196px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
+            <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
+            <div className="w-[120px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
+            <div className="w-[110px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Total Supply</div>
+            <div className="w-[96px] shrink-0 flex justify-end">
+              <SortableColHeader label="Holders" col="holders" sortColumn={sortColumn} sortDir={sortDir} onSort={onSort} />
+            </div>
+            <div className="w-[96px] shrink-0 flex justify-end">
+              <SortableColHeader label="Txns" col="transfers" sortColumn={sortColumn} sortDir={sortDir} onSort={onSort} />
+            </div>
+            <div className="w-[96px] shrink-0 flex justify-end">
+              <SortableColHeader label="Bridges" col="bridges" sortColumn={sortColumn} sortDir={sortDir} onSort={onSort} />
+            </div>
+            <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide pl-4 min-w-[180px]">Address</div>
+            <div className="w-[76px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
+          </div>
+
+          {/* Desktop Rows */}
+          {tokens.map(token => {
+            const logoUrl = getLogoUrl(token);
+            return (
+              <div key={token.id} className="flex items-center min-h-[52px] px-4 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 bg-white">
+                <div className="w-[196px] shrink-0 flex items-center gap-2">
+                  <TokenLogo logoUrl={logoUrl} name={token.name} symbol={token.symbol} />
+                  <span className="text-sm text-black font-medium truncate" title={token.name}>{token.name}</span>
+                </div>
+                <div className="w-[80px] shrink-0">
+                  <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">{token.symbol}</span>
+                </div>
+                <div className="w-[120px] shrink-0 flex items-center gap-1.5">
+                  {token.type === 'ethereum-enabled' ? (
+                    <div className="flex items-center"><EthereumIcon /><div className="-ml-1"><CeloIcon /></div></div>
+                  ) : <CeloIcon />}
+                  <span className="text-xs text-gray-600">{token.type === 'ethereum-enabled' ? 'ETH + Celo' : 'Celo-Native'}</span>
+                </div>
+                <div className="w-[110px] shrink-0 text-right">
+                  <span className="text-sm text-black tabular-nums">{token.totalSupplyFormatted}</span>
+                </div>
+                <div className="w-[96px] shrink-0 text-right">
+                  <span className={`text-sm tabular-nums ${sortColumn === 'holders' ? 'text-black font-medium' : 'text-gray-700'}`}>{token.totalUniqueHolders.toLocaleString()}</span>
+                </div>
+                <div className="w-[96px] shrink-0 text-right">
+                  <span className={`text-sm tabular-nums ${sortColumn === 'transfers' ? 'text-black font-medium' : 'text-gray-700'}`}>{token.totalTransfers.toLocaleString()}</span>
+                </div>
+                <div className="w-[96px] shrink-0 text-right">
+                  <span className={`text-sm tabular-nums ${sortColumn === 'bridges' ? 'text-black font-medium' : 'text-gray-700'}`}>{token.totalBridges.toLocaleString()}</span>
+                </div>
+                <div className="flex-1 pl-4 min-w-[180px]">
+                  <MergedAddressWithActions addressL1={token.addressL1} addressL2={token.addressL2} />
+                </div>
+                <div className="w-[76px] shrink-0 text-right">
+                  <button onClick={() => onView(token)} className="bg-black text-white text-xs font-medium h-7 px-3 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors">
+                    View
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Rows */}
-      {tokens.map(token => {
-        const logoUrl = getLogoUrl(token);
-        return (
-          <div key={token.id}>
-            {/* Mobile row */}
-            <div className="bg-white flex items-center min-h-[48px] px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 lg:hidden">
+      {tokens.length === 0 && (
+        <div className="bg-white flex items-center justify-center h-40">
+          <p className="text-sm text-gray-500">No tokens found</p>
+        </div>
+      )}
+
+      {/* Mobile table */}
+      <div className="lg:hidden">
+        {/* Mobile Header */}
+        <div className="bg-gray-50/80 border-b border-gray-200 flex items-center px-3 py-2.5">
+          <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
+          <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
+          <div className="w-24 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
+          <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
+        </div>
+        {tokens.map(token => {
+          const logoUrl = getLogoUrl(token);
+          return (
+            <div key={token.id} className="bg-white flex items-center min-h-12 px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
               <div className="flex-1 min-w-0 flex items-center gap-2">
                 <TokenLogo logoUrl={logoUrl} name={token.name} symbol={token.symbol} />
                 <span className="text-sm text-black font-medium truncate">{token.name}</span>
@@ -150,52 +264,14 @@ const ExploreTokenTable = ({
                 </button>
               </div>
             </div>
-
-            {/* Desktop row */}
-            <div className="bg-white hidden lg:flex items-center min-h-[52px] px-4 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
-              <div className="w-[180px] shrink-0 flex items-center gap-2">
-                <TokenLogo logoUrl={logoUrl} name={token.name} symbol={token.symbol} />
-                <span className="text-sm text-black font-medium truncate" title={token.name}>{token.name}</span>
-              </div>
-              <div className="w-[80px] shrink-0">
-                <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">{token.symbol}</span>
-              </div>
-              <div className="w-[120px] shrink-0 flex items-center gap-1.5">
-                {token.type === 'ethereum-enabled' ? (
-                  <div className="flex items-center"><EthereumIcon /><div className="-ml-1"><CeloIcon /></div></div>
-                ) : <CeloIcon />}
-                <span className="text-xs text-gray-600">{token.type === 'ethereum-enabled' ? 'ETH + Celo' : 'Celo-Native'}</span>
-              </div>
-              <div className="w-[100px] shrink-0 text-right">
-                <span className="text-sm text-black tabular-nums">{token.totalSupplyFormatted}</span>
-              </div>
-              <div className="w-[100px] shrink-0 text-right">
-                <span className="text-sm text-black tabular-nums">{token.maxSupplyFormatted}</span>
-              </div>
-              <div className="w-[70px] shrink-0 text-right">
-                <span className="text-sm text-black tabular-nums">{token.totalUniqueHolders.toLocaleString()}</span>
-              </div>
-              <div className="flex-1 pl-4 min-w-0">
-                {token.addressL1 ? <AddressWithActions address={token.addressL1} chain="ethereum" /> : <span className="text-sm text-gray-400">—</span>}
-              </div>
-              <div className="flex-1 min-w-0">
-                {token.addressL2 ? <AddressWithActions address={token.addressL2} chain="celo" /> : <span className="text-sm text-gray-400">—</span>}
-              </div>
-              <div className="w-[70px] shrink-0 text-right">
-                <button onClick={() => onView(token)} className="bg-black text-white text-xs font-medium h-7 px-3 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors">
-                  View
-                </button>
-              </div>
-            </div>
+          );
+        })}
+        {tokens.length === 0 && (
+          <div className="bg-white flex items-center justify-center h-40">
+            <p className="text-sm text-gray-500">No tokens found</p>
           </div>
-        );
-      })}
-
-      {tokens.length === 0 && (
-        <div className="bg-white flex items-center justify-center h-40">
-          <p className="text-sm text-gray-500">No tokens found</p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
@@ -207,6 +283,17 @@ export default function ExplorePage() {
   const { tokens, isLoading, refetch } = useAllSubgraphTokens();
   const [tokenLogos, setTokenLogos] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>('transfers');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const handleSort = (col: SortColumn) => {
+    if (sortColumn === col) {
+      setSortDir(d => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortColumn(col);
+      setSortDir('desc');
+    }
+  };
 
   // Fetch logos
   useEffect(() => {
@@ -231,6 +318,17 @@ export default function ExplorePage() {
       t.address.toLowerCase().includes(q)
     );
   });
+
+  const sorted = sortColumn
+    ? [...filtered].sort((a, b) => {
+        let aVal = 0;
+        let bVal = 0;
+        if (sortColumn === 'holders') { aVal = a.totalUniqueHolders; bVal = b.totalUniqueHolders; }
+        else if (sortColumn === 'transfers') { aVal = a.totalTransfers; bVal = b.totalTransfers; }
+        else if (sortColumn === 'bridges') { aVal = a.totalBridges; bVal = b.totalBridges; }
+        return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
+      })
+    : filtered;
 
   const handleView = (token: TokenPair) => {
     if (token.type === 'ethereum-enabled' && token.addressL1 && token.addressL2) {
@@ -279,10 +377,13 @@ export default function ExplorePage() {
 
         {/* Table */}
         <ExploreTokenTable
-          tokens={filtered}
+          tokens={sorted}
           onView={handleView}
           isLoading={isLoading}
           tokenLogos={tokenLogos}
+          sortColumn={sortColumn}
+          sortDir={sortDir}
+          onSort={handleSort}
         />
       </div>
     </div>

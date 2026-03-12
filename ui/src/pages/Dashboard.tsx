@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
-import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle, UserCheck } from 'lucide-react';
+import { Copy, ExternalLink, Check, Loader2, RefreshCw, AlertCircle, UserCheck, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { useSubgraphTokens, type TokenPair, type TokenSetupStatus } from '../hooks/useSubgraphTokens';
 import { usePendingOwnershipTransfers, type PendingOwnershipTransfer } from '../hooks/usePendingOwnershipTransfers';
 import { useAcceptOwnership } from '../hooks/useAcceptOwnership';
@@ -251,9 +251,56 @@ interface TokenTableProps {
   onRefresh?: () => void;
 }
 
+type SortColumn = 'holders' | 'transfers' | 'bridges';
+type SortDir = 'asc' | 'desc';
+
+const SortableColHeader = ({
+  label,
+  col,
+  sortColumn,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  col: SortColumn;
+  sortColumn: SortColumn | null;
+  sortDir: SortDir;
+  onSort: (col: SortColumn) => void;
+}) => {
+  const active = sortColumn === col;
+  return (
+    <button
+      onClick={() => onSort(col)}
+      className="flex items-center gap-0.5 group select-none cursor-pointer"
+    >
+      <span className={`text-xs font-medium uppercase tracking-wide transition-colors ${
+        active ? 'text-black' : 'text-gray-500 group-hover:text-gray-700'
+      }`}>{label}</span>
+      {active ? (
+        sortDir === 'asc'
+          ? <ChevronUp className="w-3.5 h-3.5 text-black shrink-0" />
+          : <ChevronDown className="w-3.5 h-3.5 text-black shrink-0" />
+      ) : (
+        <ArrowUpDown className="w-3 h-3 text-gray-400 group-hover:text-gray-600 shrink-0" />
+      )}
+    </button>
+  );
+};
+
 const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _onRefresh }: TokenTableProps) => {
   const [tokenLogos, setTokenLogos] = useState<Record<string, string>>({});
-  
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>('transfers');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const handleSort = (col: SortColumn) => {
+    if (sortColumn === col) {
+      setSortDir(d => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortColumn(col);
+      setSortDir('desc');
+    }
+  };
+
   const handleCopy = (text: string) => {
     if (text) navigator.clipboard.writeText(text);
   }
@@ -291,222 +338,182 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
     );
   }
 
+  const sorted = sortColumn
+    ? [...tokens].sort((a, b) => {
+        let aVal = 0, bVal = 0;
+        if (sortColumn === 'holders') { aVal = a.totalUniqueHolders; bVal = b.totalUniqueHolders; }
+        else if (sortColumn === 'transfers') { aVal = a.totalTransfers; bVal = b.totalTransfers; }
+        else if (sortColumn === 'bridges') { aVal = a.totalBridges; bVal = b.totalBridges; }
+        return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
+      })
+    : tokens;
+
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-      {/* Mobile/Tablet Table Header */}
-      <div className="bg-gray-50/80 border-b border-gray-200 flex items-center px-3 py-2.5 lg:hidden">
-        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
-        <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
-        <div className="w-24 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
-        <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
-      </div>
-      
-      {/* Desktop Table Header */}
-      <div className="bg-gray-50/80 border-b border-gray-200 hidden lg:flex items-center px-4 py-3">
-        <div className="w-[180px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
-        <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
-        <div className="w-[120px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
-        <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Total Supply</div>
-        <div className="w-[100px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Max Supply</div>
-        <div className="w-[70px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Holders</div>
-        <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide pl-4">Address</div>
-        <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
-      </div>
-
-      {/* Table Body */}
-      {tokens.map((token) => {
-        const isIncomplete = token.setupStatus !== 'complete';
-        const logoUrl = getLogoUrl(token);
-        
-        return (
-        <div key={token.id}>
-          {/* Mobile/Tablet Row */}
-          <div
-            className={`bg-white flex items-center min-h-[48px] px-3 py-2 border-b border-gray-100 last:border-b-0 
-                       hover:bg-gray-50 lg:hidden
-                       ${isIncomplete ? 'bg-amber-50/50' : ''}`}
-          >
-            {/* Name with Logo and Status Badge */}
-            <div className="flex-1 min-w-0 flex items-center gap-2">
-              <TokenLogo logoUrl={logoUrl} name={token.name} symbol={token.symbol} />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-sm text-black font-medium truncate">
-                  {token.name}
-                </span>
-                <SetupStatusBadge status={token.setupStatus} />
-              </div>
+      {/* Desktop — horizontally scrollable */}
+      <div className="hidden lg:block overflow-x-auto">
+        <div className="min-w-[1060px]">
+          {/* Desktop Header */}
+          <div className="bg-gray-50/80 border-b border-gray-200 flex items-center px-4 py-3">
+            <div className="w-[196px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
+            <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
+            <div className="w-[120px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
+            <div className="w-[110px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Total Supply</div>
+            <div className="w-[96px] shrink-0 flex justify-end">
+              <SortableColHeader label="Holders" col="holders" sortColumn={sortColumn} sortDir={sortDir} onSort={handleSort} />
             </div>
-
-            {/* Ticker */}
-            <div className="w-16 shrink-0">
-              <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
-                {token.symbol}
-              </span>
+            <div className="w-[96px] shrink-0 flex justify-end">
+              <SortableColHeader label="Txns" col="transfers" sortColumn={sortColumn} sortDir={sortDir} onSort={handleSort} />
             </div>
-
-            {/* Type */}
-            <div className="w-24 flex items-center gap-1 shrink-0">
-              <div className="flex items-center">
-                {token.type === 'ethereum-enabled' ? (
-                  <div className="flex items-center">
-                    <EthereumIcon />
-                    <div className="-ml-1">
-                      <CeloIcon />
-                    </div>
-                  </div>
-                ) : (
-                  <CeloIcon />
-                )}
-              </div>
-              <span className="text-xs text-gray-600 hidden sm:inline">
-                {token.type === 'ethereum-enabled' ? 'ETH' : 'Celo'}
-              </span>
+            <div className="w-[96px] shrink-0 flex justify-end">
+              <SortableColHeader label="Bridges" col="bridges" sortColumn={sortColumn} sortDir={sortDir} onSort={handleSort} />
             </div>
-
-            {/* Action */}
-            <div className="w-16 shrink-0 text-right">
-              {isIncomplete ? (
-                <button
-                  onClick={() => onCompleteSetup(token)}
-                  className="bg-orange-500 text-white text-xs font-medium h-7 px-2.5 rounded-lg 
-                             hover:bg-orange-600 cursor-pointer"
-                >
-                  Setup
-                </button>
-              ) : (
-                <button
-                  onClick={() => onManage(token)}
-                  className="bg-black text-white text-xs font-medium h-7 px-2.5 rounded-lg 
-                             hover:bg-gray-800 cursor-pointer"
-                >
-                  Manage
-                </button>
-              )}
-            </div>
+            <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide pl-4 min-w-[180px]">Address</div>
+            <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
           </div>
-          
-          {/* Desktop Row */}
-          <div
-            className={`bg-white hidden lg:flex items-center min-h-[52px] px-4 py-2 border-b border-gray-100 last:border-b-0 
-                       hover:bg-gray-50
-                       ${isIncomplete ? 'bg-amber-50/50' : ''}`}
-          >
-            {/* Name with Logo and Status Badge */}
-            <div className="w-[180px] shrink-0 flex items-center gap-2">
-              <TokenLogo logoUrl={logoUrl} name={token.name} symbol={token.symbol} />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-sm text-black font-medium truncate" title={token.name}>
-                  {token.name}
-                </span>
-                <SetupStatusBadge status={token.setupStatus} />
-              </div>
-            </div>
 
-            {/* Ticker */}
-            <div className="w-[80px] shrink-0">
-              <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
-                {token.symbol}
-              </span>
-            </div>
-
-            {/* Type */}
-            <div className="w-[120px] shrink-0 flex items-center gap-1.5">
-              <div className="flex items-center">
-                {token.type === 'ethereum-enabled' ? (
-                  <div className="flex items-center">
-                    <EthereumIcon />
-                    <div className="-ml-1">
-                      <CeloIcon />
-                    </div>
+          {/* Desktop Rows */}
+          {sorted.map((token) => {
+            const isIncomplete = token.setupStatus !== 'complete';
+            const logoUrl = getLogoUrl(token);
+            return (
+              <div
+                key={token.id}
+                className={`flex items-center min-h-[52px] px-4 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 bg-white ${
+                  isIncomplete ? 'bg-amber-50/50' : ''
+                }`}
+              >
+                <div className="w-[196px] shrink-0 flex items-center gap-2">
+                  <TokenLogo logoUrl={logoUrl} name={token.name} symbol={token.symbol} />
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-sm text-black font-medium truncate" title={token.name}>{token.name}</span>
+                    <SetupStatusBadge status={token.setupStatus} />
                   </div>
-                ) : (
-                  <CeloIcon />
-                )}
+                </div>
+                <div className="w-[80px] shrink-0">
+                  <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">{token.symbol}</span>
+                </div>
+                <div className="w-[120px] shrink-0 flex items-center gap-1.5">
+                  {token.type === 'ethereum-enabled' ? (
+                    <div className="flex items-center"><EthereumIcon /><div className="-ml-1"><CeloIcon /></div></div>
+                  ) : <CeloIcon />}
+                  <span className="text-xs text-gray-600">{token.type === 'ethereum-enabled' ? 'ETH + Celo' : 'Celo-Native'}</span>
+                </div>
+                <div className="w-[110px] shrink-0 text-right">
+                  <span className="text-sm text-black tabular-nums">{token.totalSupplyFormatted}</span>
+                </div>
+                <div className="w-[96px] shrink-0 text-right">
+                  <span className={`text-sm tabular-nums ${sortColumn === 'holders' ? 'text-black font-medium' : 'text-gray-700'}`}>{token.totalUniqueHolders.toLocaleString()}</span>
+                </div>
+                <div className="w-[96px] shrink-0 text-right">
+                  <span className={`text-sm tabular-nums ${sortColumn === 'transfers' ? 'text-black font-medium' : 'text-gray-700'}`}>{token.totalTransfers.toLocaleString()}</span>
+                </div>
+                <div className="w-[96px] shrink-0 text-right">
+                  <span className={`text-sm tabular-nums ${sortColumn === 'bridges' ? 'text-black font-medium' : 'text-gray-700'}`}>{token.totalBridges.toLocaleString()}</span>
+                </div>
+                <div className="flex-1 pl-4 min-w-[180px]">
+                  <MergedAddressWithActions
+                    addressL1={token.addressL1}
+                    addressL2={token.addressL2}
+                    onCopy={() => handleCopy(token.addressL1 || token.addressL2 || '')}
+                  />
+                </div>
+                <div className="w-[80px] shrink-0 text-right">
+                  {isIncomplete ? (
+                    <button
+                      onClick={() => onCompleteSetup(token)}
+                      className="bg-orange-500 text-white text-xs font-medium h-7 px-3 rounded-lg hover:bg-orange-600 cursor-pointer whitespace-nowrap transition-colors"
+                    >
+                      Setup
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onManage(token)}
+                      className="bg-black text-white text-xs font-medium h-7 px-3 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors"
+                    >
+                      Manage
+                    </button>
+                  )}
+                </div>
               </div>
-              <span className="text-xs text-gray-600">
-                {token.type === 'ethereum-enabled' ? 'ETH + Celo' : 'Celo-Native'}
-              </span>
-            </div>
-
-            {/* Total Supply */}
-            <div className="w-[100px] shrink-0 text-right">
-              <span className="text-sm text-black tabular-nums">{token.totalSupplyFormatted}</span>
-            </div>
-
-            {/* Max Supply */}
-            <div className="w-[100px] shrink-0 text-right">
-              <span className="text-sm text-black tabular-nums">{token.maxSupplyFormatted}</span>
-            </div>
-
-            {/* Holders */}
-            <div className="w-[70px] shrink-0 text-right">
-              <span className="text-sm text-black tabular-nums">{token.totalUniqueHolders.toLocaleString()}</span>
-            </div>
-
-            {/* Address (merged) */}
-            <div className="flex-1 pl-4 min-w-0">
-              <MergedAddressWithActions
-                addressL1={token.addressL1}
-                addressL2={token.addressL2}
-                onCopy={() => handleCopy(token.addressL1 || token.addressL2 || '')}
-              />
-            </div>
-
-            {/* Action */}
-            <div className="w-[80px] shrink-0 text-right">
-              {isIncomplete ? (
-                <button
-                  onClick={() => onCompleteSetup(token)}
-                  className="bg-orange-500 text-white text-xs font-medium h-7 px-3 rounded-lg 
-                             transition-colors duration-150 cursor-pointer whitespace-nowrap
-                             hover:bg-orange-600"
-                >
-                  Setup
-                </button>
-              ) : (
-                <button
-                  onClick={() => onManage(token)}
-                  className="bg-black text-white text-xs font-medium h-7 px-3 rounded-lg 
-                             transition-colors duration-150 cursor-pointer
-                             hover:bg-gray-800"
-                >
-                  Manage
-                </button>
-              )}
-            </div>
-          </div>
+            );
+          })}
         </div>
-        );
-      })}
+      </div>
 
-      {/* Empty state */}
+      {/* Empty state (desktop) */}
       {tokens.length === 0 && (
-        <div className="bg-white flex items-center justify-center h-40">
+        <div className="hidden lg:flex bg-white items-center justify-center h-40">
           <div className="text-center animate-fade-in">
             <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                className="text-gray-400"
-              >
-                <path
-                  d="M12 8V12M12 16H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-gray-400">
+                <path d="M12 8V12M12 16H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <p className="text-gray-500 text-sm font-medium">No tokens created yet</p>
-            <p className="text-gray-400 text-xs mt-1">
-              Create your first token to get started
-            </p>
+            <p className="text-gray-400 text-xs mt-1">Create your first token to get started</p>
           </div>
         </div>
       )}
+
+      {/* Mobile table */}
+      <div className="lg:hidden">
+        <div className="bg-gray-50/80 border-b border-gray-200 flex items-center px-3 py-2.5">
+          <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide">Name</div>
+          <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide">Ticker</div>
+          <div className="w-24 text-gray-500 text-xs font-medium uppercase tracking-wide">Type</div>
+          <div className="w-16 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
+        </div>
+        {sorted.map((token) => {
+          const isIncomplete = token.setupStatus !== 'complete';
+          const logoUrl = getLogoUrl(token);
+          return (
+            <div
+              key={token.id}
+              className={`bg-white flex items-center min-h-12 px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 ${
+                isIncomplete ? 'bg-amber-50/50' : ''
+              }`}
+            >
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <TokenLogo logoUrl={logoUrl} name={token.name} symbol={token.symbol} />
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-sm text-black font-medium truncate">{token.name}</span>
+                  <SetupStatusBadge status={token.setupStatus} />
+                </div>
+              </div>
+              <div className="w-16 shrink-0">
+                <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">{token.symbol}</span>
+              </div>
+              <div className="w-24 flex items-center gap-1 shrink-0">
+                {token.type === 'ethereum-enabled' ? (
+                  <div className="flex items-center"><EthereumIcon /><div className="-ml-1"><CeloIcon /></div></div>
+                ) : <CeloIcon />}
+                <span className="text-xs text-gray-600 hidden sm:inline">{token.type === 'ethereum-enabled' ? 'ETH' : 'Celo'}</span>
+              </div>
+              <div className="w-16 shrink-0 text-right">
+                {isIncomplete ? (
+                  <button onClick={() => onCompleteSetup(token)} className="bg-orange-500 text-white text-xs font-medium h-7 px-2.5 rounded-lg hover:bg-orange-600 cursor-pointer">Setup</button>
+                ) : (
+                  <button onClick={() => onManage(token)} className="bg-black text-white text-xs font-medium h-7 px-2.5 rounded-lg hover:bg-gray-800 cursor-pointer">Manage</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {tokens.length === 0 && (
+          <div className="bg-white flex items-center justify-center h-40">
+            <div className="text-center animate-fade-in">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-gray-400">
+                  <path d="M12 8V12M12 16H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <p className="text-gray-500 text-sm font-medium">No tokens created yet</p>
+              <p className="text-gray-400 text-xs mt-1">Create your first token to get started</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

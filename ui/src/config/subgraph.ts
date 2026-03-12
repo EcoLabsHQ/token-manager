@@ -80,6 +80,8 @@ export const QUERIES = {
         maxSupply
         totalSupply
         totalUniqueHolders
+        totalTransfers
+        totalBridges
         chain
         createdAt
       }
@@ -100,6 +102,8 @@ export const QUERIES = {
         maxSupply
         totalSupply
         totalUniqueHolders
+        totalTransfers
+        totalBridges
         chain
         remoteToken
         bridge
