@@ -60,7 +60,7 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
   const isCorrectChain = chainId === expectedChainId;
 
   // Read token data
-  const { data: tokenData, refetch: refetchTokenData } = useReadContracts({
+  const { data: tokenData, isPending: isTokenDataPending, refetch: refetchTokenData } = useReadContracts({
     contracts: tokenAddress ? [
       {
         address: getAddress(tokenAddress),
@@ -324,6 +324,17 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
     [decimals, isOwner, executeTransaction]
   );
 
+  // Update metadata URI on the contract (owner only)
+  const updateMetadataURI = useCallback(
+    async (newURI: string): Promise<TransactionResult> => {
+      if (!isOwner) {
+        return { success: false, error: 'Only the token owner can update the metadata URI' };
+      }
+      return executeTransaction('setMetadataURI', [newURI], 'Metadata URI updated');
+    },
+    [isOwner, executeTransaction]
+  );
+
   // Format balance for display
   const formattedBalance = userBalance 
     ? formatUnits(userBalance as bigint, decimals)
@@ -368,9 +379,11 @@ export const useTokenManager = ({ tokenAddress, isL2Token }: TokenManagerParams)
     transferOwnership,
     acceptOwnership,
     setMaxSupply,
+    updateMetadataURI,
     
     // State
     isLoading,
+    isLoadingData: isTokenDataPending,
     isSwitchingChain,
     error,
     lastTxHash,

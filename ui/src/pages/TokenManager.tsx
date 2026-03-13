@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft, Clock, AlertTriangle, Camera, ChevronDown } from 'lucide-react';
-import { useTokenManager, useWithdraw, usePendingWithdrawals, useTokenLogo, findLogoUrl, type PendingWithdrawalStorage, type WithdrawalStatus } from '../hooks';
+import { Copy, Check, ArrowLeft, Loader2, ArrowRightLeft, Clock, AlertTriangle, Camera, ChevronDown, Upload, ExternalLink, RefreshCw } from 'lucide-react';
+import { useTokenManager, useWithdraw, usePendingWithdrawals, useTokenLogo, findLogoUrl, useUpdateMetadata, type PendingWithdrawalStorage, type WithdrawalStatus } from '../hooks';
+import { ipfsToGatewayUrl, fetchTokenMetadata } from '../lib/metadata';
 import { useAccount, useWalletClient, usePublicClient, useSwitchChain, useConfig } from 'wagmi';
 import { parseUnits, getAddress } from 'viem';
 import { getWalletClient } from 'wagmi/actions';
@@ -125,7 +126,7 @@ const TokenLogo = ({ logoUrl, name, symbol, onLogoChange, isUploading, canEdit }
 };
 
 // Menu Items
-type MenuSection = 'transfer' | 'mint' | 'burn' | 'bridge' | 'pause' | 'admin';
+type MenuSection = 'transfer' | 'mint' | 'burn' | 'bridge' | 'pause' | 'metadata' | 'admin';
 
 interface NavigationMenuProps {
   activeSection: MenuSection;
@@ -140,6 +141,7 @@ const NavigationMenu = ({ activeSection, onSectionChange, showBridge = false }: 
     { id: 'burn', label: 'Burn' },
     ...(showBridge ? [{ id: 'bridge' as MenuSection, label: 'Bridge' }] : []),
     { id: 'pause', label: 'Pause' },
+    { id: 'metadata', label: 'Metadata' },
   ];
 
   return (
@@ -1900,6 +1902,441 @@ const TokenInfoHeader = ({
   );
 };
 
+// ─── Metadata Section ─────────────────────────────────────────────────────────
+
+interface MetadataSectionProps {
+  name: string;
+  symbol: string;
+  decimals: number;
+  metadataURI: string;
+  onUpdateMetadataURI: (uri: string) => Promise<{ success: boolean; txHash?: string; error?: string }>;
+  isOwner: boolean;
+  isLoading: boolean;
+  onSuccess?: () => void;
+}
+
+const CATEGORY_OPTIONS = [
+  { value: '', label: 'Select a category…' },
+  { value: 'governance', label: 'Governance' },
+  { value: 'utility', label: 'Utility' },
+  { value: 'currency', label: 'Currency' },
+  { value: 'stablecoin', label: 'Stablecoin' },
+  { value: 'nft', label: 'NFT / Collectible' },
+  { value: 'defi', label: 'DeFi' },
+  { value: 'social', label: 'Social' },
+  { value: 'other', label: 'Other' },
+];
+
+const MetadataSection = ({
+  name,
+  symbol,
+  decimals,
+  metadataURI,
+  onUpdateMetadataURI,
+  isOwner,
+  isLoading: externalLoading,
+  onSuccess,
+}: MetadataSectionProps) => {
+  // ── Form state ──────────────────────────────────────────────────────────────
+  const [description, setDescription]       = useState('');
+  const [externalLink, setExternalLink]     = useState('');
+  const [website, setWebsite]               = useState('');
+  const [email, setEmail]                   = useState('');
+  const [category, setCategory]             = useState('');
+  const [tags, setTags]                     = useState('');
+  const [socialTwitter, setSocialTwitter]   = useState('');
+  const [socialDiscord, setSocialDiscord]   = useState('');
+  const [socialTelegram, setSocialTelegram] = useState('');
+
+  // ── Image state ─────────────────────────────────────────────────────────────
+  const [imageFile, setImageFile]           = useState<File | undefined>(undefined);
+  const [imagePreview, setImagePreview]     = useState<string | undefined>(undefined);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | undefined>(undefined);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Fetch state ─────────────────────────────────────────────────────────────
+  const [isFetching, setIsFetching]   = useState(false);
+  const [fetchError, setFetchError]   = useState<string | null>(null);
+  // Immutable / externally-managed properties read from the existing JSON
+  const [preservedProperties, setPreservedProperties] = useState<Record<string, unknown>>({});
+
+  // ── Hook ─────────────────────────────────────────────────────────────────────
+  const { update, reset, step, error, newMetadataURI, txHash, isLoading: isUpdating } =
+    useUpdateMetadata({
+      name,
+      symbol,
+      decimals,
+      currentMetadataURI: metadataURI,
+      updateMetadataURIFn: onUpdateMetadataURI,
+    });
+
+  const isProcessing = isUpdating || externalLoading;
+
+  // ── Load metadata from IPFS and populate form ───────────────────────────────
+  const loadFromIpfs = useCallback(async (uri: string) => {
+    if (!uri) return;
+    setIsFetching(true);
+    setFetchError(null);
+    const data = await fetchTokenMetadata(uri);
+    setIsFetching(false);
+    if (!data) {
+      setFetchError('Could not load metadata from IPFS. The fields are empty — you can fill them in manually.');
+      return;
+    }
+    // ── Editable fields ──────────────────────────────────────────────────────
+    setDescription(data.description ?? '');
+    setExternalLink(data.external_link ?? '');
+    setWebsite((data.properties?.website as string) ?? '');
+    setEmail((data.properties?.email as string) ?? '');
+    setCategory((data.properties?.category as string) ?? '');
+    setTags((data.properties?.tags as string) ?? '');
+    setSocialTwitter((data.properties?.social_twitter as string) ?? '');
+    setSocialDiscord((data.properties?.social_discord as string) ?? '');
+    setSocialTelegram((data.properties?.social_telegram as string) ?? '');
+    // Pre-load existing image as preview (only if no new file selected)
+    if (data.image) {
+      setCurrentImageUrl(ipfsToGatewayUrl(data.image));
+    }
+    // ── Preserved (read-only) fields ─────────────────────────────────────────
+    // Extract the properties that are immutable or managed elsewhere
+    // so they are NOT lost when the user saves.
+    const EDITABLE_PROPS = new Set([
+      'website', 'email', 'category', 'tags',
+      'social_twitter', 'social_discord', 'social_telegram',
+      'decimals', // will be overwritten by the hook with the on-chain value
+    ]);
+    const preserved: Record<string, unknown> = {};
+    if (data.properties) {
+      for (const [key, value] of Object.entries(data.properties)) {
+        if (!EDITABLE_PROPS.has(key)) {
+          preserved[key] = value;
+        }
+      }
+    }
+    setPreservedProperties(preserved);
+  }, []);
+
+  // Run once when metadataURI becomes available
+  const loadedUriRef = useRef<string>('');
+  useEffect(() => {
+    if (!metadataURI || loadedUriRef.current === metadataURI) return;
+    loadedUriRef.current = metadataURI;
+    loadFromIpfs(metadataURI);
+  }, [metadataURI, loadFromIpfs]);
+
+  // ── Image selection ──────────────────────────────────────────────────────────
+  const handleImageClick = () => fileInputRef.current?.click();
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      alert('Image must be less than 500 KB');
+      return;
+    }
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  // ── Submit ────────────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    await update(
+      {
+        description,
+        external_link: externalLink,
+        website,
+        email,
+        category: category as any,
+        tags,
+        social_twitter: socialTwitter,
+        social_discord: socialDiscord,
+        social_telegram: socialTelegram,
+      },
+      imageFile,
+      preservedProperties,
+    );
+  };
+
+  useEffect(() => {
+    if (step === 'success') onSuccess?.();
+  }, [step, onSuccess]);
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+  if (!isOwner) {
+    return (
+      <SectionCard title="Token Metadata">
+        <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-lg">
+          Only the token owner can update the metadata.
+        </p>
+      </SectionCard>
+    );
+  }
+
+  if (isFetching) {
+    return (
+      <SectionCard title="Token Metadata">
+        <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading current metadata from IPFS…
+        </div>
+      </SectionCard>
+    );
+  }
+
+  // Success state
+  if (step === 'success') {
+    return (
+      <SectionCard title="Token Metadata">
+        <div className="flex flex-col gap-3">
+          <p className="text-green-600 text-sm font-medium">✅ Metadata updated successfully!</p>
+          {newMetadataURI && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500">New IPFS URI</span>
+              <a
+                href={ipfsToGatewayUrl(newMetadataURI)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:underline break-all flex items-center gap-1"
+              >
+                {newMetadataURI}
+                <ExternalLink className="w-3 h-3 shrink-0" />
+              </a>
+            </div>
+          )}
+          {txHash && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500">Transaction</span>
+              <span className="text-xs text-gray-700 font-mono break-all">{txHash}</span>
+            </div>
+          )}
+          <button
+            onClick={reset}
+            className="mt-1 h-8 px-3 rounded-lg text-xs font-medium bg-black text-white hover:bg-gray-800 w-fit cursor-pointer"
+          >
+            Edit again
+          </button>
+        </div>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* ── Current metadata URI + reload ── */}
+      {metadataURI && (
+        <SectionCard title="Current Metadata URI">
+          <div className="flex items-start gap-3">
+            <a
+              href={ipfsToGatewayUrl(metadataURI)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline break-all flex items-center gap-1 flex-1"
+            >
+              {metadataURI}
+              <ExternalLink className="w-3 h-3 shrink-0" />
+            </a>
+            <button
+              onClick={() => loadFromIpfs(metadataURI)}
+              disabled={isFetching || isProcessing}
+              className="h-7 px-2.5 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50 cursor-pointer shrink-0 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Reload fields from IPFS"
+            >
+              {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Reload
+            </button>
+          </div>
+          {fetchError && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-1">{fetchError}</p>
+          )}
+        </SectionCard>
+      )}
+
+      {/* ── Read-only / on-chain fields ── */}
+      <SectionCard title="On-chain Properties (read-only)">
+        <p className="text-xs text-gray-400 -mt-1">
+          These values are managed on-chain or set at deploy time. They are preserved when you save new metadata.
+        </p>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-1">
+          {[
+            { label: 'Name',            value: name },
+            { label: 'Symbol',          value: symbol },
+            { label: 'Decimals',        value: String(decimals) },
+            { label: 'Chain ID',        value: preservedProperties.chainId != null ? String(preservedProperties.chainId) : undefined },
+            { label: 'Initial Supply',  value: preservedProperties.initialSupply as string | undefined },
+            { label: 'Max Supply',      value: preservedProperties.maxSupply as string | undefined },
+            { label: 'Creator',         value: preservedProperties.creator as string | undefined },
+          ]
+            .filter((f) => f.value !== undefined && f.value !== '')
+            .map(({ label, value }) => (
+              <div key={label} className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{label}</span>
+                <span className="text-xs text-gray-700 font-mono truncate" title={value}>{value}</span>
+              </div>
+            ))}
+        </div>
+      </SectionCard>
+
+      {/* ── Image / Logo ── */}
+      <SectionCard title="Token Image">
+        <div className="flex items-center gap-4">
+          <div
+            onClick={handleImageClick}
+            className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-gray-400 transition-colors bg-gray-50 shrink-0"
+          >
+            {imagePreview ? (
+              <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+            ) : currentImageUrl ? (
+              <img src={currentImageUrl} alt="current" className="w-full h-full object-cover" onError={() => setCurrentImageUrl(undefined)} />
+            ) : (
+              <Upload className="w-5 h-5 text-gray-400" />
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={handleImageClick}
+              className="h-8 px-3 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50 cursor-pointer w-fit"
+            >
+              {imageFile ? 'Change image' : currentImageUrl ? 'Replace image' : 'Upload image'}
+            </button>
+            {imageFile ? (
+              <span className="text-xs text-gray-500 truncate max-w-50">{imageFile.name}</span>
+            ) : currentImageUrl ? (
+              <span className="text-xs text-gray-400">Current image loaded from IPFS</span>
+            ) : null}
+            <span className="text-xs text-gray-400">PNG, JPG, SVG, WebP · max 500 KB</span>
+          </div>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+          onChange={handleImageChange}
+          className="hidden"
+        />
+      </SectionCard>
+
+      {/* ── Basic info ── */}
+      <SectionCard title="Basic Information">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs sm:text-sm text-gray-500">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="A short description of the token and its purpose…"
+              rows={3}
+              maxLength={1000}
+              disabled={isProcessing}
+              className="border border-gray-300 rounded-md px-2.5 py-2 text-xs sm:text-sm text-black outline-none bg-white placeholder:text-gray-400 resize-none disabled:bg-gray-50"
+            />
+            <span className="text-xs text-gray-400 text-right">{description.length}/1000</span>
+          </div>
+          <InputField
+            label="External Link (official website)"
+            value={externalLink}
+            onChange={setExternalLink}
+            placeholder="https://mytoken.io"
+            disabled={isProcessing}
+          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs sm:text-sm text-gray-500">Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              disabled={isProcessing}
+              className="border border-gray-300 rounded-md px-2.5 py-2 text-xs sm:text-sm text-black outline-none bg-white disabled:bg-gray-50 cursor-pointer"
+            >
+              {CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <InputField
+            label="Tags (comma-separated)"
+            value={tags}
+            onChange={setTags}
+            placeholder="governance, dao, celo"
+            disabled={isProcessing}
+          />
+        </div>
+      </SectionCard>
+
+      {/* ── Contact ── */}
+      <SectionCard title="Contact & Links">
+        <div className="flex flex-col gap-3">
+          <InputField
+            label="Website"
+            value={website}
+            onChange={setWebsite}
+            placeholder="https://mytoken.io"
+            disabled={isProcessing}
+          />
+          <InputField
+            label="Contact Email"
+            value={email}
+            onChange={setEmail}
+            placeholder="hello@mytoken.io"
+            disabled={isProcessing}
+          />
+        </div>
+      </SectionCard>
+
+      {/* ── Social ── */}
+      <SectionCard title="Social Links">
+        <div className="flex flex-col gap-3">
+          <InputField
+            label="Twitter / X"
+            value={socialTwitter}
+            onChange={setSocialTwitter}
+            placeholder="https://twitter.com/mytoken or @mytoken"
+            disabled={isProcessing}
+          />
+          <InputField
+            label="Discord"
+            value={socialDiscord}
+            onChange={setSocialDiscord}
+            placeholder="https://discord.gg/invite"
+            disabled={isProcessing}
+          />
+          <InputField
+            label="Telegram"
+            value={socialTelegram}
+            onChange={setSocialTelegram}
+            placeholder="https://t.me/mytoken"
+            disabled={isProcessing}
+          />
+        </div>
+      </SectionCard>
+
+      {/* ── Progress / Errors ── */}
+      {step === 'pinning' && (
+        <div className="flex items-center gap-2 text-blue-600 text-sm bg-blue-50 p-3 rounded-lg">
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+          Uploading metadata to IPFS…
+        </div>
+      )}
+      {step === 'updating' && (
+        <div className="flex items-center gap-2 text-blue-600 text-sm bg-blue-50 p-3 rounded-lg">
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+          Updating metadata URI on the contract…
+        </div>
+      )}
+      {step === 'error' && error && (
+        <p className="text-red-500 text-xs sm:text-sm bg-red-50 p-3 rounded-lg">{error}</p>
+      )}
+
+      <ActionButton
+        label="Save & Publish Metadata"
+        onClick={handleSubmit}
+        disabled={isProcessing}
+        loading={isProcessing}
+      />
+    </div>
+  );
+};
+
 // Main Content Area
 interface ContentAreaProps {
   activeSection: MenuSection;
@@ -1921,7 +2358,9 @@ interface ContentAreaProps {
 
 const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connectedAddress, bridgeProps, isEthereumEnabled, l2TokenManager }: ContentAreaProps) => {
   const {
+    name,
     symbol,
+    decimals,
     isPaused,
     isOwner,
     isPendingOwner,
@@ -1932,6 +2371,7 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connecte
     pendingOwner,
     totalSupply,
     maxSupply,
+    metadataURI,
     transfer,
     mint,
     burn,
@@ -1939,6 +2379,7 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connecte
     unpause,
     transferOwnership,
     acceptOwnership,
+    updateMetadataURI,
   } = tokenManager;
 
   // Combine loading states for better UX
@@ -2157,6 +2598,27 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connecte
             />
           </div>
         );
+      case 'metadata':
+        return (
+          <div className="flex flex-col gap-5">
+            <h3 className="text-base font-semibold text-black">Token Metadata</h3>
+            <p className="text-xs text-gray-500">
+              Update the off-chain metadata for your token. The JSON is pinned to IPFS and the contract's
+              <code className="mx-1 px-1 bg-gray-100 rounded text-xs">metadataURI</code>
+              is updated in a single transaction.
+            </p>
+            <MetadataSection
+              name={name ?? ''}
+              symbol={symbol ?? ''}
+              decimals={decimals ?? 18}
+              metadataURI={metadataURI ?? ''}
+              onUpdateMetadataURI={updateMetadataURI}
+              isOwner={isOwner}
+              isLoading={isOperationLoading}
+              onSuccess={onOperationSuccess}
+            />
+          </div>
+        );
       case 'admin':
         return (
           <div className="flex flex-col gap-5">
@@ -2295,8 +2757,14 @@ export default function TokenManager() {
     }
   }, [isEthereumEnabled, tokenManagerL1, tokenManagerL2, tokenManager]);
 
-  // Loading state while determining which chain
-  const isLoadingToken = isL2Token === null && !tokenManagerL2.name && !tokenManagerL1.name;
+  // Loading state while determining which chain.
+  // Only show spinner while at least one manager is still fetching data.
+  // Once both finish (even without returning a name), exit loading to show "not found".
+  const isLoadingToken =
+    isL2Token === null &&
+    !tokenManagerL2.name &&
+    !tokenManagerL1.name &&
+    (tokenManagerL1.isLoadingData || tokenManagerL2.isLoadingData);
 
   if (isLoadingToken) {
     return (

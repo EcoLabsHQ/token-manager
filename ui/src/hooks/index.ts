@@ -38,3 +38,6 @@ export { usePendingWithdrawals, type PendingWithdrawalStorage } from './usePendi
 
 // Token Logo Hook (R2 Storage)
 export { useTokenLogo, getDirectLogoUrl, findLogoUrl, findLogoBatch, subscribeToLogoUpdates, type TokenLogoData, type UseTokenLogoReturn } from './useTokenLogo';
+
+// Update Metadata Hook (IPFS + contract)
+export { useUpdateMetadata, type MetadataUpdateStep, type UseUpdateMetadataOptions, type UseUpdateMetadataReturn } from './useUpdateMetadata';

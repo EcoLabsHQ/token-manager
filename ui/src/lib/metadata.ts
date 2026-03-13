@@ -15,8 +15,63 @@ export interface TokenMetadata {
     initialSupply?: string;
     creator?: string;
     chainId?: number;
+    // Extended social / project metadata
+    website?: string;
+    email?: string;
+    category?: string;
+    tags?: string;
+    social_twitter?: string;
+    social_discord?: string;
+    social_telegram?: string;
     [key: string]: unknown;
   };
+}
+
+// ─── IPFS helpers ─────────────────────────────────────────────────────────────
+
+/** Convert an ipfs:// URI to a public HTTP gateway URL */
+export function ipfsToGatewayUrl(uri: string): string {
+  if (!uri) return '';
+  if (uri.startsWith('ipfs://')) {
+    return `https://cloudflare-ipfs.com/ipfs/${uri.slice(7)}`;
+  }
+  return uri;
+}
+
+/**
+ * Fetch and parse token metadata JSON from an IPFS URI or HTTP URL.
+ * Tries multiple gateways in sequence. Returns null if all fail.
+ */
+export async function fetchTokenMetadata(
+  metadataURI: string
+): Promise<TokenMetadata | null> {
+  if (!metadataURI) return null;
+
+  const urls: string[] = [];
+
+  if (metadataURI.startsWith('ipfs://')) {
+    const cid = metadataURI.slice(7);
+    urls.push(
+      `https://ipfs.io/ipfs/${cid}`,
+      `https://cloudflare-ipfs.com/ipfs/${cid}`,
+      `https://${cid}.ipfs.w3s.link`,
+    );
+  } else {
+    urls.push(metadataURI);
+  }
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const data = await res.json();
+      return data as TokenMetadata;
+    } catch {
+      // try next gateway
+    }
+  }
+
+  return null;
 }
 
 export interface PinMetadataResponse {
@@ -117,7 +172,8 @@ export async function pinTokenMetadata(
 }
 
 /**
- * Pin just metadata JSON to IPFS (without image)
+ * Pin token metadata to IPFS, optionally with a new image file.
+ * Alias kept for backwards compat — prefer pinTokenMetadata for new code.
  */
 export async function pinMetadataOnly(
   metadata: TokenMetadata

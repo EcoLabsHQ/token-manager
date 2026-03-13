@@ -1002,5 +1002,233 @@ export function createMcpServer(): McpServer {
     }
   );
 
+  // ============================================
+  //         WALLET TOOLS (AGENT SIGNING)
+  // ============================================
+
+  // Tool: Get agent wallet address and balances
+  server.registerTool(
+    "get_wallet_info",
+    {
+      description:
+        "Get the agent wallet address and native token balances on all supported chains. The wallet is configured via the AGENT_WALLET_PRIVATE_KEY environment variable. Call this before creating tokens to verify the wallet is funded.",
+      inputSchema: {},
+    },
+    async () => {
+      const privateKey = process.env.AGENT_WALLET_PRIVATE_KEY;
+      if (!privateKey) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "AGENT_WALLET_PRIVATE_KEY is not configured. Set this environment variable to enable transaction signing.",
+            },
+          ],
+        };
+      }
+
+      try {
+        const wallet = new ethers.Wallet(privateKey);
+        const address = wallet.address;
+        const balances: Record<string, string> = {};
+
+        for (const chain of SUPPORTED_CHAINS) {
+          try {
+            const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
+            const balance = await provider.getBalance(address);
+            balances[chain.name] = ethers.formatEther(balance) + " " + chain.symbol;
+          } catch {
+            balances[chain.name] = "Error fetching balance";
+          }
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  address,
+                  balances,
+                  note: "Ensure this wallet has enough native tokens to pay for gas fees and creation fees before creating a token.",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error reading wallet: ${errorMessage}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // Tool: Query creation fee from factory contract
+  server.registerTool(
+    "get_creation_fee",
+    {
+      description:
+        "Query the factory contract on-chain to get the current token creation fee. Returns the fee in wei and human-readable format. Always call this before send_transaction to get the correct value to send.",
+      inputSchema: {
+        chainId: z.number().int().positive().describe("The blockchain chain ID (42220 for Celo, 1 for Ethereum)"),
+      },
+    },
+    async ({ chainId }) => {
+      try {
+        const factory = FACTORY_ADDRESSES[chainId];
+        if (!factory) {
+          return {
+            content: [{ type: "text", text: `Chain ${chainId} is not supported` }],
+          };
+        }
+
+        const factoryAddress = factory.l2 || factory.l1;
+        const chain = SUPPORTED_CHAINS.find((c) => c.chainId === chainId);
+        if (!chain || !factoryAddress) {
+          return {
+            content: [{ type: "text", text: `No factory address configured for chain ${chainId}` }],
+          };
+        }
+
+        const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
+        const factoryContract = new ethers.Contract(
+          factoryAddress,
+          ["function creationFee() view returns (uint256)"],
+          provider
+        );
+
+        const fee: bigint = await factoryContract.creationFee();
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  chainId,
+                  chainName: chain.name,
+                  factoryAddress,
+                  creationFeeWei: fee.toString(),
+                  creationFeeFormatted: ethers.formatEther(fee) + " " + chain.symbol,
+                  note: "Pass creationFeeWei as the `value` field when calling send_transaction.",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error fetching creation fee: ${errorMessage}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // Tool: Sign and send a transaction with the agent wallet
+  server.registerTool(
+    "send_transaction",
+    {
+      description:
+        "Sign and broadcast a transaction using the agent wallet configured via AGENT_WALLET_PRIVATE_KEY. Use build_create_token_transaction to generate the calldata first, then get_creation_fee to obtain the correct value to send. Waits for one confirmation before returning.",
+      inputSchema: {
+        chainId: z.number().int().positive().describe("The blockchain chain ID"),
+        to: z
+          .string()
+          .regex(/^0x[a-fA-F0-9]{40}$/)
+          .describe("Target contract address"),
+        data: z.string().describe("Hex-encoded calldata (from build_create_token_transaction)"),
+        value: z.string().default("0").describe("Amount of native token to send in wei (use creationFeeWei from get_creation_fee)"),
+        gasLimit: z.string().optional().describe("Gas limit override (optional, auto-estimated if omitted)"),
+      },
+    },
+    async ({ chainId, to, data, value, gasLimit }) => {
+      const privateKey = process.env.AGENT_WALLET_PRIVATE_KEY;
+      if (!privateKey) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "AGENT_WALLET_PRIVATE_KEY is not configured. Cannot sign transactions.",
+            },
+          ],
+        };
+      }
+
+      try {
+        const chain = SUPPORTED_CHAINS.find((c) => c.chainId === chainId);
+        if (!chain) {
+          return {
+            content: [{ type: "text", text: `Chain ${chainId} is not supported` }],
+          };
+        }
+
+        const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
+        const wallet = new ethers.Wallet(privateKey, provider);
+
+        const txRequest: ethers.TransactionRequest = {
+          to,
+          data,
+          value: BigInt(value),
+          ...(gasLimit ? { gasLimit: BigInt(gasLimit) } : {}),
+        };
+
+        const tx = await wallet.sendTransaction(txRequest);
+        console.error(`[MCP:send_transaction] submitted: ${tx.hash} on chain ${chainId}`);
+
+        const receipt = await tx.wait();
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: receipt?.status === 1,
+                  transactionHash: tx.hash,
+                  blockNumber: receipt?.blockNumber,
+                  gasUsed: receipt?.gasUsed?.toString(),
+                  status: receipt?.status === 1 ? "confirmed" : "reverted",
+                  explorerUrl: `${chain.explorerUrl}/tx/${tx.hash}`,
+                  ...(receipt?.status !== 1 && {
+                    note: "Transaction reverted. Check calldata, value, and wallet balance.",
+                  }),
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error sending transaction: ${errorMessage}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
   return server;
 }

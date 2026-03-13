@@ -72,3 +72,71 @@ export const defaultTokenFormValues: TokenFormData = {
   decimals: 18,
   tokenLogo: undefined,
 };
+
+// ─── Metadata Update Schema ───────────────────────────────────────────────────
+
+const urlOrEmpty = z
+  .string()
+  .optional()
+  .refine((val) => !val || /^https?:\/\/.+/.test(val), {
+    message: 'Must be a valid URL (https://...)',
+  });
+
+export const metadataUpdateSchema = z.object({
+  /** Human-readable description of the token / project */
+  description: z.string().max(1000, 'Description must be 1000 characters or less').optional(),
+
+  /** Official project website, used as the top-level external_link in ERC-7572 */
+  external_link: urlOrEmpty,
+
+  /** Project website (stored inside properties) */
+  website: urlOrEmpty,
+
+  /** Contact e-mail */
+  email: z
+    .string()
+    .optional()
+    .refine((val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
+      message: 'Must be a valid email address',
+    }),
+
+  /** Token category — helps explorers classify the token */
+  category: z
+    .enum(['', 'governance', 'utility', 'currency', 'stablecoin', 'nft', 'defi', 'social', 'other'])
+    .optional(),
+
+  /** Comma-separated tags */
+  tags: z.string().max(200, 'Tags must be 200 characters or less').optional(),
+
+  /** Twitter / X handle or profile URL */
+  social_twitter: z
+    .string()
+    .max(100)
+    .optional(),
+
+  /** Discord server invite link or handle */
+  social_discord: z
+    .string()
+    .max(100)
+    .optional(),
+
+  /** Telegram channel or group link */
+  social_telegram: z
+    .string()
+    .max(100)
+    .optional(),
+});
+
+export type MetadataUpdateFormData = z.infer<typeof metadataUpdateSchema>;
+
+export const defaultMetadataUpdateValues: MetadataUpdateFormData = {
+  description: '',
+  external_link: '',
+  website: '',
+  email: '',
+  category: '',
+  tags: '',
+  social_twitter: '',
+  social_discord: '',
+  social_telegram: '',
+};
