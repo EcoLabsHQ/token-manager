@@ -47,7 +47,6 @@ const CeloIcon = () => (
   </div>
 );
 
-const truncateAddress = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
 const truncateAddressLong = (addr: string) => addr ? `${addr.slice(0, 10)}...${addr.slice(-4)}` : '';
 
 const EXPLORER_URLS = { ethereum: 'https://etherscan.io/address/', celo: 'https://celoscan.io/address/' };
