@@ -45,49 +45,50 @@ export function getDirectLogoUrl(chainId: number, tokenAddress: string, extensio
 }
 
 /**
- * Lista de extensiones de imagen soportadas en orden de prioridad
- */
-const SUPPORTED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
-
-/**
- * Busca la URL del logo probando múltiples extensiones
- * Retorna la primera URL que exista o null si ninguna existe
+ * Busca la URL del logo de un token a través del backend API (evita CORS con R2 directo)
+ * Retorna la URL pública o null si no existe logo
  */
 export async function findLogoUrl(chainId: number, tokenAddress: string): Promise<string | null> {
-  const baseUrl = `${R2_PUBLIC_URL}/logos/${chainId}/${tokenAddress.toLowerCase()}`;
-  
-  for (const ext of SUPPORTED_EXTENSIONS) {
-    const url = `${baseUrl}.${ext}`;
-    try {
-      const response = await fetch(url, { method: 'HEAD' });
-      if (response.ok) {
-        return url;
-      }
-    } catch {
-      // Continue to next extension
-    }
+  try {
+    const response = await fetch(
+      `${BACKEND_API_URL}/api/tokens/${chainId}/${tokenAddress.toLowerCase()}/logo`
+    );
+    if (response.status === 404) return null;
+    if (!response.ok) return null;
+    const result = await response.json();
+    return result.data?.url ?? null;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 /**
- * Busca logos para múltiples tokens en paralelo
+ * Busca logos para múltiples tokens usando el endpoint batch del backend (evita CORS con R2 directo)
  */
 export async function findLogoBatch(
   tokens: Array<{ chainId: number; address: string }>
 ): Promise<Record<string, string>> {
-  const results: Record<string, string> = {};
-  
-  await Promise.all(
-    tokens.map(async ({ chainId, address }) => {
-      const url = await findLogoUrl(chainId, address);
-      if (url) {
-        results[address.toLowerCase()] = url;
-      }
-    })
-  );
-  
-  return results;
+  if (tokens.length === 0) return {};
+
+  try {
+    const response = await fetch(`${BACKEND_API_URL}/api/tokens/logos/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tokens }),
+    });
+    if (!response.ok) return {};
+    const result = await response.json();
+    // El backend devuelve claves "chainId:address"; normalizamos a solo "address" para compatibilidad
+    const raw: Record<string, string> = result.data ?? {};
+    const normalized: Record<string, string> = {};
+    for (const [key, url] of Object.entries(raw)) {
+      const address = key.includes(':') ? key.split(':').pop()! : key;
+      normalized[address.toLowerCase()] = url;
+    }
+    return normalized;
+  } catch {
+    return {};
+  }
 }
 
 /**
