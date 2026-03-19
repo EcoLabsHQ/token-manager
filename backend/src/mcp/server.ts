@@ -5,26 +5,33 @@ import { pinMetadata, pinTokenAssets, getFromIPFS, type TokenMetadata } from "..
 import { createPromoSignature, getSignerAddress } from "../services/signer.js";
 import { ethers } from "ethers";
 
-// R2 bucket base URL - configure in environment
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || "https://tokens.example.com";
+// R2 bucket base URL for token logos
+const R2_PUBLIC_URL = "https://pub-3e106f2284d449d682bad32c5eeb3490.r2.dev";
 
 // Subgraph URLs for querying on-chain data
 const SUBGRAPH_URLS: Record<number, string> = {
-  42220: process.env.CELO_SUBGRAPH_URL || "https://api.studio.thegraph.com/query/YOUR_ID/minter-celo/version/latest",
-  1: process.env.ETHEREUM_SUBGRAPH_URL || "https://api.studio.thegraph.com/query/YOUR_ID/minter-ethereum/version/latest",
+  42220: "https://api.studio.thegraph.com/query/72352/minter-celo/version/latest",
+  1: "https://api.studio.thegraph.com/query/72352/minter-ethereum/version/latest",
 };
 
-// Factory addresses per chain
+// Factory contract addresses — same address deployed on all supported chains
+// Source: subgraph/config/celo.json + subgraph/config/ethereum.json
+const FACTORY_ADDRESS = "0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4";
+
 const FACTORY_ADDRESSES: Record<number, { l2?: string; l1?: string }> = {
-  42220: {
-    l2: process.env.CELO_L2_FACTORY || "0x...", // L2SuperChainTokenFactory on Celo
-  },
-  1: {
-    l1: process.env.ETHEREUM_L1_FACTORY || "0x...", // L1TokenFactory on Ethereum
-  },
+  42220: { l2: FACTORY_ADDRESS }, // L2SuperChainTokenFactory on Celo
+  1:     { l1: FACTORY_ADDRESS }, // L1TokenFactory on Ethereum
 };
 
-// Chain metadata
+// Map chainId → promo code suffix (_ETH, _CELO, etc.)
+const CHAIN_PROMO_SUFFIX: Record<number, string> = {
+  1: "_ETH",         // Ethereum Mainnet
+  11155111: "_ETH",  // Ethereum Sepolia
+  42220: "_CELO",    // Celo
+  44787: "_CELO",    // Celo Alfajores
+};
+
+// Chain metadata (mainnet + testnets)
 const SUPPORTED_CHAINS = [
   {
     chainId: 42220,
@@ -34,6 +41,7 @@ const SUPPORTED_CHAINS = [
     rpcUrl: "https://forno.celo.org",
     explorerUrl: "https://celoscan.io",
     factoryType: "L2SuperChainTokenFactory",
+    factoryAddress: FACTORY_ADDRESS,
   },
   {
     chainId: 1,
@@ -43,6 +51,7 @@ const SUPPORTED_CHAINS = [
     rpcUrl: "https://eth.llamarpc.com",
     explorerUrl: "https://etherscan.io",
     factoryType: "L1TokenFactory",
+    factoryAddress: FACTORY_ADDRESS,
   },
 ];
 
@@ -194,7 +203,7 @@ export function createMcpServer(): McpServer {
                 chainId,
                 chainName: chain.name,
                 factoryType: chain.factoryType,
-                factoryAddress: FACTORY_ADDRESSES[chainId],
+                factoryAddress: chain.factoryAddress,
                 rpcUrl: chain.rpcUrl,
                 explorerUrl: chain.explorerUrl,
                 abi: factoryABI[chain.factoryType as keyof typeof factoryABI],
@@ -595,7 +604,7 @@ export function createMcpServer(): McpServer {
   server.registerTool(
     "validate_promo_code",
     {
-      description: "Validate a promotional code and get a signature for discounted token creation. Returns the signature data needed for createTokenWithPromo.",
+      description: "Validate a promotional code and get a signature for discounted token creation. Returns the signature data needed for createTokenWithPromo. The code can be provided without a chain suffix (e.g. 'LAUNCH') and the correct chain-specific variant (e.g. 'LAUNCH:42220') will be resolved automatically using the chainId.",
       inputSchema: {
         code: z.string().min(1).max(50).describe("The promotional code"),
         userAddress: z
@@ -631,15 +640,22 @@ export function createMcpServer(): McpServer {
           };
         }
 
-        // Check promo code
-        const promoCode = await getPromoCode(code.toUpperCase());
+        // Check promo code: try with chain suffix first (e.g. CODE_CELO / CODE_ETH), then the bare code
+        const codeUpper = code.toUpperCase();
+        const chainSuffix = CHAIN_PROMO_SUFFIX[chainId];
+        const codeWithChain = chainSuffix ? `${codeUpper}${chainSuffix}` : codeUpper;
+        let promoCode = codeWithChain !== codeUpper ? await getPromoCode(codeWithChain) : null;
+        const resolvedCode = promoCode ? codeWithChain : codeUpper;
+        if (!promoCode) {
+          promoCode = await getPromoCode(codeUpper);
+        }
 
         if (!promoCode) {
           return {
             content: [
               {
                 type: "text",
-                text: `Promo code "${code}" not found`,
+                text: `Promo code "${code}" not found for chain ${chainId}${chainSuffix ? ` (tried "${codeWithChain}" and "${codeUpper}")` : ""}`,
               },
             ],
           };
@@ -681,7 +697,7 @@ export function createMcpServer(): McpServer {
 
         // Generate nonce
         const promoNonce = ethers.keccak256(
-          ethers.solidityPacked(["string", "address", "uint256", "uint256"], [code, userAddress, chainId, Date.now()])
+          ethers.solidityPacked(["string", "address", "uint256", "uint256"], [resolvedCode, userAddress, chainId, Date.now()])
         );
 
         // Create signature
@@ -706,7 +722,7 @@ export function createMcpServer(): McpServer {
                   expiresAt: promoCode.expires_at,
                   signature: signatureResult.signature,
                   signerAddress: await getSignerAddress(),
-                  usage: "Use these values with createTokenWithPromo: promoFee_, promoNonce_, expiresAt_, signature_",
+                  usage: "Pass these values to the build_create_token_transaction tool: promoFee, promoNonce, expiresAt, signature. Or simply pass the promoCode directly to build_create_token_transaction and it will validate automatically.",
                 },
                 null,
                 2
@@ -873,24 +889,27 @@ export function createMcpServer(): McpServer {
   server.registerTool(
     "build_create_token_transaction",
     {
-      description: "Build a transaction object for creating a new token. Returns the transaction data that can be signed and sent by a wallet.",
+      description:
+        "Build a ready-to-sign transaction for creating a new ERC-20 token. Automatically fetches the current creation fee from the factory contract and includes it as the transaction value. Returns complete transaction data (to, data, value, chainId, rpcUrl) plus step-by-step instructions for signing with ethers.js, viem, or cast. Supports promo codes: either pass a promoCode string for automatic validation, or pass the individual promo fields (promoFee, promoNonce, expiresAt, signature) obtained previously from validate_promo_code.",
       inputSchema: {
-        chainId: z.number().int().positive().describe("The blockchain chain ID"),
+        chainId: z.number().int().positive().describe("The blockchain chain ID (42220 for Celo, 1 for Ethereum)"),
         owner: z
           .string()
           .regex(/^0x[a-fA-F0-9]{40}$/)
-          .describe("Address that will own the token"),
-        name: z.string().min(1).max(100).describe("Token name"),
-        symbol: z.string().min(1).max(20).describe("Token symbol"),
-        decimals: z.number().int().min(0).max(18).default(18).describe("Number of decimals"),
-        initialSupply: z.string().describe("Initial supply (in token units, e.g., '1000000')"),
-        maxSupply: z.string().default("0").describe("Maximum supply (0 for unlimited)"),
-        metadataURI: z.string().describe("IPFS URI for token metadata"),
-        // Optional promo params
-        promoFee: z.string().optional().describe("Promo fee in wei (from validate_promo_code)"),
-        promoNonce: z.string().optional().describe("Promo nonce (from validate_promo_code)"),
-        expiresAt: z.number().optional().describe("Promo expiration timestamp"),
-        signature: z.string().optional().describe("Promo signature (from validate_promo_code)"),
+          .describe("Address that will own the token (the agent's wallet address)"),
+        name: z.string().min(1).max(100).describe("Token name (e.g. 'Community Token')"),
+        symbol: z.string().min(1).max(20).describe("Token symbol (e.g. 'COMM')"),
+        decimals: z.number().int().min(0).max(18).default(18).describe("Number of decimals (default 18)"),
+        initialSupply: z.string().describe("Initial supply in token units, e.g. '1000000' (not wei)"),
+        maxSupply: z.string().default("0").describe("Maximum supply in token units (0 = unlimited)"),
+        metadataURI: z.string().describe("IPFS URI for token metadata — use pin_token_metadata first to get this"),
+        // Promo code shortcut: pass the code and it will be validated automatically
+        promoCode: z.string().optional().describe("Promotional code for discounted creation. If provided, it will be validated automatically and the discounted fee applied — no need to call validate_promo_code first."),
+        // Optional pre-validated promo params (from validate_promo_code)
+        promoFee: z.string().optional().describe("Discounted fee in wei (from validate_promo_code — not needed if promoCode is provided)"),
+        promoNonce: z.string().optional().describe("Promo nonce (from validate_promo_code — not needed if promoCode is provided)"),
+        expiresAt: z.number().optional().describe("Promo expiration timestamp (from validate_promo_code — not needed if promoCode is provided)"),
+        signature: z.string().optional().describe("Promo signature (from validate_promo_code — not needed if promoCode is provided)"),
       },
     },
     async ({
@@ -902,6 +921,7 @@ export function createMcpServer(): McpServer {
       initialSupply,
       maxSupply,
       metadataURI,
+      promoCode,
       promoFee,
       promoNonce,
       expiresAt,
@@ -911,52 +931,126 @@ export function createMcpServer(): McpServer {
         const factory = FACTORY_ADDRESSES[chainId];
         if (!factory) {
           return {
-            content: [
-              {
-                type: "text",
-                text: `Chain ${chainId} is not supported`,
-              },
-            ],
+            content: [{ type: "text", text: `Chain ${chainId} is not supported` }],
           };
         }
 
         const factoryAddress = factory.l2 || factory.l1;
+        if (!factoryAddress) {
+          return {
+            content: [{ type: "text", text: `No factory address configured for chain ${chainId}` }],
+          };
+        }
+
         const chain = SUPPORTED_CHAINS.find((c) => c.chainId === chainId);
+        if (!chain) {
+          return {
+            content: [{ type: "text", text: `Chain metadata not found for ${chainId}` }],
+          };
+        }
+
+        // If a promoCode string was provided, validate it now and derive promo params
+        if (promoCode && !(promoFee && promoNonce && expiresAt && signature)) {
+          // Apply chain suffix (_CELO / _ETH) the same way validate_promo_code does
+          const codeUpper = promoCode.toUpperCase();
+          const suffix = CHAIN_PROMO_SUFFIX[chainId];
+          const codeWithSuffix = suffix ? `${codeUpper}${suffix}` : codeUpper;
+          let dbPromo = suffix ? await getPromoCode(codeWithSuffix) : null;
+          const resolvedPromoCode = dbPromo ? codeWithSuffix : codeUpper;
+          if (!dbPromo) dbPromo = await getPromoCode(codeUpper);
+
+          if (!dbPromo) {
+            return { content: [{ type: "text", text: `Promo code "${promoCode}" not found for chain ${chainId}${suffix ? ` (tried "${codeWithSuffix}" and "${codeUpper}")` : ""}` }] };
+          }
+          if (!dbPromo.is_active) {
+            return { content: [{ type: "text", text: `Promo code "${promoCode}" is no longer active` }] };
+          }
+          const now = Math.floor(Date.now() / 1000);
+          if (dbPromo.expires_at <= now) {
+            return { content: [{ type: "text", text: `Promo code "${promoCode}" has expired` }] };
+          }
+          if (dbPromo.current_uses >= dbPromo.max_uses) {
+            return { content: [{ type: "text", text: `Promo code "${promoCode}" has reached maximum uses` }] };
+          }
+
+          const derivedNonce = ethers.keccak256(
+            ethers.solidityPacked(
+              ["string", "address", "uint256", "uint256"],
+              [resolvedPromoCode, owner, chainId, Date.now()]
+            )
+          );
+          const signatureResult = await createPromoSignature({
+            userAddress: owner,
+            promoFee: dbPromo.discount_fee,
+            promoNonce: derivedNonce,
+            expiresAt: dbPromo.expires_at,
+            chainId,
+            factoryAddress,
+          });
+
+          promoFee = dbPromo.discount_fee;
+          promoNonce = derivedNonce;
+          expiresAt = dbPromo.expires_at;
+          signature = signatureResult.signature;
+        }
 
         // Parse supplies to wei
+        // maxSupply=0 means unlimited → map to uint256 max so the contract doesn't revert
         const initialSupplyWei = ethers.parseUnits(initialSupply, decimals);
-        const maxSupplyWei = maxSupply === "0" ? BigInt(0) : ethers.parseUnits(maxSupply, decimals);
+        const maxSupplyWei = maxSupply === "0" ? ethers.MaxUint256 : ethers.parseUnits(maxSupply, decimals);
 
-        // Build interface
+        // Build ABI interface
         const iface = new ethers.Interface([
           "function createToken(address owner_, string name_, string symbol_, uint8 decimals_, uint256 initialSupply_, uint256 maxSupply_, string metadataURI_) payable returns (address)",
           "function createTokenWithPromo(address owner_, string name_, string symbol_, uint8 decimals_, uint256 initialSupply_, uint256 maxSupply_, string metadataURI_, uint256 promoFee_, bytes32 promoNonce_, uint256 expiresAt_, bytes signature_) payable returns (address)",
         ]);
 
+        const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
         let data: string;
         let value: string;
+        let feeFormatted: string;
 
         if (promoFee && promoNonce && expiresAt && signature) {
-          // With promo
+          // Promo path: fee comes from validate_promo_code or inline validation
           data = iface.encodeFunctionData("createTokenWithPromo", [
-            owner,
-            name,
-            symbol,
-            decimals,
-            initialSupplyWei,
-            maxSupplyWei,
-            metadataURI,
-            BigInt(promoFee),
-            promoNonce,
-            expiresAt,
-            signature,
+            owner, name, symbol, decimals,
+            initialSupplyWei, maxSupplyWei, metadataURI,
+            BigInt(promoFee), promoNonce, expiresAt, signature,
           ]);
           value = promoFee;
+          feeFormatted = ethers.formatEther(BigInt(promoFee)) + " " + chain.symbol + " (promo price)";
         } else {
-          // Without promo - need to fetch creation fee
-          data = iface.encodeFunctionData("createToken", [owner, name, symbol, decimals, initialSupplyWei, maxSupplyWei, metadataURI]);
-          // Note: The actual fee should be fetched from the contract
-          value = "0"; // Placeholder - agent should call creationFee() on the factory
+          // Standard path: fetch real creation fee from contract
+          const factoryContract = new ethers.Contract(
+            factoryAddress,
+            ["function creationFee() view returns (uint256)"],
+            provider
+          );
+          const fee: bigint = await factoryContract.creationFee();
+          data = iface.encodeFunctionData("createToken", [
+            owner, name, symbol, decimals,
+            initialSupplyWei, maxSupplyWei, metadataURI,
+          ]);
+          value = fee.toString();
+          feeFormatted = ethers.formatEther(fee) + " " + chain.symbol;
+        }
+
+        // Simulate the transaction to get an accurate gas estimate (+20% safety buffer)
+        let gasLimit: string;
+        let gasEstimateNote: string;
+        try {
+          const estimated = await provider.estimateGas({
+            from: owner,
+            to: factoryAddress,
+            data,
+            value: BigInt(value),
+          });
+          const withBuffer = (estimated * 120n) / 100n;
+          gasLimit = withBuffer.toString();
+          gasEstimateNote = `Simulated: ${estimated.toString()} gas, +20% buffer applied`;
+        } catch (simErr) {
+          gasLimit = "800000";
+          gasEstimateNote = `Simulation failed (${simErr instanceof Error ? simErr.message : simErr}), using safe fallback of 800000`;
         }
 
         return {
@@ -965,21 +1059,40 @@ export function createMcpServer(): McpServer {
               type: "text",
               text: JSON.stringify(
                 {
-                  chainId,
-                  to: factoryAddress,
-                  data,
-                  value,
-                  gasLimit: "500000", // Estimate
-                  rpcUrl: chain?.rpcUrl,
-                  note: value === "0" ? "IMPORTANT: You must call creationFee() on the factory contract to get the required value to send" : "Transaction ready to sign",
+                  // ── Ready-to-sign transaction ──────────────────────────
+                  transaction: {
+                    chainId,
+                    to: factoryAddress,
+                    data,
+                    value,
+                    gasLimit,
+                  },
+                  // ── Context ───────────────────────────────────────────
+                  rpcUrl: chain.rpcUrl,
+                  explorerUrl: chain.explorerUrl,
+                  creationFee: feeFormatted,
+                  gasEstimate: gasEstimateNote,
+                  // ── How to send (for the agent) ───────────────────────
+                  how_to_send: {
+                    note: "The MCP server never handles private keys. Sign and broadcast the transaction from your own wallet using one of the methods below.",
+                    ethers_js: [
+                      `const provider = new ethers.JsonRpcProvider("${chain.rpcUrl}");`,
+                      `const wallet = new ethers.Wallet(YOUR_PRIVATE_KEY, provider);`,
+                      `const tx = await wallet.sendTransaction({ to: "${factoryAddress}", data: "<data above>", value: ${value}n, gasLimit: ${gasLimit}n });`,
+                      `const receipt = await tx.wait();`,
+                      `console.log("Token created! TX:", receipt.hash);`,
+                    ].join("\n"),
+                    viem: [
+                      `const hash = await walletClient.sendTransaction({ to: "${factoryAddress}", data: "<data above>", value: ${value}n, gas: ${gasLimit}n, chain: { id: ${chainId} } });`,
+                    ].join("\n"),
+                    cast: `cast send ${factoryAddress} --data <data above> --value ${value} --gas-limit ${gasLimit} --rpc-url ${chain.rpcUrl} --private-key $PRIVATE_KEY`,
+                  },
+                  // ── Human-readable params ─────────────────────────────
                   params: {
-                    owner,
-                    name,
-                    symbol,
-                    decimals,
-                    initialSupplyWei: initialSupplyWei.toString(),
-                    maxSupplyWei: maxSupplyWei.toString(),
-                    metadataURI,
+                    owner, name, symbol, decimals, initialSupply, maxSupply, metadataURI,
+                    ...(promoFee && promoNonce && expiresAt && signature
+                      ? { promoCode: promoCode ?? "(pre-validated)", promoFee, promoNonce, expiresAt }
+                      : {}),
                   },
                 },
                 null,
@@ -991,93 +1104,22 @@ export function createMcpServer(): McpServer {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         return {
-          content: [
-            {
-              type: "text",
-              text: `Error building transaction: ${errorMessage}`,
-            },
-          ],
+          content: [{ type: "text", text: `Error building transaction: ${errorMessage}` }],
         };
       }
     }
   );
 
   // ============================================
-  //         WALLET TOOLS (AGENT SIGNING)
+  //         ON-CHAIN READS
   // ============================================
-
-  // Tool: Get agent wallet address and balances
-  server.registerTool(
-    "get_wallet_info",
-    {
-      description:
-        "Get the agent wallet address and native token balances on all supported chains. The wallet is configured via the AGENT_WALLET_PRIVATE_KEY environment variable. Call this before creating tokens to verify the wallet is funded.",
-      inputSchema: {},
-    },
-    async () => {
-      const privateKey = process.env.AGENT_WALLET_PRIVATE_KEY;
-      if (!privateKey) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: "AGENT_WALLET_PRIVATE_KEY is not configured. Set this environment variable to enable transaction signing.",
-            },
-          ],
-        };
-      }
-
-      try {
-        const wallet = new ethers.Wallet(privateKey);
-        const address = wallet.address;
-        const balances: Record<string, string> = {};
-
-        for (const chain of SUPPORTED_CHAINS) {
-          try {
-            const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
-            const balance = await provider.getBalance(address);
-            balances[chain.name] = ethers.formatEther(balance) + " " + chain.symbol;
-          } catch {
-            balances[chain.name] = "Error fetching balance";
-          }
-        }
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  address,
-                  balances,
-                  note: "Ensure this wallet has enough native tokens to pay for gas fees and creation fees before creating a token.",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error reading wallet: ${errorMessage}`,
-            },
-          ],
-        };
-      }
-    }
-  );
 
   // Tool: Query creation fee from factory contract
   server.registerTool(
     "get_creation_fee",
     {
       description:
-        "Query the factory contract on-chain to get the current token creation fee. Returns the fee in wei and human-readable format. Always call this before send_transaction to get the correct value to send.",
+        "Query the factory contract on-chain to get the current token creation fee. Returns the fee in wei and human-readable format. The fee must be sent as the transaction value when creating a token.",
       inputSchema: {
         chainId: z.number().int().positive().describe("The blockchain chain ID (42220 for Celo, 1 for Ethereum)"),
       },
@@ -1119,7 +1161,6 @@ export function createMcpServer(): McpServer {
                   factoryAddress,
                   creationFeeWei: fee.toString(),
                   creationFeeFormatted: ethers.formatEther(fee) + " " + chain.symbol,
-                  note: "Pass creationFeeWei as the `value` field when calling send_transaction.",
                 },
                 null,
                 2
@@ -1141,74 +1182,42 @@ export function createMcpServer(): McpServer {
     }
   );
 
-  // Tool: Sign and send a transaction with the agent wallet
+  // ============================================
+  //         WALLET & TRANSACTION TOOLS
+  // ============================================
+
+  // Tool: Get native balance of a wallet
   server.registerTool(
-    "send_transaction",
+    "get_wallet_balance",
     {
-      description:
-        "Sign and broadcast a transaction using the agent wallet configured via AGENT_WALLET_PRIVATE_KEY. Use build_create_token_transaction to generate the calldata first, then get_creation_fee to obtain the correct value to send. Waits for one confirmation before returning.",
+      description: "Get the native token balance (CELO or ETH) of a wallet address on a given chain. Useful to check if there are enough funds before creating a token.",
       inputSchema: {
-        chainId: z.number().int().positive().describe("The blockchain chain ID"),
-        to: z
+        chainId: z.number().int().positive().describe("The blockchain chain ID (42220 for Celo, 1 for Ethereum)"),
+        address: z
           .string()
           .regex(/^0x[a-fA-F0-9]{40}$/)
-          .describe("Target contract address"),
-        data: z.string().describe("Hex-encoded calldata (from build_create_token_transaction)"),
-        value: z.string().default("0").describe("Amount of native token to send in wei (use creationFeeWei from get_creation_fee)"),
-        gasLimit: z.string().optional().describe("Gas limit override (optional, auto-estimated if omitted)"),
+          .describe("Wallet address to check"),
       },
     },
-    async ({ chainId, to, data, value, gasLimit }) => {
-      const privateKey = process.env.AGENT_WALLET_PRIVATE_KEY;
-      if (!privateKey) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: "AGENT_WALLET_PRIVATE_KEY is not configured. Cannot sign transactions.",
-            },
-          ],
-        };
-      }
-
+    async ({ chainId, address }) => {
       try {
         const chain = SUPPORTED_CHAINS.find((c) => c.chainId === chainId);
         if (!chain) {
-          return {
-            content: [{ type: "text", text: `Chain ${chainId} is not supported` }],
-          };
+          return { content: [{ type: "text", text: `Chain ${chainId} is not supported` }] };
         }
-
         const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
-        const wallet = new ethers.Wallet(privateKey, provider);
-
-        const txRequest: ethers.TransactionRequest = {
-          to,
-          data,
-          value: BigInt(value),
-          ...(gasLimit ? { gasLimit: BigInt(gasLimit) } : {}),
-        };
-
-        const tx = await wallet.sendTransaction(txRequest);
-        console.error(`[MCP:send_transaction] submitted: ${tx.hash} on chain ${chainId}`);
-
-        const receipt = await tx.wait();
-
+        const balanceWei = await provider.getBalance(address);
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify(
                 {
-                  success: receipt?.status === 1,
-                  transactionHash: tx.hash,
-                  blockNumber: receipt?.blockNumber,
-                  gasUsed: receipt?.gasUsed?.toString(),
-                  status: receipt?.status === 1 ? "confirmed" : "reverted",
-                  explorerUrl: `${chain.explorerUrl}/tx/${tx.hash}`,
-                  ...(receipt?.status !== 1 && {
-                    note: "Transaction reverted. Check calldata, value, and wallet balance.",
-                  }),
+                  chainId,
+                  chainName: chain.name,
+                  address,
+                  balanceWei: balanceWei.toString(),
+                  balanceFormatted: ethers.formatEther(balanceWei) + " " + chain.symbol,
                 },
                 null,
                 2
@@ -1217,15 +1226,112 @@ export function createMcpServer(): McpServer {
           ],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        return { content: [{ type: "text", text: `Error fetching balance: ${error instanceof Error ? error.message : error}` }] };
+      }
+    }
+  );
+
+  // Tool: Estimate gas for an arbitrary transaction
+  server.registerTool(
+    "estimate_gas",
+    {
+      description: "Simulate a transaction on-chain and return the estimated gas units required, plus a recommended gasLimit with a 20% safety buffer.",
+      inputSchema: {
+        chainId: z.number().int().positive().describe("The blockchain chain ID"),
+        from: z.string().regex(/^0x[a-fA-F0-9]{40}$/).describe("Sender address"),
+        to: z.string().regex(/^0x[a-fA-F0-9]{40}$/).describe("Recipient / contract address"),
+        data: z.string().describe("Encoded calldata (0x prefixed)"),
+        value: z.string().default("0").describe("Value in wei"),
+      },
+    },
+    async ({ chainId, from, to, data, value }) => {
+      try {
+        const chain = SUPPORTED_CHAINS.find((c) => c.chainId === chainId);
+        if (!chain) {
+          return { content: [{ type: "text", text: `Chain ${chainId} is not supported` }] };
+        }
+        const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
+        const estimated = await provider.estimateGas({ from, to, data, value: BigInt(value) });
+        const withBuffer = (estimated * 120n) / 100n;
         return {
           content: [
             {
               type: "text",
-              text: `Error sending transaction: ${errorMessage}`,
+              text: JSON.stringify(
+                {
+                  chainId,
+                  estimatedGas: estimated.toString(),
+                  recommendedGasLimit: withBuffer.toString(),
+                  note: "recommendedGasLimit = estimatedGas + 20% buffer",
+                },
+                null,
+                2
+              ),
             },
           ],
         };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Gas estimation failed (simulation reverted): ${error instanceof Error ? error.message : error}` }] };
+      }
+    }
+  );
+
+  // Tool: Get transaction status and receipt
+  server.registerTool(
+    "get_transaction_status",
+    {
+      description: "Fetch the status and receipt of a transaction by hash. If the transaction created a token via the factory, also returns the new token contract address parsed from the TokenCreated event.",
+      inputSchema: {
+        chainId: z.number().int().positive().describe("The blockchain chain ID"),
+        txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/).describe("Transaction hash (0x prefixed, 64 hex chars)"),
+      },
+    },
+    async ({ chainId, txHash }) => {
+      try {
+        const chain = SUPPORTED_CHAINS.find((c) => c.chainId === chainId);
+        if (!chain) {
+          return { content: [{ type: "text", text: `Chain ${chainId} is not supported` }] };
+        }
+        const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
+        const receipt = await provider.getTransactionReceipt(txHash);
+        if (!receipt) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ status: "pending", txHash, message: "Transaction not yet mined" }, null, 2) }],
+          };
+        }
+
+        // Try to extract the created token address from the TokenCreated event
+        // event TokenCreated(address indexed tokenAddress, ...)
+        const TOKEN_CREATED_TOPIC = ethers.id("TokenCreated(address,string,string,uint256,uint256,uint8,address,string)");
+        let tokenAddress: string | null = null;
+        for (const log of receipt.logs) {
+          if (log.topics[0] === TOKEN_CREATED_TOPIC && log.topics[1]) {
+            tokenAddress = ethers.getAddress("0x" + log.topics[1].slice(26));
+            break;
+          }
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  txHash,
+                  status: receipt.status === 1 ? "success" : "reverted",
+                  blockNumber: receipt.blockNumber,
+                  gasUsed: receipt.gasUsed.toString(),
+                  ...(tokenAddress ? { tokenAddress, explorerUrl: `${chain.explorerUrl}/token/${tokenAddress}` } : {}),
+                  txExplorerUrl: `${chain.explorerUrl}/tx/${txHash}`,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error fetching transaction: ${error instanceof Error ? error.message : error}` }] };
       }
     }
   );

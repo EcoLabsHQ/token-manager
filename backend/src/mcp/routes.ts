@@ -6,11 +6,9 @@ import { createMcpServer } from "./server.js";
 
 const router = Router();
 
-// Store transports by session ID for stateful connections
+// Store transports AND server instances by session ID
 const transports: Record<string, StreamableHTTPServerTransport> = {};
-
-// Create shared MCP server instance
-const mcpServer = createMcpServer();
+const servers: Record<string, ReturnType<typeof createMcpServer>> = {};
 
 /**
  * POST /mcp - Main MCP endpoint for JSON-RPC messages
@@ -27,27 +25,32 @@ router.post("/", async (req: Request, res: Response) => {
       // Reuse existing transport for this session
       transport = transports[sessionId];
     } else if (!sessionId && isInitializeRequest(req.body)) {
-      // New initialization request - create new transport
+      // New initialization request — create a fresh server + transport per session
+      // (a McpServer instance cannot be reused across connections)
+      const sessionServer = createMcpServer();
+
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
-        enableJsonResponse: true, // Return JSON instead of SSE for simpler clients
+        enableJsonResponse: true,
         onsessioninitialized: (newSessionId) => {
           console.error(`[MCP] Session initialized: ${newSessionId}`);
           transports[newSessionId] = transport;
+          servers[newSessionId] = sessionServer;
         },
       });
 
       // Clean up on close
       transport.onclose = () => {
         const sid = transport.sessionId;
-        if (sid && transports[sid]) {
+        if (sid) {
           console.error(`[MCP] Session closed: ${sid}`);
           delete transports[sid];
+          delete servers[sid];
         }
       };
 
-      // Connect transport to MCP server
-      await mcpServer.connect(transport);
+      // Connect the fresh server instance to its transport
+      await sessionServer.connect(transport);
     } else {
       // Invalid request - no session and not initializing
       res.status(400).json({
