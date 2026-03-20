@@ -395,7 +395,7 @@ const TransferSection = ({ symbol, onTransfer, isLoading, userBalance, onSuccess
           label="Amount"
           value={amount}
           onChange={setAmount}
-          placeholder="1,000,000"
+          placeholder="0"
           suffix={symbol}
           formatNumber
         />
@@ -629,7 +629,7 @@ const MintSection = ({ symbol, onMint, isLoading, isOwner, onSuccess, isPaused =
           label="Amount"
           value={amount}
           onChange={setAmount}
-          placeholder="1,000,000"
+          placeholder="0"
           suffix={symbol}
           disabled={!isOwner}
           formatNumber
@@ -699,7 +699,7 @@ const BurnSection = ({ symbol, onBurn, isLoading, userBalance, onSuccess, isPaus
         label="Amount"
         value={amount}
         onChange={setAmount}
-        placeholder="1,000,000"
+        placeholder="0`"
         suffix={symbol}
         formatNumber
       />
@@ -1913,6 +1913,7 @@ interface MetadataSectionProps {
   isOwner: boolean;
   isLoading: boolean;
   onSuccess?: () => void;
+  initialImageUrl?: string;
 }
 
 const CATEGORY_OPTIONS = [
@@ -1936,6 +1937,7 @@ const MetadataSection = ({
   isOwner,
   isLoading: externalLoading,
   onSuccess,
+  initialImageUrl,
 }: MetadataSectionProps) => {
   // ── Form state ──────────────────────────────────────────────────────────────
   const [description, setDescription]       = useState('');
@@ -1951,7 +1953,7 @@ const MetadataSection = ({
   // ── Image state ─────────────────────────────────────────────────────────────
   const [imageFile, setImageFile]           = useState<File | undefined>(undefined);
   const [imagePreview, setImagePreview]     = useState<string | undefined>(undefined);
-  const [currentImageUrl, setCurrentImageUrl] = useState<string | undefined>(undefined);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | undefined>(initialImageUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Fetch state ─────────────────────────────────────────────────────────────
@@ -2015,6 +2017,13 @@ const MetadataSection = ({
     }
     setPreservedProperties(preserved);
   }, []);
+
+  // Sync currentImageUrl with initialImageUrl if prop changes and no file is selected
+  useEffect(() => {
+    if (initialImageUrl && !imageFile && !currentImageUrl) {
+      setCurrentImageUrl(initialImageUrl);
+    }
+  }, [initialImageUrl, imageFile, currentImageUrl]);
 
   // Run once when metadataURI becomes available
   const loadedUriRef = useRef<string>('');
@@ -2354,9 +2363,11 @@ interface ContentAreaProps {
   // For Ethereum Enabled tokens - dual chain operations
   isEthereumEnabled?: boolean;
   l2TokenManager?: ReturnType<typeof useTokenManager>;
+  // Token logo URL for metadata section
+  tokenLogoUrl?: string;
 }
 
-const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connectedAddress, bridgeProps, isEthereumEnabled, l2TokenManager }: ContentAreaProps) => {
+const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connectedAddress, bridgeProps, isEthereumEnabled, l2TokenManager, tokenLogoUrl }: ContentAreaProps) => {
   const {
     name,
     symbol,
@@ -2616,6 +2627,7 @@ const ContentArea = ({ activeSection, tokenManager, onOperationSuccess, connecte
               isOwner={isOwner}
               isLoading={isOperationLoading}
               onSuccess={onOperationSuccess}
+              initialImageUrl={tokenLogoUrl}
             />
           </div>
         );
@@ -2869,6 +2881,7 @@ export default function TokenManager() {
             } : undefined}
             isEthereumEnabled={isEthereumEnabled}
             l2TokenManager={isEthereumEnabled ? tokenManagerL2 : undefined}
+            tokenLogoUrl={tokenLogoUrl}
           />
         </div>
       </div>

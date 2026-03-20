@@ -163,12 +163,8 @@ export function useAllSubgraphTokens() {
         });
       });
 
-      // Sort by total supply descending (highest supply first)
-      tokenPairs.sort((a, b) => {
-        const aSupply = parseFloat(formatUnits(BigInt(a.totalSupply || '0'), a.decimals));
-        const bSupply = parseFloat(formatUnits(BigInt(b.totalSupply || '0'), b.decimals));
-        return bSupply - aSupply;
-      });
+      // Sort by total transfers descending (most active tokens first)
+      tokenPairs.sort((a, b) => b.totalTransfers - a.totalTransfers);
 
       setTokens(tokenPairs);
     } catch (err) {

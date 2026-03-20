@@ -101,6 +101,12 @@ const TopTokenRow = ({
       </span>
     </div>
 
+    {/* Transfers */}
+    <div className="w-20 text-right shrink-0 hidden sm:block">
+      <p className="text-xs text-gray-400">Transfers</p>
+      <p className="text-sm font-medium text-black tabular-nums">{token.totalTransfers.toLocaleString()}</p>
+    </div>
+
     {/* Supply */}
     <div className="w-28 text-right shrink-0 hidden sm:block">
       <p className="text-xs text-gray-400">Supply</p>
@@ -193,7 +199,7 @@ export default function LandingPage() {
             </h2>
             {!isLoading && tokens.length > 0 && (
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                by supply
+                by transfers
               </span>
             )}
           </div>
@@ -221,6 +227,7 @@ export default function LandingPage() {
           <span className="w-9" />
           <span className="flex-1">Name</span>
           <span className="hidden md:block w-24 text-center">Chain</span>
+          <span className="w-20 text-right">Transfers</span>
           <span className="w-28 text-right">Supply</span>
           <span className="hidden md:block w-16 text-right">Holders</span>
           <span className="hidden lg:block w-28">Address (L2)</span>
