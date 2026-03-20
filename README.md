@@ -135,10 +135,14 @@ Connect your AI agent to the MCP server:
 
 Available tools:
 - `get_supported_chains` - List supported blockchains
+- `get_creation_fee` - Query current token creation fee
 - `pin_token_metadata` - Upload metadata to IPFS
 - `build_create_token_transaction` - Generate transaction calldata
 - `list_tokens` - Query created tokens
+- `get_token_details` - Get token info, holders, transfers
 - `validate_promo_code` - Apply promotional discounts
+- `get_wallet_balance` - Check wallet funds
+- `get_transaction_status` - Get tx receipt and token address
 
 ### REST API
 

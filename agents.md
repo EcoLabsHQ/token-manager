@@ -105,7 +105,21 @@ Agents can interact through two interfaces:
 
 | Tool | Description |
 |------|-------------|
-| `build_create_token_transaction` | Generate calldata for creating a token |
+| `build_create_token_transaction` | Generate calldata for creating a token (supports promoCode for automatic validation) |
+
+#### On-Chain Reads
+
+| Tool | Description |
+|------|-------------|
+| `get_creation_fee` | Query the current token creation fee from the factory contract |
+
+#### Wallet & Transaction
+
+| Tool | Description |
+|------|-------------|
+| `get_wallet_balance` | Get native token balance (CELO/ETH) of a wallet address |
+| `estimate_gas` | Simulate a transaction and get estimated gas with safety buffer |
+| `get_transaction_status` | Get status and receipt of a transaction; extracts token address from TokenCreated event |
 
 ---
 
@@ -178,9 +192,12 @@ curl -X POST http://localhost:3001/api/tokens/42220/create/calldata \
 
 ```
 1. Call get_supported_chains            →  Get chainId and factory address
-2. Call pin_token_metadata              →  Get metadataURI
-3. Call build_create_token_transaction with chainId=42220
-4. Sign and send the transaction with the agent's wallet
+2. Call get_wallet_balance              →  Check if wallet has enough funds
+3. Call get_creation_fee                →  Get current fee for token creation
+4. Call pin_token_metadata              →  Get metadataURI
+5. Call build_create_token_transaction  →  Get ready-to-sign transaction (with chainId=42220)
+6. Sign and send the transaction with the agent's wallet
+7. Call get_transaction_status          →  Get the new token address from the receipt
 ```
 
 ---

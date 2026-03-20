@@ -85,7 +85,11 @@ POST http://localhost:3001/mcp
 | **Promo** | `validate_promo_code` | Validar código promo y obtener firma |
 | **Logos** | `get_token_logo` | URL del logo de un token |
 | | `list_token_logos` | Listar todos los logos de una chain |
-| **Transacciones** | `build_create_token_transaction` | Construir tx para crear token |
+| **Transacciones** | `build_create_token_transaction` | Construir tx para crear token (soporta promoCode) |
+| **On-Chain** | `get_creation_fee` | Consultar fee de creación desde el contrato |
+| **Wallet** | `get_wallet_balance` | Balance de CELO/ETH de una wallet |
+| | `estimate_gas` | Estimar gas con buffer de seguridad |
+| | `get_transaction_status` | Estado de tx y dirección del token creado |
 
 ### Configuración para Agentes
 
@@ -117,9 +121,12 @@ POST http://localhost:3001/mcp
 ### Flujo Típico de Creación de Token
 
 1. **Obtener info de chains**: `get_supported_chains`
-2. **Pinear metadata a IPFS**: `pin_token_metadata`
-3. **(Opcional) Validar promo code**: `validate_promo_code`
-4. **Construir transacción**: `build_create_token_transaction`
-5. **Firmar y enviar**: El agente usa un wallet para firmar
+2. **Verificar balance**: `get_wallet_balance`
+3. **Consultar fee de creación**: `get_creation_fee`
+4. **Pinear metadata a IPFS**: `pin_token_metadata`
+5. **(Opcional) Validar promo code**: `validate_promo_code`
+6. **Construir transacción**: `build_create_token_transaction` (soporta `promoCode` directo)
+7. **Firmar y enviar**: El agente usa un wallet para firmar
+8. **Verificar resultado**: `get_transaction_status` → obtiene dirección del token creado
 
 Ver [src/mcp/README.md](src/mcp/README.md) para documentación completa.

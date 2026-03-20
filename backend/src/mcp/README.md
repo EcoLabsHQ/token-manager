@@ -74,7 +74,7 @@ A Model Context Protocol server that provides token creation and management capa
 
 ### Transaction Building
 
-- `build_create_token_transaction` - Build a transaction object for creating a new token.
+- `build_create_token_transaction` - Build a transaction object for creating a new token. Supports promo codes: either pass a promoCode string for automatic validation, or pass the individual promo fields.
   - Required arguments:
     - `chainId` (number): The blockchain chain ID
     - `owner` (string): Address that will own the token
@@ -85,10 +85,38 @@ A Model Context Protocol server that provides token creation and management capa
   - Optional arguments:
     - `decimals` (number): Number of decimals (default 18)
     - `maxSupply` (string): Maximum supply (default "0" for unlimited)
-    - `promoFee` (string): Promo fee in wei
-    - `promoNonce` (string): Promo nonce
-    - `expiresAt` (number): Promo expiration timestamp
-    - `signature` (string): Promo signature
+    - `promoCode` (string): Promotional code for discounted creation (validated automatically)
+    - `promoFee` (string): Promo fee in wei (from validate_promo_code)
+    - `promoNonce` (string): Promo nonce (from validate_promo_code)
+    - `expiresAt` (number): Promo expiration timestamp (from validate_promo_code)
+    - `signature` (string): Promo signature (from validate_promo_code)
+
+### On-Chain Reads
+
+- `get_creation_fee` - Query the factory contract to get the current token creation fee.
+  - Required arguments:
+    - `chainId` (number): The blockchain chain ID
+
+### Wallet & Transaction Tools
+
+- `get_wallet_balance` - Get the native token balance (CELO or ETH) of a wallet address. Useful to check if there are enough funds before creating a token.
+  - Required arguments:
+    - `chainId` (number): The blockchain chain ID
+    - `address` (string): Wallet address to check
+
+- `estimate_gas` - Simulate a transaction and return the estimated gas units required, plus a recommended gasLimit with a 20% safety buffer.
+  - Required arguments:
+    - `chainId` (number): The blockchain chain ID
+    - `from` (string): Sender address
+    - `to` (string): Recipient / contract address
+    - `data` (string): Encoded calldata (0x prefixed)
+  - Optional arguments:
+    - `value` (string): Value in wei (default "0")
+
+- `get_transaction_status` - Fetch the status and receipt of a transaction by hash. If the transaction created a token via the factory, also returns the new token contract address parsed from the TokenCreated event.
+  - Required arguments:
+    - `chainId` (number): The blockchain chain ID
+    - `txHash` (string): Transaction hash (0x prefixed, 64 hex chars)
 
 ## Installation
 
@@ -265,7 +293,36 @@ Response:
     "decimals": 18,
     "initialSupply": "1000000",
     "maxSupply": "0",
-    "metadataURI": "ipfs://QmXyz..."
+    "metadataURI": "ipfs://QmXyz...",
+    "promoCode": "LAUNCH2024"
+  }
+}
+```
+
+Response:
+```json
+{
+  "transaction": {
+    "chainId": 42220,
+    "to": "0xFactoryAddress...",
+    "data": "0x...",
+    "value": "1000000000000000",
+    "gasLimit": "500000"
+  },
+  "rpcUrl": "https://forno.celo.org",
+  "explorerUrl": "https://celoscan.io",
+  "creationFee": "0.001 CELO",
+  "how_to_send": { "..." }
+}
+```
+
+### 4. Get creation fee:
+
+```json
+{
+  "name": "get_creation_fee",
+  "arguments": {
+    "chainId": 42220
   }
 }
 ```
@@ -274,11 +331,58 @@ Response:
 ```json
 {
   "chainId": 42220,
-  "to": "0xFactoryAddress...",
-  "data": "0x...",
-  "value": "1000000000000000",
-  "gasLimit": "500000",
-  "rpcUrl": "https://forno.celo.org"
+  "chainName": "Celo",
+  "factoryAddress": "0x...",
+  "creationFeeWei": "1000000000000000",
+  "creationFeeFormatted": "0.001 CELO"
+}
+```
+
+### 5. Check wallet balance:
+
+```json
+{
+  "name": "get_wallet_balance",
+  "arguments": {
+    "chainId": 42220,
+    "address": "0x1234...abcd"
+  }
+}
+```
+
+Response:
+```json
+{
+  "chainId": 42220,
+  "chainName": "Celo",
+  "address": "0x1234...abcd",
+  "balanceWei": "5000000000000000000",
+  "balanceFormatted": "5.0 CELO"
+}
+```
+
+### 6. Get transaction status:
+
+```json
+{
+  "name": "get_transaction_status",
+  "arguments": {
+    "chainId": 42220,
+    "txHash": "0xabc123..."
+  }
+}
+```
+
+Response:
+```json
+{
+  "txHash": "0xabc123...",
+  "status": "success",
+  "blockNumber": 12345678,
+  "gasUsed": "450000",
+  "tokenAddress": "0xNewToken...",
+  "explorerUrl": "https://celoscan.io/token/0xNewToken...",
+  "txExplorerUrl": "https://celoscan.io/tx/0xabc123..."
 }
 ```
 
@@ -314,6 +418,9 @@ curl -X POST http://localhost:3001/mcp \
 5. "What's the current creation fee on Celo?"
 6. "Pin metadata for my token to IPFS"
 7. "Generate the transaction to create my token"
+8. "Check my wallet balance on Celo" (provide your address)
+9. "What's the status of my transaction?" (provide tx hash)
+10. "Estimate gas for this transaction"
 
 ## Build
 
