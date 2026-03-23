@@ -39,7 +39,17 @@ createAppKit({
   },
   features: {
     analytics: false,
+    socials: false, // Disable social logins for admin
+    email: false,   // Disable email login for admin
   },
+  // Featured wallets - Safe wallet ID for easy access
+  featuredWalletIds: [
+    'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+    'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa', // Coinbase
+    '225affb176778569276e484e1b92637ad061b01e13a048b35a9d280c3b58970f', // Safe
+  ],
+  // Allow all wallets that support WalletConnect
+  allWallets: 'SHOW',
 });
 
 export { projectId };

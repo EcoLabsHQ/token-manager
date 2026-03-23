@@ -323,22 +323,22 @@ Deployment Addresses
 
 | Network | Proxy Address | Implementation |
 |---------|--------------|----------------|
-| Ethereum Mainnet | `0x1b23dce73c327f8e07e45fe3a1605dafd8286ab4` | `0xfefbf0eac7562598c6f00e9fed6e1d256acefc52` |
+| Ethereum Mainnet | `0x8896769dA38E99Ace4C1Adc316181FEeae175074` | `0x563456095a3a16f86885ED0CB22fE8Af14e700B7` |
 | Sepolia | `0xf87ea3325c6f5be2119d40747752bb255cdf1ee8` | `0x1adc588afd3e635c95c1efa71790cfe3408ca410` |
 
 ### L2SuperChainTokenFactory (Celo)
 
 | Network | Proxy Address | Implementation |
 |---------|--------------|----------------|
-| Celo Mainnet | `0x1b23dce73c327f8e07e45fe3a1605dafd8286ab4` | `0x8c82a00b5aae0b6624bead9982db7028145c7714` |
+| Celo Mainnet | `0x8896769dA38E99Ace4C1Adc316181FEeae175074` | `0x8E3D99e0409DFD13c43D93baBdf026029DD9D920` |
 | Celo Alfajores (testnet) | see `contracts/broadcast/` | — |
 
 ### Shared Infrastructure (same address on all networks)
 
 | Contract | Address |
 |----------|---------|
-| FactoryInitializer | `0xb30e5525b8eb7969cda4c7dec893d2856cfe6f18` |
-| TokenInitializer | `0xc35410f3536f453dc0ae23ed0c85cb3dab081211` |
+| FactoryInitializer | `0xcA8da0BB3440554e4A43f1f5f71Fe289fb88BD96` |
+| TokenInitializer | `0x8Ac5597F529Be4EB5Dcd73b603F856a353896F40` |
 
 Audits
 ------

@@ -2,12 +2,6 @@
 // In production, use the configured URL or the production backend
 const API_BASE = import.meta.env.VITE_API_URL || 
   (import.meta.env.PROD ? 'https://minter-production-6bba.up.railway.app' : '');
-const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || '';
-
-// Debug: log if API key is missing (only in development)
-if (import.meta.env.DEV && !ADMIN_API_KEY) {
-  console.warn('⚠️ VITE_ADMIN_API_KEY is not set. Make sure .env file exists with the correct key.');
-}
 
 // Contract configuration by chainId
 export const SUPPORTED_CHAINS: Record<number, { name: string; symbol: string; suffix: string; address: `0x${string}`; rpcUrl: string }> = {
@@ -15,14 +9,14 @@ export const SUPPORTED_CHAINS: Record<number, { name: string; symbol: string; su
     name: 'Ethereum Mainnet',
     symbol: 'ETH',
     suffix: 'ETH',
-    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4',
+    address: '0x8896769dA38E99Ace4C1Adc316181FEeae175074',
     rpcUrl: 'https://ethereum-rpc.publicnode.com',
   },
   42220: { // Celo Mainnet
     name: 'Celo Mainnet',
     symbol: 'CELO',
     suffix: 'CELO',
-    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4',
+    address: '0x8896769dA38E99Ace4C1Adc316181FEeae175074',
     rpcUrl: 'https://forno.celo.org',
   },
 };
@@ -30,11 +24,11 @@ export const SUPPORTED_CHAINS: Record<number, { name: string; symbol: string; su
 // Legacy contract references (for backward compatibility)
 export const CONTRACTS = {
   L1_TOKEN_FACTORY: {
-    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4' as `0x${string}`,
+    address: '0x8896769dA38E99Ace4C1Adc316181FEeae175074' as `0x${string}`,
     chainId: 1, // Ethereum Mainnet
   },
   L2_SUPERCHAIN_TOKEN_FACTORY: {
-    address: '0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4' as `0x${string}`,
+    address: '0x8896769dA38E99Ace4C1Adc316181FEeae175074' as `0x${string}`,
     chainId: 42220, // Celo Mainnet
   },
 } as const;
@@ -89,14 +83,17 @@ export async function fetchCreationFee(chainId: number): Promise<string> {
   }
 }
 
-// Helper to add auth headers
+const SESSION_STORAGE_KEY = 'admin_session_token';
+
+// Helper to add auth headers using Bearer token from SIWX session
 function authHeaders(): HeadersInit {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
   
-  if (ADMIN_API_KEY) {
-    headers['X-API-Key'] = ADMIN_API_KEY;
+  const sessionToken = sessionStorage.getItem(SESSION_STORAGE_KEY);
+  if (sessionToken) {
+    headers['Authorization'] = `Bearer ${sessionToken}`;
   }
   
   return headers;
@@ -202,14 +199,8 @@ export async function deletePromoCode(id: number): Promise<void> {
 }
 
 export async function fetchAdminStats(): Promise<AdminStats> {
-  const headers = authHeaders();
-  console.log('🔑 Fetching admin stats:', { 
-    hasApiKey: !!ADMIN_API_KEY,
-    url: `${API_BASE}/api/admin/stats`
-  });
-  
   const response = await fetch(`${API_BASE}/api/admin/stats`, {
-    headers,
+    headers: authHeaders(),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.error);

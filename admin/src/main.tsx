@@ -7,11 +7,11 @@ import { AppKitProvider } from '@reown/appkit/react'
 import App from './App'
 import './index.css'
 import { wagmiAdapter, networks, projectId } from './config/wallet'
+import { AuthProvider } from './hooks/useAuth'
 
 // Debug: Log environment variables on startup
 console.log('🔧 Admin Panel Environment:', {
   apiUrl: import.meta.env.VITE_API_URL || '(not set - using proxy)',
-  hasApiKey: !!import.meta.env.VITE_ADMIN_API_KEY,
   hasReownId: !!import.meta.env.VITE_REOWN_PROJECT_ID,
   mode: import.meta.env.MODE,
 });
@@ -31,7 +31,9 @@ createRoot(document.getElementById('root')!).render(
       <WagmiProvider config={wagmiAdapter.wagmiConfig}>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <App />
+            <AuthProvider>
+              <App />
+            </AuthProvider>
           </BrowserRouter>
         </QueryClientProvider>
       </WagmiProvider>

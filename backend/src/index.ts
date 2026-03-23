@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import promoRoutes from './routes/promo.js';
 import adminRoutes from './routes/admin.js';
+import authRoutes from './routes/auth.js';
 import tokensRoutes from './routes/tokens.js';
 import metadataRoutes from './routes/metadata.js';
 import mcpRoutes from './mcp/routes.js';
@@ -17,6 +18,7 @@ app.use(express.json({ limit: '5mb' })); // Increased limit for base64 images
 // Routes
 app.use('/api/promo', promoRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/tokens', tokensRoutes);
 app.use('/api/metadata', metadataRoutes);
 app.use('/mcp', mcpRoutes); // MCP endpoint

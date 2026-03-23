@@ -16,7 +16,7 @@ const SUBGRAPH_URLS: Record<number, string> = {
 
 // Factory contract addresses — same address deployed on all supported chains
 // Source: subgraph/config/celo.json + subgraph/config/ethereum.json
-const FACTORY_ADDRESS = "0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4";
+const FACTORY_ADDRESS = "0x8896769dA38E99Ace4C1Adc316181FEeae175074";
 
 const FACTORY_ADDRESSES: Record<number, { l2?: string; l1?: string }> = {
   42220: { l2: FACTORY_ADDRESS }, // L2SuperChainTokenFactory on Celo

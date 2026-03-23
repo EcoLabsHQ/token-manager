@@ -18,13 +18,13 @@ library DeploySalts {
 
     /// @dev Salt for FactoryInitializer placeholder - MUST be identical on all chains
     bytes32 internal constant INITIALIZER_SALT =
-        keccak256(abi.encodePacked("ecolabs.factory.initializer.v4", DEPLOYER));
+        keccak256(abi.encodePacked("ecolabs.factory.initializer.v5", DEPLOYER));
 
     /// @dev Salt for factory proxy - MUST be identical on all chains
     bytes32 internal constant FACTORY_PROXY_SALT =
-        keccak256(abi.encodePacked("ecolabs.factory.proxy.v4", DEPLOYER));
+        keccak256(abi.encodePacked("ecolabs.factory.proxy.v5", DEPLOYER));
 
     /// @dev Salt for TokenInitializer - MUST be identical on all chains
     bytes32 internal constant TOKEN_INITIALIZER_SALT =
-        keccak256(abi.encodePacked("ecolabs.token.initializer.v4", DEPLOYER));
+        keccak256(abi.encodePacked("ecolabs.token.initializer.v5", DEPLOYER));
 }

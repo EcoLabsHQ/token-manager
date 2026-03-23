@@ -1,8 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Tag, Coins, Settings2, Wallet, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Tag, Coins, Settings2, LogOut, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAccount, useDisconnect } from 'wagmi'
-import { useAppKit } from '@reown/appkit/react'
+import { useAccount } from 'wagmi'
+import { useAuth } from '@/hooks/useAuth'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -11,39 +11,33 @@ const navItems = [
   { to: '/fees', label: 'Fee Management', icon: Settings2 },
 ]
 
-function WalletButton() {
-  const { address, isConnected } = useAccount()
-  const { disconnect } = useDisconnect()
-  const { open } = useAppKit()
-
-  if (!isConnected || !address) {
-    return (
-      <button
-        onClick={() => open()}
-        className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-      >
-        <Wallet className="h-5 w-5" />
-        Connect Wallet
-      </button>
-    )
-  }
+function AuthenticatedUser() {
+  const { address } = useAccount()
+  const { signOut, isOwner } = useAuth()
 
   return (
-    <div className="px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200">
-      <div className="flex items-center justify-between gap-2">
+    <div className="space-y-2">
+      <div className="px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200">
         <div className="flex items-center gap-2 min-w-0">
           <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
           <span className="text-xs font-medium text-gray-700 truncate">
-            {address.slice(0, 6)}…{address.slice(-4)}
+            {address?.slice(0, 6)}…{address?.slice(-4)}
           </span>
         </div>
-        <button
-          onClick={() => disconnect()}
-          className="text-xs text-gray-400 hover:text-gray-600 shrink-0 flex items-center gap-0.5"
-        >
-          <ChevronDown className="h-3 w-3" />
-        </button>
+        {isOwner && (
+          <div className="flex items-center gap-1 mt-1.5 text-xs text-emerald-600">
+            <ShieldCheck className="h-3 w-3" />
+            <span>Factory Owner</span>
+          </div>
+        )}
       </div>
+      <button
+        onClick={signOut}
+        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+      >
+        <LogOut className="h-4 w-4" />
+        Sign Out
+      </button>
     </div>
   )
 }
@@ -82,9 +76,9 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
-        {/* Wallet section at the bottom of sidebar */}
+        {/* Auth section at the bottom of sidebar */}
         <div className="p-4 border-t border-gray-100">
-          <WalletButton />
+          <AuthenticatedUser />
         </div>
       </aside>
 

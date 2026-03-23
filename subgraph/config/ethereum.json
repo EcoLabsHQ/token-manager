@@ -1,7 +1,7 @@
 {
   "network": "mainnet",
   "dataSourceName": "L1TokenFactory",
-  "address": "0x1b23DCe73c327f8e07E45fe3a1605DAfd8286aB4",
+  "address": "0x8896769dA38E99Ace4C1Adc316181FEeae175074",
   "startBlock": 24437269,
   "abiName": "L1TokenFactory",
   "abiFile": "L1TokenFactory.json",

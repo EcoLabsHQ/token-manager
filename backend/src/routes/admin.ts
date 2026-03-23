@@ -1,12 +1,19 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { createPublicClient, http } from 'viem';
 import { mainnet, celo } from 'viem/chains';
-import { pool, PromoCode } from '../db';
+import { pool, PromoCode } from '../db.js';
+import { verifySession, SessionPayload } from '../services/auth.js';
 
 const router = Router();
 
-// API Key middleware for admin routes
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'dev-admin-key-change-in-production';
+// Extend Express Request to include session
+declare global {
+  namespace Express {
+    interface Request {
+      session?: SessionPayload;
+    }
+  }
+}
 
 // ABI for creationFee function
 const FACTORY_ABI = [
@@ -60,27 +67,49 @@ async function fetchCreationFeeFromContract(chainId: number): Promise<bigint> {
   }
 }
 
-function requireApiKey(req: Request, res: Response, next: NextFunction) {
-  const apiKey = req.headers['x-api-key'];
+/**
+ * Authentication middleware - requires SIWX Bearer token
+ * Only factory owners can access admin routes
+ */
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
   
-  if (!apiKey || apiKey !== ADMIN_API_KEY) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized: Invalid or missing API key',
+      error: 'Unauthorized: Missing authorization header',
     });
   }
+
+  const token = authHeader.slice(7);
+  const session = verifySession(token);
   
+  if (!session) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized: Invalid or expired session',
+    });
+  }
+
+  if (!session.isOwner) {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Not a factory owner',
+    });
+  }
+
+  req.session = session;
   next();
 }
 
 /**
  * GET /api/admin/verify
- * Verify if the API key is valid
+ * Verify if the session is valid
  */
-router.get('/verify', requireApiKey, (_req: Request, res: Response) => {
+router.get('/verify', requireAuth, (_req: Request, res: Response) => {
   return res.json({
     success: true,
-    message: 'API key is valid',
+    message: 'Session is valid',
   });
 });
 
@@ -88,7 +117,7 @@ router.get('/verify', requireApiKey, (_req: Request, res: Response) => {
  * GET /api/admin/promo-codes
  * List all promo codes with usage stats
  */
-router.get('/promo-codes', requireApiKey, async (_req: Request, res: Response) => {
+router.get('/promo-codes', requireAuth, async (_req: Request, res: Response) => {
   try {
     const { rows } = await pool.query<PromoCode>(
       `SELECT * FROM promo_codes ORDER BY created_at DESC`
@@ -111,7 +140,7 @@ router.get('/promo-codes', requireApiKey, async (_req: Request, res: Response) =
  * POST /api/admin/promo-codes
  * Create a new promo code
  */
-router.post('/promo-codes', requireApiKey, async (req: Request, res: Response) => {
+router.post('/promo-codes', requireAuth, async (req: Request, res: Response) => {
   try {
     const { code, discountType, discountValue, expiresAt, maxUses, chainId } = req.body;
 
@@ -177,7 +206,7 @@ router.post('/promo-codes', requireApiKey, async (req: Request, res: Response) =
  * PATCH /api/admin/promo-codes/:id
  * Update a promo code (toggle active status)
  */
-router.patch('/promo-codes/:id', requireApiKey, async (req: Request, res: Response) => {
+router.patch('/promo-codes/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { is_active } = req.body;
@@ -211,7 +240,7 @@ router.patch('/promo-codes/:id', requireApiKey, async (req: Request, res: Respon
  * DELETE /api/admin/promo-codes/:id
  * Delete a promo code
  */
-router.delete('/promo-codes/:id', requireApiKey, async (req: Request, res: Response) => {
+router.delete('/promo-codes/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -244,7 +273,7 @@ router.delete('/promo-codes/:id', requireApiKey, async (req: Request, res: Respo
  * GET /api/admin/stats
  * Get dashboard statistics
  */
-router.get('/stats', requireApiKey, async (_req: Request, res: Response) => {
+router.get('/stats', requireAuth, async (_req: Request, res: Response) => {
   try {
     // Get promo code stats
     const promoStats = await pool.query(`

@@ -303,10 +303,10 @@ forge script script/DeployL2SuperChainTokenFactory.s.sol:DeployL2SuperChainToken
 
 | Network | Contract | Address |
 |---------|----------|---------|
-| Ethereum Sepolia | L1TokenFactory | `TBD` |
-| Celo Sepolia | L2SuperChainTokenFactory | `TBD` |
-| Ethereum Mainnet | L1TokenFactory | `TBD` |
-| Celo Mainnet | L2SuperChainTokenFactory | `TBD` |
+| Ethereum Mainnet | L1TokenFactory | `0x8896769dA38E99Ace4C1Adc316181FEeae175074` |
+| Celo Mainnet | L2SuperChainTokenFactory | `0x8896769dA38E99Ace4C1Adc316181FEeae175074` |
+| Ethereum Sepolia | L1TokenFactory | `0xf87ea3325c6f5be2119d40747752bb255cdf1ee8` |
+| Celo Alfajores | L2SuperChainTokenFactory | `TBD` |
 
 ---
 
