@@ -73,6 +73,14 @@ export function Nav() {
         </Link>
         {navLink('/explore', 'Explore')}
         {navLink('/dashboard', 'My Tokens')}
+        <a
+          href="https://github.com/EcoLabsHQ/token-manager"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs sm:text-sm font-medium px-2.5 py-1.5 rounded-lg transition-colors text-gray-500 hover:text-black hover:bg-gray-50"
+        >
+          ReadMe
+        </a>
       </div>
 
       {/* Right side - Network selector and wallet */}
