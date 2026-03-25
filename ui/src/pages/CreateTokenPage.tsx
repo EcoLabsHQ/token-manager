@@ -559,6 +559,9 @@ function Review({
           {/* Promo Code */}
           <div className="flex flex-col gap-1">
             <label className="text-gray-500 text-xs sm:text-sm">Promo Code (optional)</label>
+            <p className="text-green-600 text-[10px] sm:text-xs font-medium">
+              💡 Use code <span className="font-bold">{tokenType === 'ethereum-enabled' ? 'L2' : 'PG'}</span> to get 100% off
+            </p>
             <div className="relative">
               <input
                 type="text"
