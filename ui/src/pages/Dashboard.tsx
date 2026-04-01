@@ -369,7 +369,7 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
               <SortableColHeader label="Bridges" col="bridges" sortColumn={sortColumn} sortDir={sortDir} onSort={handleSort} />
             </div>
             <div className="flex-1 text-gray-500 text-xs font-medium uppercase tracking-wide pl-4 min-w-[180px]">Address</div>
-            <div className="w-[80px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
+            <div className="w-[140px] shrink-0 text-gray-500 text-xs font-medium uppercase tracking-wide text-right">Action</div>
           </div>
 
           {/* Desktop Rows */}
@@ -418,22 +418,21 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
                     onCopy={() => handleCopy(token.addressL1 || token.addressL2 || '')}
                   />
                 </div>
-                <div className="w-[80px] shrink-0 text-right">
-                  {isIncomplete ? (
+                <div className="w-[140px] shrink-0 flex items-center justify-end gap-1.5">
+                  {isIncomplete && (
                     <button
                       onClick={() => onCompleteSetup(token)}
                       className="bg-orange-500 text-white text-xs font-medium h-7 px-3 rounded-lg hover:bg-orange-600 cursor-pointer whitespace-nowrap transition-colors"
                     >
                       Setup
                     </button>
-                  ) : (
-                    <button
-                      onClick={() => onManage(token)}
-                      className="bg-black text-white text-xs font-medium h-7 px-3 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors"
-                    >
-                      Manage
-                    </button>
                   )}
+                  <button
+                    onClick={() => onManage(token)}
+                    className="bg-black text-white text-xs font-medium h-7 px-3 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors"
+                  >
+                    Manage
+                  </button>
                 </div>
               </div>
             );
@@ -490,12 +489,11 @@ const TokenTable = ({ tokens, onManage, onCompleteSetup, isLoading, onRefresh: _
                 ) : <CeloIcon />}
                 <span className="text-xs text-gray-600 hidden sm:inline">{token.type === 'ethereum-enabled' ? 'ETH' : 'Celo'}</span>
               </div>
-              <div className="w-16 shrink-0 text-right">
-                {isIncomplete ? (
+              <div className="w-auto shrink-0 flex items-center justify-end gap-1">
+                {isIncomplete && (
                   <button onClick={() => onCompleteSetup(token)} className="bg-orange-500 text-white text-xs font-medium h-7 px-2.5 rounded-lg hover:bg-orange-600 cursor-pointer">Setup</button>
-                ) : (
-                  <button onClick={() => onManage(token)} className="bg-black text-white text-xs font-medium h-7 px-2.5 rounded-lg hover:bg-gray-800 cursor-pointer">Manage</button>
                 )}
+                <button onClick={() => onManage(token)} className="bg-black text-white text-xs font-medium h-7 px-2.5 rounded-lg hover:bg-gray-800 cursor-pointer">Manage</button>
               </div>
             </div>
           );
