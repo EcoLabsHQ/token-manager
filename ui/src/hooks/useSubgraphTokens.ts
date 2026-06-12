@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import { SUBGRAPH_URLS, QUERIES } from '@/config/subgraph';
 import { formatUnits } from 'viem';
+import { isBlacklisted } from '@/config/blacklist';
 
 export interface SubgraphToken {
   id: string;
@@ -160,6 +161,7 @@ export function useSubgraphTokens() {
 
       // Process L1 tokens and find their L2 counterparts
       l1Tokens.forEach((l1Token) => {
+        if (isBlacklisted(l1Token.tokenAddress)) return;
         const l1Addr = l1Token.tokenAddress.toLowerCase();
         const linkedL2 = l2ByRemoteToken.get(l1Addr);
 
@@ -222,6 +224,7 @@ export function useSubgraphTokens() {
       l2Tokens.forEach((l2Token) => {
         const l2Addr = l2Token.tokenAddress.toLowerCase();
         if (processedL2Addresses.has(l2Addr)) return;
+        if (isBlacklisted(l2Token.tokenAddress)) return;
 
         const formattedMaxSupply = formatUnits(
           BigInt(l2Token.maxSupply),

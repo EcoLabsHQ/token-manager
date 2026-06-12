@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { SUBGRAPH_URLS, QUERIES } from '@/config/subgraph';
 import { formatUnits } from 'viem';
+import { isBlacklisted } from '@/config/blacklist';
 import type { TokenPair, TokenSetupStatus, SubgraphToken } from './useSubgraphTokens';
 
 interface SubgraphResponse<T> {
@@ -71,6 +72,7 @@ export function useAllSubgraphTokens() {
 
       // Process L1 tokens → find matching L2
       l1Tokens.forEach(l1Token => {
+        if (isBlacklisted(l1Token.tokenAddress)) return;
         const l1Addr = l1Token.tokenAddress.toLowerCase();
         const linkedL2 = l2ByRemoteToken.get(l1Addr);
 
@@ -127,6 +129,7 @@ export function useAllSubgraphTokens() {
       l2Tokens.forEach(l2Token => {
         const l2Addr = l2Token.tokenAddress.toLowerCase();
         if (processedL2Addresses.has(l2Addr)) return;
+        if (isBlacklisted(l2Token.tokenAddress)) return;
 
         const currentTotalSupply = l2Token.totalSupply || l2Token.initialSupply;
         const formattedTotalSupply = parseFloat(
