@@ -21,7 +21,7 @@ Create a `.env` in each workspace:
 
 | Workspace | Variables |
 | --------- | --------- |
-| `backend/` | `DATABASE_URL`, `PROMO_SIGNER_PRIVATE_KEY`, `ADMIN_API_KEY`, `PINATA_JWT` |
+| `backend/` | `DATABASE_URL`, `ADMIN_API_KEY`, `PINATA_JWT` |
 | `admin/` | `VITE_API_URL`, `VITE_ADMIN_API_KEY` (must match backend's `ADMIN_API_KEY`) |
 | `contracts/` | `PRIVATE_KEY`, `ETHERSCAN_API_KEY` (deployment only) |
 

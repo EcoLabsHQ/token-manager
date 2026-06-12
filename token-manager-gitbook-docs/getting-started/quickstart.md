@@ -31,8 +31,8 @@ Returns ready-to-sign calldata. Reference: [Agent REST API](../developers/agent-
 
 ## Flow comparison
 
-| Flow | Chains | Fee | Time |
-| ---- | ------ | --- | ---- |
-| Celo Native | Celo | \~0.001 CELO | \~5 sec |
-| Ethereum Enabled | ETH + Celo | \~0.01 ETH | \~2 min + 20 min bridge |
-| L2→L1 Migration | ETH + Celo | \~0.01 ETH | \~2 min + bridge |
+| Flow | Chains | Time |
+| ---- | ------ | ---- |
+| Celo Native | Celo | \~5 sec |
+| Ethereum Enabled | ETH + Celo | \~2 min + 20 min bridge |
+| L2→L1 Migration | ETH + Celo | \~2 min + bridge |
