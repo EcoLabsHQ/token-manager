@@ -1,34 +1,28 @@
----
-description: Open-source platform for deploying and managing ERC-20 tokens on Celo and Ethereum.
----
+# Admin Dashboard
 
-# Welcome to Token Manager
+React dashboard for platform analytics.
 
-Token Manager is an open-source, community-owned token platform built by [EcoLabs](https://github.com/EcoLabsHQ) as a contribution to **Celo Public Goods (CeloPG)**. Deploy and manage ERC-20 tokens on Celo L2 and Ethereum — through a web UI, or programmatically via MCP and REST APIs.
+## Features
 
-## What you can do
-
-* 🚀 Create tokens on Celo L2 — fast and low-cost
-* 🌉 Deploy cross-chain tokens on Ethereum L1 with Celo bridge support
-* 🤖 Let AI agents create and manage tokens (MCP + REST API)
-* 📊 Query tokens, holders, and transfers via subgraph
-* 🖼️ ERC-7572 compliant IPFS metadata
-* 🎟️ Promo codes for discounted or free creation
-
-## Where to go
-
-| You are... | Start here |
-| ---------- | ---------- |
-| Setting up locally | [Quickstart](getting-started/quickstart.md) |
-| Creating a token | [Token Creation Flows](guides/token-creation-overview.md) |
-| Building an integration or agent | [MCP Server](developers/mcp-server.md) / [REST API](developers/agent-rest-api.md) |
-| Reading the Solidity | [Contracts Overview](contracts/overview.md) |
-| Running infrastructure | [Backend](infrastructure/backend.md) |
+* **Analytics** — all tokens created (from the subgraph), per-token metrics, global stats, top-token ranking
 
 {% hint style="info" %}
-Source: [github.com/EcoLabsHQ/token-manager](https://github.com/EcoLabsHQ/token-manager) — MIT licensed.
+Holder/transfer/bridge metrics are currently **mocked** (derived deterministically from the token address) — not yet in the subgraph.
 {% endhint %}
 
-{% hint style="warning" %}
-No external audits completed yet. See [Security](contracts/security.md).
-{% endhint %}
+## Run
+
+```bash
+# Backend must be running first
+cd admin
+npm install
+cp .env.example .env
+npm run dev   # http://localhost:5174
+```
+
+| Env variable | Purpose |
+| ------------ | ------- |
+| `VITE_API_URL` | Backend URL (default `http://localhost:3001`) |
+| `VITE_ADMIN_API_KEY` | Must match backend's `ADMIN_API_KEY` |
+
+Uses the `/api/admin/*` endpoints (see [Backend](backend.md)). Stack: React 19, TypeScript, Vite, TailwindCSS, Radix UI, TanStack Query.

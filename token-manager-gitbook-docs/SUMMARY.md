@@ -1,43 +1,25 @@
-# Table of contents
+# Backend
 
-* [Welcome to Token Manager](README.md)
+Express.js server providing the REST API, MCP server, and IPFS pinning.
 
-## Getting Started
+## Setup & run
 
-* [Quickstart](getting-started/quickstart.md)
-* [Installation](getting-started/installation.md)
-* [Running Locally](getting-started/running-locally.md)
+```bash
+cd backend
+npm install
+cp .env.example .env   # DATABASE_URL, ADMIN_API_KEY, PINATA_JWT
+psql -d minter -f schema.sql
 
-## Guides
+npm run dev    # HTTP on port 3001 (REST + MCP)
+npm run mcp    # MCP in stdio mode
+```
 
-* [Token Creation Flows Overview](guides/token-creation-overview.md)
-* [Flow 1: Celo Native Token](guides/celo-native-token.md)
-* [Flow 2: Ethereum Enabled Token](guides/ethereum-enabled-token.md)
-* [Flow 3: Migrate L2 Token to L1](guides/l2-to-l1-migration.md)
-* [Promo Codes](guides/promo-codes.md)
+## Endpoint groups
 
-## For Developers & AI Agents
-
-* [Architecture](developers/architecture.md)
-* [MCP Server](developers/mcp-server.md)
-* [Agent REST API](developers/agent-rest-api.md)
-* [Events & Receipts](developers/events-and-receipts.md)
-
-## Smart Contracts
-
-* [Contracts Overview](contracts/overview.md)
-* [Token Contracts](contracts/token-contracts.md)
-* [Factory Contracts](contracts/factory-contracts.md)
-* [Security](contracts/security.md)
-* [Deployment](contracts/deployment.md)
-
-## Infrastructure
-
-* [Backend](infrastructure/backend.md)
-* [Subgraph](infrastructure/subgraph.md)
-* [Admin Dashboard](infrastructure/admin-dashboard.md)
-
-## Resources
-
-* [Deployed Addresses](resources/deployed-addresses.md)
-* [Errors & Troubleshooting](resources/errors-and-troubleshooting.md)
+| Group | Endpoints | Docs |
+| ----- | --------- | ---- |
+| Admin (`X-API-Key` header) | `GET /api/admin/stats`, `GET /api/admin/verify` | [Admin Dashboard](admin-dashboard.md) |
+| Token creation | `/api/tokens/...` calldata endpoints | [Agent REST API](../developers/agent-rest-api.md) |
+| Metadata | `POST /api/metadata/pin`, `/pin-with-image`, `GET /api/metadata/:cid` | [Agent REST API](../developers/agent-rest-api.md) |
+| Logos | `POST/GET /api/tokens/:chainId/:address/logo` | — |
+| MCP | `POST /mcp` | [MCP Server](../developers/mcp-server.md) |
