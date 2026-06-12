@@ -1,7 +1,7 @@
 Token Manager
 ============
 
-A comprehensive platform for deploying and managing ERC-20 tokens on Celo and Ethereum with cross-chain bridge support.
+A comprehensive open-source, community-owned and free-to-use platform for deploying and managing ERC-20 tokens on Celo and Ethereum with cross-chain bridge support.
 
 ## Quick Links
 
