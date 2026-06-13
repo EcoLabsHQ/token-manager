@@ -1,3 +1,4 @@
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useCreateToken } from '../hooks/useCreateToken';
@@ -452,6 +453,7 @@ function Review({
   l1CreationFee: bigint;
   l2CreationFee: bigint;
 }) {
+  const [disclaimerAccepted, setDisclaimerAccepted] = React.useState(false);
   const { watch } = form;
   const formData = watch();
   
@@ -553,72 +555,40 @@ function Review({
             </div>
           )}
         </div>
+      </div>
 
-        {/* Promo Code & Cost Card */}
-        <div className="bg-white border border-gray-200 flex flex-col gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl w-full">
-          {/* Promo Code */}
-          <div className="flex flex-col gap-1">
-            <label className="text-gray-500 text-xs sm:text-sm">Promo Code (optional)</label>
-            <p className="text-green-600 text-[10px] sm:text-xs font-medium">
-              💡 Use code <span className="font-bold">{tokenType === 'ethereum-enabled' ? 'L2' : 'PG'}</span> to get 100% off
-            </p>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Enter promo code"
-                value={promoCode}
-                onChange={(e) => onPromoCodeChange(e.target.value)}
-                className={`w-full bg-gray-50 border rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 pr-10 text-xs sm:text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  promoStatus === 'invalid' || promoStatus === 'error' ? 'border-red-300' : 
-                  promoStatus === 'valid' ? 'border-green-300' : 'border-gray-300'
-                }`}
-              />
-              {/* Status Icon */}
-              <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                {promoStatus === 'checking' && (
-                  <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                )}
-                {promoStatus === 'valid' && (
-                  <svg className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-                {(promoStatus === 'invalid' || promoStatus === 'error') && promoCode && (
-                  <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-              </div>
-            </div>
-            {promoError && (
-              <span className="text-red-500 text-[10px] sm:text-xs">{promoError}</span>
-            )}
-            {promoStatus === 'valid' && checkResult && (
-              <span className="text-green-600 text-[10px] sm:text-xs">
-                ✓ Valid! Fee: {(Number(checkResult.discountFee) / 1e18).toFixed(4)} {tokenType === 'ethereum-enabled' ? 'ETH' : 'CELO'}
-              </span>
-            )}
-          </div>
-
-          {/* Cost Summary */}
-          <div className="bg-gray-50 rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 flex flex-col gap-1 sm:gap-1.5">
-            <div className="flex justify-between">
-              <span className="text-gray-600 text-xs sm:text-sm">Creation Fee:</span>
-              <span className={`text-xs sm:text-sm text-right ${promoStatus === 'valid' ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                {promoStatus === 'valid' ? '✓ ' : ''}{finalFee}
-              </span>
-            </div>
-            {promoStatus === 'valid' && checkResult && (
-              <div className="flex justify-between">
-                <span className="text-gray-400 text-xs sm:text-sm line-through">Original Fee:</span>
-                <span className="text-gray-400 text-xs sm:text-sm text-right line-through">{displayFee}</span>
-              </div>
-            )}
-          </div>
+      {/* Disclaimer */}
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4 flex flex-col gap-3 animate-slide-up">
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs sm:text-sm font-semibold text-black">By confirming, I acknowledge that:</p>
+          <ul className="flex flex-col gap-1.5 mt-1">
+            <li className="flex items-start gap-2 text-xs sm:text-[13px] text-gray-600 leading-relaxed">
+              <span className="mt-0.5 text-gray-400 shrink-0">•</span>
+              This is free, open-source software provided "as is", without warranties of any kind, as a public good — no party receives payment for this interaction;
+            </li>
+            <li className="flex items-start gap-2 text-xs sm:text-[13px] text-gray-600 leading-relaxed">
+              <span className="mt-0.5 text-gray-400 shrink-0">•</span>
+              The smart contracts have not been externally audited, and the contributors, EcoLabs, and Celo Public Goods cannot be held liable for any bugs, limitations, or losses;
+            </li>
+            <li className="flex items-start gap-2 text-xs sm:text-[13px] text-gray-600 leading-relaxed">
+              <span className="mt-0.5 text-gray-400 shrink-0">•</span>
+              I am solely responsible for the tokens I create, their configuration, and their compliance with applicable laws in my jurisdiction;
+            </li>
+            <li className="flex items-start gap-2 text-xs sm:text-[13px] text-gray-600 leading-relaxed">
+              <span className="mt-0.5 text-gray-400 shrink-0">•</span>
+              Blockchain transactions are irreversible, and I pay my own network gas fees.
+            </li>
+          </ul>
         </div>
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={disclaimerAccepted}
+            onChange={(e) => setDisclaimerAccepted(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 accent-black cursor-pointer shrink-0"
+          />
+          <span className="text-xs sm:text-sm font-medium text-black">I have read and accept the above terms</span>
+        </label>
       </div>
 
       {/* Wallet Connection Warning */}
@@ -651,7 +621,7 @@ function Review({
           <button
             type="button"
             onClick={onDeploy}
-            disabled={isCheckingPromo || (promoCode.length > 0 && promoStatus !== 'valid' && promoStatus !== 'idle')}
+            disabled={!disclaimerAccepted || isCheckingPromo || (promoCode.length > 0 && promoStatus !== 'valid' && promoStatus !== 'idle')}
             className="flex-1 bg-black text-white h-9 sm:h-10 rounded-lg font-medium text-xs sm:text-sm tracking-[0.25px] hover:bg-gray-900 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isCheckingPromo ? 'Checking promo...' : 'Deploy Token'}

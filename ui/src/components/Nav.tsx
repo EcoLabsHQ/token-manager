@@ -74,12 +74,12 @@ export function Nav() {
         {navLink('/explore', 'Explore')}
         {navLink('/dashboard', 'My Tokens')}
         <a
-          href="https://github.com/EcoLabsHQ/token-manager"
+          href="https://celopg.gitbook.io/tokenmanager"
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs sm:text-sm font-medium px-2.5 py-1.5 rounded-lg transition-colors text-gray-500 hover:text-black hover:bg-gray-50"
         >
-          ReadMe
+          Docs
         </a>
       </div>
 

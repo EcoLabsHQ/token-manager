@@ -454,7 +454,7 @@ export default function InternalPage() {
           </div>
 
           {/* Promo Code & Cost */}
-          <div className="bg-white border border-gray-200 flex flex-col gap-4 p-4 rounded-2xl w-full">
+          {/*<div className="bg-white border border-gray-200 flex flex-col gap-4 p-4 rounded-2xl w-full">
             <div className="flex flex-col gap-1">
               <label className="text-gray-500 text-sm">Promo Code (optional)</label>
               <p className="text-blue-600 text-xs font-medium">
@@ -485,28 +485,7 @@ export default function InternalPage() {
                 </div>
               </div>
               {promo.promoError && <span className="text-red-500 text-xs">{promo.promoError}</span>}
-              {promo.promoStatus === 'valid' && promo.checkResult && (
-                <span className="text-green-600 text-xs">
-                  ✓ Valid! Fee: {(Number(promo.checkResult.discountFee) / 1e18).toFixed(4)} ETH
-                </span>
-              )}
             </div>
-
-            <div className="bg-gray-50 rounded-md px-3 py-2 flex flex-col gap-1.5">
-              <div className="flex justify-between">
-                <span className="text-gray-600 text-sm">Creation Fee:</span>
-                <span className={`text-sm text-right ${promo.promoStatus === 'valid' ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                  {promo.promoStatus === 'valid' ? '✓ ' : ''}{finalFee}
-                </span>
-              </div>
-              {promo.promoStatus === 'valid' && promo.checkResult && (
-                <div className="flex justify-between">
-                  <span className="text-gray-400 text-sm line-through">Original Fee:</span>
-                  <span className="text-gray-400 text-sm text-right line-through">{displayFee}</span>
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* Review summary */}
           {isValid && (

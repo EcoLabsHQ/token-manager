@@ -62,9 +62,9 @@ export function TokenTypeCard({
 
           {/* Price and radio */}
           <div className="flex items-start gap-2 sm:gap-3">
-            <span className="text-gray-500 text-xs sm:text-sm leading-5">
+            {/* <span className="text-gray-500 text-xs sm:text-sm leading-5">
               {price}
-            </span>
+            </span> */}
             {selected ? (
               <CheckCircle />
             ) : (
