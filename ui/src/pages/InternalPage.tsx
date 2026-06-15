@@ -192,7 +192,6 @@ export default function InternalPage() {
     currentStep,
     error: deployError,
     tokenAddress,
-    creationFee,
     isSwitchingChain,
     isLoading,
   } = useL1OnlyTokenDeploy();
@@ -208,16 +207,15 @@ export default function InternalPage() {
   const { register, formState: { errors, isValid }, watch, setValue, control } = form;
   const formData = watch();
   const decimals = watch('decimals');
+  // const formatFee = (fee: bigint, symbol: string) => {
+  //   const formatted = Number(fee) / 1e18;
+  //   return `${formatted.toFixed(4)} ${symbol}`;
+  // };
 
-  const formatFee = (fee: bigint, symbol: string) => {
-    const formatted = Number(fee) / 1e18;
-    return `${formatted.toFixed(4)} ${symbol}`;
-  };
-
-  const displayFee = formatFee(creationFee, 'ETH');
-  const finalFee = promo.promoStatus === 'valid' && promo.checkResult
-    ? `${(Number(promo.checkResult.discountFee) / 1e18).toFixed(4)} ETH`
-    : displayFee;
+  // const displayFee = formatFee(creationFee, 'ETH');
+  // const finalFee = promo.promoStatus === 'valid' && promo.checkResult
+  //   ? `${(Number(promo.checkResult.discountFee) / 1e18).toFixed(4)} ETH`
+  //   : displayFee;
 
   const handleDeploy = async () => {
     const valid = await form.trigger();

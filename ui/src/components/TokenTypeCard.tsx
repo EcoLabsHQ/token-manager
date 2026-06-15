@@ -36,7 +36,6 @@ export function TokenTypeCard({
   type, 
   title, 
   description, 
-  price, 
   features, 
   selected, 
   onSelect 

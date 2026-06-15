@@ -422,20 +422,14 @@ function TokenInformation({
 // ===== STEP 3: Review =====
 function Review({
   form,
-  tokenType,
   onBack,
   onDeploy,
   deployError,
   isConnected,
   onConnectWallet,
   promoCode,
-  onPromoCodeChange,
-  promoError,
   promoStatus,
   isCheckingPromo,
-  checkResult,
-  l1CreationFee,
-  l2CreationFee,
 }: {
   form: UseFormReturn<TokenFormData>;
   tokenType: TokenType | null;
@@ -458,22 +452,22 @@ function Review({
   const formData = watch();
   
   // Format the creation fee for display
-  const formatFee = (fee: bigint, symbol: string) => {
-    const formatted = Number(fee) / 1e18;
-    return `${formatted.toFixed(4)} ${symbol}`;
-  };
+  // const formatFee = (fee: bigint, symbol: string) => {
+  //   const formatted = Number(fee) / 1e18;
+  //   return `${formatted.toFixed(4)} ${symbol}`;
+  // };
   
   // Determine which fee to show based on token type
   // For ethereum-enabled: only L1 fee is charged (L2 uses createTokenWithBridge which has no fee)
   // For celo-native: only L2 fee is charged
-  const displayFee = tokenType === 'ethereum-enabled' 
-    ? formatFee(l1CreationFee, 'ETH')
-    : formatFee(l2CreationFee, 'CELO');
+  // const displayFee = tokenType === 'ethereum-enabled' 
+  //   ? formatFee(l1CreationFee, 'ETH')
+  //   : formatFee(l2CreationFee, 'CELO');
   
   // If promo is valid, show the discounted fee
-  const finalFee = promoStatus === 'valid' && checkResult
-    ? `${(Number(checkResult.discountFee) / 1e18).toFixed(4)} ${tokenType === 'ethereum-enabled' ? 'ETH' : 'CELO'}`
-    : displayFee;
+  // const finalFee = promoStatus === 'valid' && checkResult
+  //   ? `${(Number(checkResult.discountFee) / 1e18).toFixed(4)} ${tokenType === 'ethereum-enabled' ? 'ETH' : 'CELO'}`
+  //   : displayFee;
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-[456px] px-2 sm:px-0 animate-fade-in">
